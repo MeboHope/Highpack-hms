@@ -1,0 +1,332 @@
+import { useState, useEffect } from 'react';
+import { Search, MapPin, Home as HomeIcon, BedDouble, Bath, ArrowRight, Star, ShieldCheck, Zap, Wallet, FileText, TrendingUp } from 'lucide-react';
+import { Link, useRouter } from '@/context/RouterContext';
+import { supabase } from '@/lib/supabase';
+import { formatKES, KENYAN_COUNTIES, PROPERTY_TYPES } from '@/lib/constants';
+import { SkeletonCard } from '@/components/ui';
+import { getPropertyImage } from '@/lib/images';
+
+interface PropertyWithUnits {
+  id: string;
+  name: string;
+  county: string;
+  town: string;
+  estate: string | null;
+  property_type: string;
+  photos: string[];
+  status: string;
+  property_units: { monthly_rent: number; bedrooms: number; bathrooms: number; status: string }[];
+}
+
+export function HomePage() {
+  const { navigate } = useRouter();
+  const [properties, setProperties] = useState<PropertyWithUnits[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState({ location: '', type: '', bedrooms: '' });
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from('properties')
+        .select('id, name, county, town, estate, property_type, photos, status, property_units(monthly_rent, bedrooms, bathrooms, status)')
+        .eq('status', 'verified')
+        .order('created_at', { ascending: false })
+        .limit(6);
+      setProperties((data as PropertyWithUnits[]) || []);
+      setLoading(false);
+    })();
+  }, []);
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    const params = new URLSearchParams();
+    if (search.location) params.set('location', search.location);
+    if (search.type) params.set('type', search.type);
+    if (search.bedrooms) params.set('bedrooms', search.bedrooms);
+    navigate(`/properties?${params.toString()}`);
+  };
+
+  return (
+    <div>
+      {/* Hero Section */}
+      <section className="relative overflow-hidden bg-gradient-to-br from-brand-700 via-brand-600 to-brand-800">
+        <div className="absolute inset-0 opacity-10" style={{
+          backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'none\' fill-rule=\'evenodd\'%3E%3Cg fill=\'%23ffffff\' fill-opacity=\'0.4\'%3E%3Cpath d=\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")',
+        }} />
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
+          <div className="text-center mb-10">
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white mb-4 leading-tight">
+              Find Your Next Home in Kenya
+            </h1>
+            <p className="text-lg text-brand-100 max-w-2xl mx-auto">
+              Browse verified houses, reserve online for KSh 2,000, and manage your tenancy — all in one place.
+            </p>
+          </div>
+
+          {/* Search Card */}
+          <div className="bg-white rounded-2xl shadow-2xl p-4 sm:p-6 max-w-5xl mx-auto">
+            <form onSubmit={handleSearch} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div>
+                <label className="label">Location</label>
+                <select
+                  className="input"
+                  value={search.location}
+                  onChange={(e) => setSearch({ ...search, location: e.target.value })}
+                >
+                  <option value="">All locations</option>
+                  {KENYAN_COUNTIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="label">Property Type</label>
+                <select
+                  className="input"
+                  value={search.type}
+                  onChange={(e) => setSearch({ ...search, type: e.target.value })}
+                >
+                  <option value="">Any type</option>
+                  {PROPERTY_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="label">Bedrooms</label>
+                <select
+                  className="input"
+                  value={search.bedrooms}
+                  onChange={(e) => setSearch({ ...search, bedrooms: e.target.value })}
+                >
+                  <option value="">Any</option>
+                  <option value="0">Bedsitter</option>
+                  <option value="1">1+</option>
+                  <option value="2">2+</option>
+                  <option value="3">3+</option>
+                  <option value="4">4+</option>
+                </select>
+              </div>
+              <div className="flex items-end">
+                <button type="submit" className="btn-primary w-full">
+                  <Search className="w-4 h-4" />
+                  Search Houses
+                </button>
+              </div>
+            </form>
+          </div>
+
+          {/* Stats */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-12 max-w-4xl mx-auto">
+            {[
+              { label: 'Verified Properties', value: '500+' },
+              { label: 'Happy Tenants', value: '1,200+' },
+              { label: 'Counties Covered', value: '20+' },
+              { label: 'Avg. Response Time', value: '< 2h' },
+            ].map((stat) => (
+              <div key={stat.label} className="text-center">
+                <p className="text-2xl sm:text-3xl font-bold text-white">{stat.value}</p>
+                <p className="text-sm text-brand-200">{stat.label}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Featured Properties */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h2 className="text-2xl sm:text-3xl font-bold text-ink-900">Featured Properties</h2>
+            <p className="text-ink-500 mt-1">Handpicked homes ready for you to move in</p>
+          </div>
+          <Link to="/properties" className="hidden sm:flex btn-secondary">
+            View All <ArrowRight className="w-4 h-4" />
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {loading
+            ? Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)
+            : properties.map((p) => <FeaturedPropertyCard key={p.id} property={p} />)}
+        </div>
+
+        {!loading && properties.length === 0 && (
+          <div className="text-center py-16">
+            <p className="text-ink-500">No properties available yet. Check back soon!</p>
+          </div>
+        )}
+
+        <div className="text-center mt-8 sm:hidden">
+          <Link to="/properties" className="btn-primary">View All Properties</Link>
+        </div>
+      </section>
+
+      {/* How It Works */}
+      <section className="bg-white py-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <h2 className="text-2xl sm:text-3xl font-bold text-ink-900">How It Works</h2>
+            <p className="text-ink-500 mt-2">From search to keys in four simple steps</p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[
+              { icon: <Search className="w-6 h-6" />, title: 'Search & Browse', desc: 'Filter verified properties by location, type, price, and amenities.' },
+              { icon: <Wallet className="w-6 h-6" />, title: 'Reserve for KSh 2,000', desc: 'Secure your chosen house online with a small reservation fee.' },
+              { icon: <FileText className="w-6 h-6" />, title: 'Sign Tenancy Agreement', desc: 'Complete your registration and sign your lease electronically.' },
+              { icon: <HomeIcon className="w-6 h-6" />, title: 'Move In & Pay Rent', desc: 'Pay your rent online, track invoices, and manage maintenance.' },
+            ].map((step, i) => (
+              <div key={i} className="relative card p-6">
+                <div className="w-12 h-12 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center mb-4">
+                  {step.icon}
+                </div>
+                <div className="absolute top-6 right-6 text-4xl font-bold text-ink-100">0{i + 1}</div>
+                <h3 className="font-semibold text-ink-900 mb-2">{step.title}</h3>
+                <p className="text-sm text-ink-500">{step.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Features */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {[
+            { icon: <ShieldCheck className="w-6 h-6" />, title: 'Verified Properties Only', desc: 'Every property is verified by our team before listing. No fake listings, no surprises.' },
+            { icon: <Zap className="w-6 h-6" />, title: 'Instant Online Reservation', desc: 'Reserve any available unit in minutes with M-Pesa or card. No more rushing to view properties.' },
+            { icon: <TrendingUp className="w-6 h-6" />, title: 'Full Tenancy Management', desc: 'Pay rent, track invoices, submit maintenance, and manage your lease — all from your phone.' },
+          ].map((feat) => (
+            <div key={feat.title} className="card p-6">
+              <div className="w-12 h-12 rounded-xl bg-accent-50 text-accent-600 flex items-center justify-center mb-4">
+                {feat.icon}
+              </div>
+              <h3 className="font-semibold text-ink-900 mb-2">{feat.title}</h3>
+              <p className="text-sm text-ink-500">{feat.desc}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Popular Locations */}
+      <section className="bg-white py-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h2 className="text-2xl sm:text-3xl font-bold text-ink-900 mb-8 text-center">Popular Locations</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+            {[
+              { name: 'Nairobi', count: '250+ properties' },
+              { name: 'Mombasa', count: '80+ properties' },
+              { name: 'Kisumu', count: '45+ properties' },
+              { name: 'Nakuru', count: '40+ properties' },
+              { name: 'Kiambu', count: '35+ properties' },
+              { name: 'Eldoret', count: '30+ properties' },
+            ].map((loc) => (
+              <Link
+                key={loc.name}
+                to={`/properties?location=${encodeURIComponent(loc.name)}`}
+                className="card p-5 text-center hover:border-brand-300 hover:shadow-md transition-all"
+              >
+                <div className="w-12 h-12 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center mx-auto mb-3">
+                  <MapPin className="w-6 h-6" />
+                </div>
+                <h3 className="font-semibold text-ink-900">{loc.name}</h3>
+                <p className="text-xs text-ink-400 mt-1">{loc.count}</p>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Testimonials */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        <div className="text-center mb-12">
+          <h2 className="text-2xl sm:text-3xl font-bold text-ink-900">What Our Users Say</h2>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {[
+            { name: 'Wanjiru K.', role: 'Tenant, Kilimani', text: 'I found my apartment in two days and reserved it online. The whole process was smooth and transparent.' },
+            { name: 'Mwangi O.', role: 'Property Owner, Westlands', text: 'Managing 12 units used to be a headache. Now I track rent, expenses, and taxes all in one dashboard.' },
+            { name: 'Aisha N.', role: 'Tenant, Mombasa', text: 'The M-Pesa rent payment feature is a game changer. No more queuing at the agent\'s office every month.' },
+          ].map((t) => (
+            <div key={t.name} className="card p-6">
+              <div className="flex gap-1 mb-4">
+                {Array.from({ length: 5 }).map((_, i) => <Star key={i} className="w-4 h-4 text-accent-400 fill-accent-400" />)}
+              </div>
+              <p className="text-ink-600 text-sm mb-4">"{t.text}"</p>
+              <div>
+                <p className="font-semibold text-ink-900">{t.name}</p>
+                <p className="text-xs text-ink-400">{t.role}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* CTA */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
+        <div className="bg-gradient-to-br from-brand-700 to-brand-800 rounded-3xl p-8 sm:p-12 text-center">
+          <h2 className="text-2xl sm:text-3xl font-bold text-white mb-4">Ready to Find Your Home?</h2>
+          <p className="text-brand-100 mb-8 max-w-xl mx-auto">
+            Join thousands of Kenyans who found their next home with Nyumba. Browse verified properties and reserve online today.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <Link to="/properties" className="btn-accent">Browse Properties</Link>
+            <Link to="/register" className="btn-secondary bg-white text-brand-700 border-white hover:bg-brand-50">Create Account</Link>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function FeaturedPropertyCard({ property }: { property: PropertyWithUnits }) {
+  const units = property.property_units || [];
+  const availableUnits = units.filter((u) => u.status === 'available');
+  const minRent = units.length > 0 ? Math.min(...units.map((u) => u.monthly_rent)) : 0;
+  const firstUnit = units[0];
+  const image = property.photos?.[0] || getPropertyImage(property.property_type);
+
+  return (
+    <Link to={`/property/${property.id}`} className="card overflow-hidden hover:shadow-lg transition-all group">
+      <div className="relative h-48 overflow-hidden bg-ink-100">
+        <img
+          src={image}
+          alt={property.name}
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          loading="lazy"
+        />
+        <div className="absolute top-3 left-3">
+          <span className="badge bg-brand-600 text-white">
+            <ShieldCheck className="w-3 h-3" /> Verified
+          </span>
+        </div>
+        {availableUnits.length > 0 && (
+          <div className="absolute top-3 right-3">
+            <span className="badge bg-white/90 text-brand-700">
+              {availableUnits.length} available
+            </span>
+          </div>
+        )}
+      </div>
+      <div className="p-4">
+        <h3 className="font-semibold text-ink-900 mb-1 truncate">{property.name}</h3>
+        <p className="text-sm text-ink-500 flex items-center gap-1 mb-3">
+          <MapPin className="w-3.5 h-3.5" />
+          {property.estate ? `${property.estate}, ` : ''}{property.town}, {property.county}
+        </p>
+        <div className="flex items-center gap-3 text-sm text-ink-600 mb-3">
+          {firstUnit && (
+            <>
+              <span className="flex items-center gap-1"><BedDouble className="w-4 h-4" /> {firstUnit.bedrooms || 'Studio'}</span>
+              <span className="flex items-center gap-1"><Bath className="w-4 h-4" /> {firstUnit.bathrooms}</span>
+              <span className="text-ink-400">·</span>
+              <span className="text-ink-500">{property.property_type}</span>
+            </>
+          )}
+        </div>
+        <div className="flex items-center justify-between pt-3 border-t border-ink-100">
+          <div>
+            {minRent > 0 && <p className="text-lg font-bold text-brand-700">{formatKES(minRent)}<span className="text-sm font-normal text-ink-400">/mo</span></p>}
+          </div>
+          <span className="text-sm font-medium text-brand-600 group-hover:underline">View Details →</span>
+        </div>
+      </div>
+    </Link>
+  );
+}

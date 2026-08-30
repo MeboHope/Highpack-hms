@@ -1,0 +1,200 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* =========================================================
+   HIGH PARK CONSULT — GLOBAL STYLES
+   ========================================================= */
+
+:root {
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  color: #202a3a;
+  background: #ffffff;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background: #ffffff;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+/* =========================================================
+   TYPOGRAPHY
+   ========================================================= */
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: 'Sora', 'Plus Jakarta Sans', system-ui, sans-serif;
+  color: #0d2342;
+}
+
+/* =========================================================
+   SCROLLBAR
+   ========================================================= */
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5fb;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #94a0b2;
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #315b91;
+}
+
+/* =========================================================
+   BUTTONS
+   ========================================================= */
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg font-semibold
+      transition-all duration-200 focus:outline-none focus:ring-2
+      focus:ring-brand-500/30 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-primary {
+    @apply btn bg-brand-900 text-white px-5 py-2.5
+      hover:bg-brand-800 active:scale-[0.98]
+      shadow-sm;
+  }
+
+  .btn-accent {
+    @apply btn bg-accent-500 text-white px-5 py-2.5
+      hover:bg-accent-600 active:scale-[0.98]
+      shadow-sm shadow-accent-500/20;
+  }
+
+  .btn-secondary {
+    @apply btn border border-brand-200 bg-white text-brand-800 px-5 py-2.5
+      hover:bg-brand-50 active:scale-[0.98];
+  }
+
+  .btn-outline {
+    @apply btn border border-brand-300 bg-transparent text-brand-800 px-5 py-2.5
+      hover:bg-brand-50 active:scale-[0.98];
+  }
+
+  .btn-danger {
+    @apply btn bg-red-600 text-white px-5 py-2.5
+      hover:bg-red-700 active:scale-[0.98];
+  }
+}
+
+/* =========================================================
+   FORM ELEMENTS
+   ========================================================= */
+
+@layer components {
+  .input {
+    @apply w-full rounded-lg border border-ink-200 bg-white
+      px-4 py-2.5 text-ink-900
+      placeholder:text-ink-400
+      focus:border-brand-500 focus:outline-none
+      focus:ring-2 focus:ring-brand-500/10
+      transition-all;
+  }
+
+  .select {
+    @apply input appearance-none;
+  }
+
+  .textarea {
+    @apply input min-h-[120px] resize-y;
+  }
+
+  .label {
+    @apply mb-1.5 block text-sm font-medium text-ink-700;
+  }
+}
+
+/* =========================================================
+   CARDS
+   ========================================================= */
+
+@layer components {
+  .card {
+    @apply rounded-xl border border-ink-100 bg-white shadow-sm;
+  }
+
+  .card-hover {
+    @apply card transition-all duration-200
+      hover:-translate-y-0.5 hover:shadow-soft;
+  }
+}
+
+/* =========================================================
+   BRAND UTILITIES
+   ========================================================= */
+
+.brand-gradient {
+  background: linear-gradient(
+    135deg,
+    #0d2342 0%,
+    #1b3b68 55%,
+    #315b91 100%
+  );
+}
+
+.gold-gradient {
+  background: linear-gradient(
+    135deg,
+    #956b19 0%,
+    #c9972e 50%,
+    #e9b83f 100%
+  );
+}
+
+.brand-gold-gradient {
+  background: linear-gradient(
+    135deg,
+    #0d2342 0%,
+    #1b3b68 65%,
+    #c9972e 100%
+  );
+}
+
+/* =========================================================
+   SELECTION
+   ========================================================= */
+
+::selection {
+  background: rgba(201, 151, 46, 0.25);
+  color: #0d2342;
+}
