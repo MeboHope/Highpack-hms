@@ -1,32 +1,22 @@
-import { Link } from 'react-router-dom';
+import { Link } from '@/context/RouterContext';
+import highparkLogo from '@/assets/highpark-logo.jpg';
 
 export function Brand({ compact = false }: { compact?: boolean }) {
   return (
     <Link
       to="/"
-      className="flex items-center gap-3 group"
+      className="inline-flex items-center shrink-0"
       aria-label="HighPark Consult Ltd"
     >
       <img
-        src="/highpark-logo.png"
+        src={highparkLogo}
         alt="HighPark Consult Ltd"
         className={
           compact
-            ? 'h-10 w-auto object-contain'
-            : 'h-12 w-auto object-contain'
+            ? 'w-16 h-16 object-contain'
+            : 'w-20 h-20 object-contain'
         }
       />
-
-      {!compact && (
-        <div className="hidden sm:block leading-tight">
-          <div className="font-serif text-lg font-bold tracking-wide text-[#0B2A55]">
-            HIGHPARK
-          </div>
-          <div className="text-[9px] tracking-[0.25em] text-[#C99A2E]">
-            CONSULT LTD
-          </div>
-        </div>
-      )}
     </Link>
   );
 }
