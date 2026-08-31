@@ -1,13 +1,15 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import { fileURLToPath, URL } from 'node:url';
 
-// https://vitejs.dev/config/
+// Keep the Vite config dependency-free from Node type declarations.
+// Vite runs this config with Node, so process.cwd() is available at runtime.
+declare const process: { cwd: () => string };
+
 export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      '@': fileURLToPath(new URL('./src', import.meta.url)),
+      '@': `${process.cwd()}/src`,
     },
   },
   optimizeDeps: {

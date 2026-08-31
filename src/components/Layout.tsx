@@ -1,24 +1,15 @@
 import { useState } from 'react';
-import {
-  Menu,
-  X,
-  User,
-  LogOut,
-  LayoutDashboard,
-  Bell,
-  Heart,
-} from 'lucide-react';
-
+import { Bell, Heart, LayoutDashboard, LogOut, Menu, X } from 'lucide-react';
 import { Link, useRouter } from '@/context/RouterContext';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import { Brand } from '@/components/Brand';
+import highparkLogo from '@/assets/highpark-logo.jpg';
 
 export function Header() {
   const { path, navigate } = useRouter();
   const { profile, signOut } = useAuth();
   const { toast } = useToast();
-
   const [mobileOpen, setMobileOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -31,39 +22,38 @@ export function Header() {
   ];
 
   const isActive = (to: string) =>
-    to === '/' ? path === '/' : path.startsWith(to);
-
-  const handleSignOut = async () => {
-    await signOut();
-    setMenuOpen(false);
-    toast('Signed out successfully', 'success');
-    navigate('/');
-  };
+    to === '/' ? path === '/' : path === to || path.startsWith(`${to}/`) || path.startsWith(`${to}?`);
 
   const dashboardLink =
     profile?.role === 'admin'
       ? '/admin'
-      : profile?.role === 'owner'
+      : profile?.role === 'owner' || profile?.role === 'agent'
         ? '/owner'
         : '/tenant';
 
+  const handleSignOut = async () => {
+    await signOut();
+    setMenuOpen(false);
+    setMobileOpen(false);
+    toast('Signed out successfully', 'success');
+    navigate('/');
+  };
+
   return (
-    <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-lg border-b border-ink-100">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between min-h-[72px]">
-          {/* HighPark Logo */}
+    <header className="sticky top-0 z-50 border-b border-ink-100 bg-white/95 backdrop-blur-md">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="flex h-20 items-center justify-between gap-6">
           <Brand compact />
 
-          {/* Desktop navigation */}
-          <nav className="hidden md:flex items-center gap-1">
+          <nav className="hidden items-center gap-1 md:flex">
             {navLinks.map((link) => (
               <Link
                 key={link.to}
                 to={link.to}
-                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                className={`rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${
                   isActive(link.to)
-                    ? 'text-brand-700 bg-brand-50'
-                    : 'text-ink-600 hover:text-ink-900 hover:bg-ink-50'
+                    ? 'bg-brand-50 text-brand-800'
+                    : 'text-ink-600 hover:bg-ink-50 hover:text-brand-900'
                 }`}
               >
                 {link.label}
@@ -71,67 +61,60 @@ export function Header() {
             ))}
           </nav>
 
-          {/* Desktop account actions */}
-          <div className="hidden md:flex items-center gap-2">
+          <div className="hidden items-center gap-2 md:flex">
             {profile ? (
               <>
-                <Link
-                  to="/favorites"
-                  className="btn-ghost"
-                  aria-label="Saved properties"
-                >
-                  <Heart className="w-5 h-5" />
+                <Link to="/favorites" className="btn-ghost" aria-label="Saved properties">
+                  <Heart className="h-5 w-5" />
                 </Link>
-
-                <Link
-                  to="/notifications"
-                  className="btn-ghost relative"
-                  aria-label="Notifications"
-                >
-                  <Bell className="w-5 h-5" />
+                <Link to="/notifications" className="btn-ghost" aria-label="Notifications">
+                  <Bell className="h-5 w-5" />
                 </Link>
-
-                <Link to={dashboardLink} className="btn-secondary">
-                  <LayoutDashboard className="w-4 h-4" />
+                <Link to={dashboardLink} className="btn-accent">
+                  <LayoutDashboard className="h-4 w-4" />
                   Dashboard
                 </Link>
 
                 <div className="relative">
                   <button
-                    onClick={() => setMenuOpen(!menuOpen)}
-                    className="flex items-center gap-2 p-1 pr-2 rounded-lg hover:bg-ink-100"
+                    type="button"
+                    onClick={() => setMenuOpen((open) => !open)}
+                    className="flex items-center gap-2 rounded-lg p-1.5 transition-colors hover:bg-ink-50"
+                    aria-expanded={menuOpen}
+                    aria-haspopup="menu"
                   >
-                    <div className="w-8 h-8 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center text-sm font-semibold">
-                      {profile.full_name?.[0]?.toUpperCase() || 'U'}
+                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-100 font-semibold text-brand-800">
+                      {profile.full_name?.charAt(0).toUpperCase() || 'U'}
                     </div>
-
-                    <span className="text-sm font-medium text-ink-700 max-w-[100px] truncate">
-                      {profile.full_name || 'User'}
-                    </span>
                   </button>
 
                   {menuOpen && (
                     <>
-                      <div
-                        className="fixed inset-0 z-10"
+                      <button
+                        type="button"
+                        aria-label="Close account menu"
+                        className="fixed inset-0 z-10 h-full w-full cursor-default"
                         onClick={() => setMenuOpen(false)}
                       />
-
-                      <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-ink-100 py-1 z-20 animate-scale-in">
+                      <div className="absolute right-0 z-20 mt-2 w-52 overflow-hidden rounded-xl border border-ink-100 bg-white py-1 shadow-soft-lg">
+                        <div className="border-b border-ink-100 px-4 py-3">
+                          <p className="truncate text-sm font-semibold text-ink-900">{profile.full_name || 'User'}</p>
+                          <p className="mt-0.5 text-xs capitalize text-ink-500">{profile.role === 'customer' ? 'Tenant' : profile.role}</p>
+                        </div>
                         <Link
                           to={dashboardLink}
                           onClick={() => setMenuOpen(false)}
-                          className="flex items-center gap-2 px-4 py-2 text-sm text-ink-700 hover:bg-ink-50"
+                          className="flex items-center gap-2 px-4 py-2.5 text-sm text-ink-700 hover:bg-ink-50"
                         >
-                          <User className="w-4 h-4" />
-                          My Account
+                          <LayoutDashboard className="h-4 w-4" />
+                          My Dashboard
                         </Link>
-
                         <button
+                          type="button"
                           onClick={handleSignOut}
-                          className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                          className="flex w-full items-center gap-2 border-t border-ink-100 px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50"
                         >
-                          <LogOut className="w-4 h-4" />
+                          <LogOut className="h-4 w-4" />
                           Sign Out
                         </button>
                       </div>
@@ -141,87 +124,77 @@ export function Header() {
               </>
             ) : (
               <>
-                <Link to="/login" className="btn-ghost">
-                  Sign In
-                </Link>
-
-                <Link to="/register" className="btn-primary">
-                  Get Started
-                </Link>
+                <Link to="/login" className="btn-ghost">Sign In</Link>
+                <Link to="/register" className="btn-primary">Get Started</Link>
               </>
             )}
           </div>
 
-          {/* Mobile menu button */}
           <button
-            className="md:hidden btn-ghost"
-            onClick={() => setMobileOpen(!mobileOpen)}
+            type="button"
+            className="btn-ghost md:hidden"
+            onClick={() => setMobileOpen((open) => !open)}
             aria-label="Toggle navigation"
+            aria-expanded={mobileOpen}
           >
-            {mobileOpen ? (
-              <X className="w-6 h-6" />
-            ) : (
-              <Menu className="w-6 h-6" />
-            )}
+            {mobileOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
           </button>
         </div>
       </div>
 
-      {/* Mobile navigation */}
       {mobileOpen && (
-        <div className="md:hidden border-t border-ink-100 bg-white animate-fade-in">
-          <nav className="px-4 py-3 space-y-1">
+        <div className="border-t border-ink-100 bg-white md:hidden">
+          <nav className="mx-auto max-w-7xl space-y-1 px-4 py-3 sm:px-6">
             {navLinks.map((link) => (
               <Link
                 key={link.to}
                 to={link.to}
                 onClick={() => setMobileOpen(false)}
-                className={`block px-3 py-2 rounded-lg text-sm font-medium ${
-                  isActive(link.to)
-                    ? 'text-brand-700 bg-brand-50'
-                    : 'text-ink-600 hover:bg-ink-50'
+                className={`block rounded-lg px-3 py-2.5 text-sm font-semibold ${
+                  isActive(link.to) ? 'bg-brand-50 text-brand-800' : 'text-ink-700 hover:bg-ink-50'
                 }`}
               >
                 {link.label}
               </Link>
             ))}
 
-            <div className="pt-2 border-t border-ink-100 space-y-2">
+            <div className="mt-2 border-t border-ink-100 pt-3">
               {profile ? (
                 <>
                   <Link
                     to={dashboardLink}
                     onClick={() => setMobileOpen(false)}
-                    className="block px-3 py-2 rounded-lg text-sm font-medium text-ink-700 hover:bg-ink-50"
+                    className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold text-ink-700 hover:bg-ink-50"
                   >
+                    <LayoutDashboard className="h-4 w-4" />
                     Dashboard
                   </Link>
-
                   <button
+                    type="button"
                     onClick={handleSignOut}
-                    className="block w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50"
+                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm font-semibold text-red-600 hover:bg-red-50"
                   >
+                    <LogOut className="h-4 w-4" />
                     Sign Out
                   </button>
                 </>
               ) : (
-                <>
+                <div className="grid grid-cols-2 gap-2">
                   <Link
                     to="/login"
                     onClick={() => setMobileOpen(false)}
-                    className="block px-3 py-2 rounded-lg text-sm font-medium text-ink-700 hover:bg-ink-50"
+                    className="btn-secondary"
                   >
                     Sign In
                   </Link>
-
                   <Link
                     to="/register"
                     onClick={() => setMobileOpen(false)}
-                    className="block px-3 py-2 rounded-lg text-sm font-medium text-brand-700 bg-brand-50"
+                    className="btn-primary"
                   >
                     Get Started
                   </Link>
-                </>
+                </div>
               )}
             </div>
           </nav>
@@ -233,133 +206,50 @@ export function Header() {
 
 export function Footer() {
   return (
-    <footer className="bg-ink-950 text-ink-300 mt-20">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-          {/* Brand */}
-          <div className="col-span-2 md:col-span-1">
-            <Link
-              to="/"
-              className="inline-flex items-center bg-white rounded-xl p-2 mb-4"
-              aria-label="HighPark Consult Ltd"
-            >
-              <img
-                src={new URL('@/assets/highpark-logo.jpg', import.meta.url).href}
-                alt="HighPark Consult Ltd"
-                className="w-28 h-28 object-contain"
-              />
+    <footer className="mt-20 bg-brand-950 text-ink-300">
+      <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-1 gap-10 md:grid-cols-4">
+          <div>
+            <Link to="/" className="inline-flex rounded-xl bg-white p-2" aria-label="HighPark Consult Ltd">
+              <img src={highparkLogo} alt="HighPark Consult Ltd" className="h-24 w-24 object-contain" />
             </Link>
-
-            <p className="text-sm text-ink-400 max-w-xs">
-              HighPark Consult Ltd — providing trusted property solutions,
-              strategic guidance, and professional property management in
-              Kenya.
+            <p className="mt-4 max-w-sm text-sm leading-6 text-ink-400">
+              HighPark Consult Ltd — trusted property solutions, strategic guidance, and professional property management in Kenya.
             </p>
           </div>
 
-          {/* Explore */}
           <div>
-            <h4 className="text-white font-semibold mb-4 text-sm">
-              Explore
-            </h4>
-
-            <ul className="space-y-2 text-sm">
-              <li>
-                <Link
-                  to="/properties"
-                  className="hover:text-white transition-colors"
-                >
-                  Browse Properties
-                </Link>
-              </li>
-
-              <li>
-                <Link
-                  to="/about"
-                  className="hover:text-white transition-colors"
-                >
-                  About Us
-                </Link>
-              </li>
-
-              <li>
-                <Link
-                  to="/faqs"
-                  className="hover:text-white transition-colors"
-                >
-                  FAQs
-                </Link>
-              </li>
-
-              <li>
-                <Link
-                  to="/contact"
-                  className="hover:text-white transition-colors"
-                >
-                  Contact
-                </Link>
-              </li>
-            </ul>
+            <h3 className="text-sm font-semibold text-white">Explore</h3>
+            <div className="mt-4 space-y-2 text-sm">
+              <Link to="/properties" className="block hover:text-accent-300">Browse Properties</Link>
+              <Link to="/about" className="block hover:text-accent-300">About Us</Link>
+              <Link to="/faqs" className="block hover:text-accent-300">FAQs</Link>
+              <Link to="/contact" className="block hover:text-accent-300">Contact</Link>
+            </div>
           </div>
 
-          {/* For Owners */}
           <div>
-            <h4 className="text-white font-semibold mb-4 text-sm">
-              For Owners
-            </h4>
-
-            <ul className="space-y-2 text-sm">
-              <li>
-                <Link
-                  to="/register"
-                  className="hover:text-white transition-colors"
-                >
-                  List Your Property
-                </Link>
-              </li>
-
-              <li>
-                <Link
-                  to="/owner"
-                  className="hover:text-white transition-colors"
-                >
-                  Owner Dashboard
-                </Link>
-              </li>
-
-              <li>
-                <Link
-                  to="/about"
-                  className="hover:text-white transition-colors"
-                >
-                  How It Works
-                </Link>
-              </li>
-            </ul>
+            <h3 className="text-sm font-semibold text-white">For Tenants</h3>
+            <div className="mt-4 space-y-2 text-sm">
+              <Link to="/properties" className="block hover:text-accent-300">Find a Home</Link>
+              <Link to="/register" className="block hover:text-accent-300">Create Tenant Account</Link>
+              <Link to="/login" className="block hover:text-accent-300">Tenant Sign In</Link>
+            </div>
           </div>
 
-          {/* Contact */}
           <div>
-            <h4 className="text-white font-semibold mb-4 text-sm">
-              Contact
-            </h4>
-
-            <ul className="space-y-2 text-sm text-ink-400">
-              <li>Nairobi, Kenya</li>
-              <li>+254 700 000 000</li>
-              <li>hello@highparkconsult.co.ke</li>
-            </ul>
+            <h3 className="text-sm font-semibold text-white">Contact</h3>
+            <div className="mt-4 space-y-2 text-sm text-ink-400">
+              <p>Nairobi, Kenya</p>
+              <p>+254 700 000 000</p>
+              <p>hello@highparkconsult.co.ke</p>
+            </div>
           </div>
         </div>
 
-        <div className="border-t border-ink-800 mt-8 pt-6 flex flex-col sm:flex-row justify-between items-center gap-4">
-          <p className="text-sm text-ink-500">
-            © 2026 HighPark Consult Ltd. All rights reserved.
-          </p>
-
-          <p className="text-sm text-ink-500">
-            Professional property solutions in Kenya
-          </p>
+        <div className="mt-10 flex flex-col items-center justify-between gap-3 border-t border-brand-800 pt-6 text-center text-sm text-ink-500 sm:flex-row sm:text-left">
+          <p>© {new Date().getFullYear()} HighPark Consult Ltd. All rights reserved.</p>
+          <p>Professional property solutions in Kenya.</p>
         </div>
       </div>
     </footer>

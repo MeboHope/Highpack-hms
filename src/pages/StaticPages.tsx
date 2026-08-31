@@ -8,7 +8,7 @@ export function AboutPage() {
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <div className="text-center mb-12">
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-brand-50 text-brand-700 text-sm font-medium mb-4">
-          <Home className="w-4 h-4" /> About Nyumba
+          <Home className="w-4 h-4" /> About HighPark Consult
         </div>
         <h1 className="text-3xl sm:text-4xl font-bold text-ink-900 mb-4">Kenya's trusted property platform</h1>
         <p className="text-lg text-ink-500 max-w-2xl mx-auto">
@@ -19,7 +19,7 @@ export function AboutPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
         {[
           { icon: <Search className="w-6 h-6" />, title: 'Our Mission', desc: 'To make finding and managing a home in Kenya simple, transparent, and accessible to everyone with a smartphone.' },
-          { icon: <ShieldCheck className="w-6 h-6" />, title: 'Verified Only', desc: 'Every property on Nyumba is verified by our team. No fake listings, no wasted trips to properties that don\'t exist.' },
+          { icon: <ShieldCheck className="w-6 h-6" />, title: 'Verified Only', desc: 'Every property on HighPark Consult is verified by our team. No fake listings, no wasted trips to properties that don\'t exist.' },
           { icon: <TrendingUp className="w-6 h-6" />, title: 'Our Vision', desc: 'To become Kenya\'s largest and most trusted property marketplace, serving tenants, owners, and managers nationwide.' },
         ].map((item) => (
           <div key={item.title} className="card p-6">
@@ -71,7 +71,7 @@ export function AboutPage() {
 
       <div className="bg-gradient-to-br from-brand-700 to-brand-800 rounded-3xl p-8 sm:p-12 text-center">
         <h2 className="text-2xl font-bold text-white mb-4">Ready to get started?</h2>
-        <p className="text-brand-100 mb-8 max-w-xl mx-auto">Whether you're looking for a home or managing properties, Nyumba has you covered.</p>
+        <p className="text-brand-100 mb-8 max-w-xl mx-auto">Whether you're looking for a home or managing properties, HighPark Consult has you covered.</p>
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <Link to="/properties" className="btn-accent">Browse Properties</Link>
           <Link to="/register" className="btn-secondary bg-white text-brand-700 border-white hover:bg-brand-50">Create Account</Link>
@@ -107,7 +107,7 @@ export function ContactPage() {
         <div className="space-y-4">
           {[
             { icon: <Phone className="w-5 h-5" />, title: 'Call Us', value: '+254 700 000 000', sub: 'Mon–Fri, 8am–6pm' },
-            { icon: <Mail className="w-5 h-5" />, title: 'Email Us', value: 'hello@nyumba.co.ke', sub: 'We reply within 24 hours' },
+            { icon: <Mail className="w-5 h-5" />, title: 'Email Us', value: 'hello@highparkconsult.co.ke', sub: 'We reply within 24 hours' },
             { icon: <MapPin className="w-5 h-5" />, title: 'Visit Us', value: 'Westlands, Nairobi', sub: 'Kenya' },
             { icon: <MessageSquare className="w-5 h-5" />, title: 'Live Chat', value: 'Available in-app', sub: 'For registered users' },
           ].map((item) => (
@@ -164,7 +164,7 @@ export function FAQsPage() {
     { q: 'What happens if I don\'t complete tenancy within 48 hours?', a: 'Your reservation will expire and the unit will become available to other customers. You\'ll receive a reminder notification before expiry. You can reserve again if the unit is still available.' },
     { q: 'Can two people reserve the same unit?', a: 'No. Our system prevents double reservations using database-level locking. If a unit is already reserved, you\'ll see a message saying it\'s no longer available.' },
     { q: 'How do I pay rent?', a: 'Once your tenancy begins, you\'ll have access to a tenant dashboard with a "Pay Rent" button. You can pay via M-Pesa, card, or bank transfer. You\'ll receive a receipt and your payment history is tracked automatically.' },
-    { q: 'Are all properties verified?', a: 'Yes. Every property on Nyumba goes through a verification process by our administrators before being published. You\'ll see a "Verified Property" badge on all listings.' },
+    { q: 'Are all properties verified?', a: 'Yes. Every property on HighPark Consult goes through a verification process by our administrators before being published. You\'ll see a "Verified Property" badge on all listings.' },
     { q: 'What if I have a maintenance issue?', a: 'You can submit a maintenance request from your tenant dashboard. Select the category (plumbing, electrical, etc.), describe the issue, and optionally attach photos. Your property owner or manager will be notified and can assign a technician.' },
     { q: 'Can I save properties to view later?', a: 'Yes! Click the heart icon on any property to save it. You\'ll find all your saved properties under "My Saved Houses" in your dashboard.' },
     { q: 'Is my data secure?', a: 'We use industry-standard security including encrypted passwords, secure sessions, and role-based access control. Your personal information is never shared with third parties without your consent.' },
@@ -175,7 +175,7 @@ export function FAQsPage() {
     <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <div className="text-center mb-12">
         <h1 className="text-3xl sm:text-4xl font-bold text-ink-900 mb-4">Frequently Asked Questions</h1>
-        <p className="text-lg text-ink-500">Everything you need to know about finding and managing property with Nyumba</p>
+        <p className="text-lg text-ink-500">Everything you need to know about finding and managing property with HighPark Consult</p>
       </div>
 
       <div className="space-y-3">

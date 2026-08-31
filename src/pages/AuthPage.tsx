@@ -1,317 +1,218 @@
-import { useState } from 'react';
-
-import {
-  Mail,
-  Lock,
-  User,
-  Phone,
-  ArrowRight,
-  Building2,
-  Shield,
-  Search,
-} from 'lucide-react';
-
+import { useMemo, useState } from 'react';
+import { AlertCircle, CheckCircle2, Eye, EyeOff, Lock, Mail, Phone, User } from 'lucide-react';
 import { Link, useRouter } from '@/context/RouterContext';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
-import type { UserRole } from '@/lib/supabase';
-
 import { Brand } from '@/components/Brand';
 
-export function AuthPage({
-  mode,
-}: {
-  mode: 'login' | 'register';
-}) {
+function validatePassword(password: string): string | null {
+  if (password.length < 10) return 'Password must be at least 10 characters.';
+  if (!/[A-Z]/.test(password)) return 'Password must contain at least one uppercase letter.';
+  if (!/[a-z]/.test(password)) return 'Password must contain at least one lowercase letter.';
+  if (!/[0-9]/.test(password)) return 'Password must contain at least one number.';
+  if (!/[^A-Za-z0-9]/.test(password)) return 'Password must contain at least one special character.';
+  return null;
+}
+
+export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
+  const isRegister = mode === 'register';
   const { signIn, signUp } = useAuth();
   const { toast } = useToast();
   const { navigate } = useRouter();
 
-  const [loading, setLoading] = useState(false);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
-  const [role, setRole] = useState<UserRole>('customer');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
-  const isRegister = mode === 'register';
+  const passwordError = useMemo(
+    () => (isRegister && password ? validatePassword(password) : null),
+    [isRegister, password],
+  );
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setError(null);
+    setSuccess(null);
 
-    setLoading(true);
+    const cleanEmail = email.trim().toLowerCase();
+
+    if (!cleanEmail) {
+      setError('Please enter your email address.');
+      return;
+    }
 
     if (isRegister) {
-      const { error } = await signUp(
-        email,
-        password,
-        role,
-        fullName,
-        phone
-      );
-
-      if (error) {
-        toast(error, 'error');
-      } else {
-        toast(
-          'Account created successfully! Welcome to HighPark Consult.',
-          'success'
-        );
-
-        navigate(
-          role === 'owner'
-            ? '/owner'
-            : role === 'admin'
-              ? '/admin'
-              : '/tenant'
-        );
+      if (fullName.trim().length < 2) {
+        setError('Please enter your full name.');
+        return;
       }
-    } else {
-      const { error } = await signIn(email, password);
-
-      if (error) {
-        toast(error, 'error');
-      } else {
-        toast('Welcome back!', 'success');
-        navigate('/');
+      const passwordValidation = validatePassword(password);
+      if (passwordValidation) {
+        setError(passwordValidation);
+        return;
+      }
+      if (password !== confirmPassword) {
+        setError('Passwords do not match.');
+        return;
       }
     }
 
-    setLoading(false);
+    setLoading(true);
+
+    try {
+      if (isRegister) {
+        const result = await signUp(cleanEmail, password, fullName, phone);
+        if (result.error) {
+          setError(result.error);
+          return;
+        }
+
+        setSuccess(
+          'Your tenant account has been created. If email confirmation is enabled, check your inbox before signing in.',
+        );
+        toast('Tenant account created successfully.', 'success');
+      } else {
+        const result = await signIn(cleanEmail, password);
+        if (result.error) {
+          setError(result.error);
+          return;
+        }
+
+        toast('Welcome back to HighPark Consult.', 'success');
+        const destination = result.role === 'admin' ? '/admin' : result.role === 'owner' || result.role === 'agent' ? '/owner' : '/tenant';
+        navigate(destination);
+      }
+    } catch (submitError) {
+      console.error('Authentication error:', submitError);
+      setError('We could not complete that request. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="min-h-screen flex">
-      {/* Left side - form */}
-      <div className="flex-1 flex items-center justify-center px-4 py-12 bg-white">
-        <div className="w-full max-w-md">
-          {/* HighPark Logo */}
-          <div className="mb-8">
+    <div className="min-h-screen bg-ink-50 px-4 py-8 sm:py-12">
+      <div className="mx-auto grid min-h-[calc(100vh-4rem)] max-w-6xl overflow-hidden rounded-3xl bg-white shadow-soft-lg lg:grid-cols-[0.9fr_1.1fr]">
+        <div className="hidden bg-brand-950 p-10 text-white lg:flex lg:flex-col lg:justify-between">
+          <div>
             <Brand />
-          </div>
-
-          <h1 className="text-2xl font-bold text-ink-900 mb-2">
-            {isRegister
-              ? 'Create your account'
-              : 'Welcome back'}
-          </h1>
-
-          <p className="text-ink-500 mb-8">
-            {isRegister
-              ? "Join HighPark Consult for professional property services and management."
-              : 'Sign in to manage your properties and tenancy.'}
-          </p>
-
-          {/* Registration role */}
-          {isRegister && (
-            <div className="mb-6">
-              <label className="label">I am a...</label>
-
-              <div className="grid grid-cols-3 gap-2">
-                {[
-                  {
-                    value: 'customer',
-                    label: 'Tenant',
-                    icon: <Search className="w-5 h-5" />,
-                  },
-                  {
-                    value: 'owner',
-                    label: 'Owner',
-                    icon: <Building2 className="w-5 h-5" />,
-                  },
-                  {
-                    value: 'admin',
-                    label: 'Admin',
-                    icon: <Shield className="w-5 h-5" />,
-                  },
-                ].map((r) => (
-                  <button
-                    key={r.value}
-                    type="button"
-                    onClick={() =>
-                      setRole(r.value as UserRole)
-                    }
-                    className={`flex flex-col items-center gap-2 p-3 rounded-xl border transition-all ${
-                      role === r.value
-                        ? 'border-brand-500 bg-brand-50 text-brand-700'
-                        : 'border-ink-200 text-ink-600 hover:border-ink-300'
-                    }`}
-                  >
-                    {r.icon}
-
-                    <span className="text-sm font-medium">
-                      {r.label}
-                    </span>
-                  </button>
-                ))}
-              </div>
+            <div className="mt-16 max-w-md">
+              <p className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-accent-300">HighPark Consult Ltd</p>
+              <h1 className="text-4xl font-bold leading-tight text-white">
+                Professional property solutions built around you.
+              </h1>
+              <p className="mt-5 text-base leading-7 text-ink-300">
+                Find verified homes, reserve a unit, manage your tenancy, and keep your property journey organized in one secure platform.
+              </p>
             </div>
-          )}
+          </div>
+          <p className="text-sm text-ink-400">Trusted property services in Kenya.</p>
+        </div>
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {isRegister && (
-              <>
-                <div>
-                  <label className="label">Full Name</label>
+        <div className="flex items-center justify-center p-6 sm:p-10">
+          <div className="w-full max-w-md">
+            <div className="mb-8 flex justify-center lg:hidden">
+              <Brand />
+            </div>
 
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-ink-400" />
+            <div className="mb-8">
+              <p className="text-sm font-semibold uppercase tracking-wider text-accent-600">
+                {isRegister ? 'Tenant registration' : 'Secure sign in'}
+              </p>
+              <h2 className="mt-2 text-3xl font-bold text-brand-950">
+                {isRegister ? 'Create your tenant account' : 'Welcome back'}
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-ink-500">
+                {isRegister
+                  ? 'Registration on this website is for tenants only. Owner and administrator accounts are provisioned separately.'
+                  : 'Sign in to access your HighPark Consult tenant services.'}
+              </p>
+            </div>
 
-                    <input
-                      className="input pl-11"
-                      required
-                      value={fullName}
-                      onChange={(e) =>
-                        setFullName(e.target.value)
-                      }
-                      placeholder="John Mwangi"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="label">
-                    Phone Number
-                  </label>
-
-                  <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-ink-400" />
-
-                    <input
-                      className="input pl-11"
-                      value={phone}
-                      onChange={(e) =>
-                        setPhone(e.target.value)
-                      }
-                      placeholder="07XX XXX XXX"
-                    />
-                  </div>
-                </div>
-              </>
+            {error && (
+              <div className="mb-5 flex gap-3 rounded-xl border border-red-100 bg-red-50 p-4 text-sm text-red-700">
+                <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
+                <span>{error}</span>
+              </div>
             )}
 
-            <div>
-              <label className="label">Email Address</label>
-
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-ink-400" />
-
-                <input
-                  type="email"
-                  className="input pl-11"
-                  required
-                  value={email}
-                  onChange={(e) =>
-                    setEmail(e.target.value)
-                  }
-                  placeholder="you@example.com"
-                />
+            {success && (
+              <div className="mb-5 flex gap-3 rounded-xl border border-brand-100 bg-brand-50 p-4 text-sm text-brand-800">
+                <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" />
+                <span>{success}</span>
               </div>
-            </div>
+            )}
 
-            <div>
-              <label className="label">Password</label>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {isRegister && (
+                <>
+                  <div>
+                    <label htmlFor="fullName" className="label">Full Name</label>
+                    <div className="relative">
+                      <User className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400" />
+                      <input id="fullName" className="input pl-11" value={fullName} onChange={(e) => setFullName(e.target.value)} autoComplete="name" required />
+                    </div>
+                  </div>
 
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-ink-400" />
-
-                <input
-                  type="password"
-                  className="input pl-11"
-                  required
-                  value={password}
-                  onChange={(e) =>
-                    setPassword(e.target.value)
-                  }
-                  placeholder="••••••••"
-                  minLength={6}
-                />
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              className="btn-primary w-full"
-              disabled={loading}
-            >
-              {loading
-                ? 'Please wait...'
-                : isRegister
-                  ? 'Create Account'
-                  : 'Sign In'}
-
-              {!loading && (
-                <ArrowRight className="w-4 h-4" />
+                  <div>
+                    <label htmlFor="phone" className="label">Phone Number</label>
+                    <div className="relative">
+                      <Phone className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400" />
+                      <input id="phone" type="tel" className="input pl-11" value={phone} onChange={(e) => setPhone(e.target.value)} autoComplete="tel" placeholder="+254 7XX XXX XXX" />
+                    </div>
+                  </div>
+                </>
               )}
-            </button>
-          </form>
 
-          <p className="text-center text-sm text-ink-500 mt-6">
-            {isRegister
-              ? 'Already have an account?'
-              : "Don't have an account?"}{' '}
-
-            <Link
-              to={isRegister ? '/login' : '/register'}
-              className="text-brand-600 font-semibold hover:underline"
-            >
-              {isRegister ? 'Sign in' : 'Create one'}
-            </Link>
-          </p>
-        </div>
-      </div>
-
-      {/* Right side - visual */}
-      <div className="hidden lg:flex flex-1 bg-gradient-to-br from-brand-700 via-brand-600 to-brand-800 items-center justify-center p-12 relative overflow-hidden">
-        <div
-          className="absolute inset-0 opacity-10"
-          style={{
-            backgroundImage:
-              "url(\"data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E\")",
-          }}
-        />
-
-        <div className="relative max-w-md text-white">
-          <h2 className="text-3xl font-bold mb-4 leading-tight">
-            Find, reserve, and manage your home — all from your phone.
-          </h2>
-
-          <p className="text-brand-100 text-lg mb-8">
-            Work with HighPark Consult to find verified properties,
-            reserve online, and manage your tenancy with confidence.
-          </p>
-
-          <div className="space-y-3">
-            {[
-              'Browse verified properties across Kenya',
-              'Reserve your preferred property online',
-              'Pay rent, track invoices, and manage maintenance',
-              'Digital tenancy agreements and receipts',
-            ].map((item) => (
-              <div
-                key={item}
-                className="flex items-center gap-3"
-              >
-                <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center shrink-0">
-                  <svg
-                    className="w-3 h-3 text-white"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={3}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M5 13l4 4L19 7"
-                    />
-                  </svg>
+              <div>
+                <label htmlFor="email" className="label">Email Address</label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400" />
+                  <input id="email" type="email" className="input pl-11" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" required />
                 </div>
-
-                <p className="text-brand-50">{item}</p>
               </div>
-            ))}
+
+              <div>
+                <label htmlFor="password" className="label">Password</label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400" />
+                  <input id="password" type={showPassword ? 'text' : 'password'} className="input pl-11 pr-11" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={isRegister ? 'new-password' : 'current-password'} required />
+                  <button type="button" className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-2 text-ink-400 hover:bg-ink-50 hover:text-ink-700" onClick={() => setShowPassword((show) => !show)} aria-label={showPassword ? 'Hide password' : 'Show password'}>
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+                {isRegister && (
+                  <p className={`mt-2 text-xs ${passwordError ? 'text-red-600' : 'text-ink-500'}`}>
+                    Use at least 10 characters with uppercase, lowercase, a number, and a special character.
+                  </p>
+                )}
+              </div>
+
+              {isRegister && (
+                <div>
+                  <label htmlFor="confirmPassword" className="label">Confirm Password</label>
+                  <input id="confirmPassword" type={showPassword ? 'text' : 'password'} className="input" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} autoComplete="new-password" required />
+                </div>
+              )}
+
+              <button type="submit" disabled={loading} className="btn-accent w-full py-3">
+                {loading ? 'Please wait...' : isRegister ? 'Create Tenant Account' : 'Sign In'}
+              </button>
+            </form>
+
+            <div className="mt-6 text-center text-sm text-ink-500">
+              {isRegister ? (
+                <>Already have an account? <Link to="/login" className="font-semibold text-brand-800 hover:text-accent-700">Sign in</Link></>
+              ) : (
+                <>Don't have an account? <Link to="/register" className="font-semibold text-brand-800 hover:text-accent-700">Create a tenant account</Link></>
+              )}
+            </div>
           </div>
         </div>
       </div>

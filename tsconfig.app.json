@@ -27,4 +27,6 @@
     "noFallthroughCasesInSwitch": true
   },
   "include": ["src"]
+,
+  "exclude": ["src/components/admin/**/*", "src/components/public/**/*"]
 }
