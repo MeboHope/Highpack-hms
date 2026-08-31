@@ -47,7 +47,7 @@ export interface Profile {
 
 export interface Property {
   id: string;
-  owner_id: string;
+  owner_id: string | null;
   name: string;
   description: string | null;
   property_type: string;
