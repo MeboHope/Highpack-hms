@@ -426,33 +426,12 @@ function ReservationModal({ unitId, onClose }: { unitId: string; onClose: () => 
     if (!profile) return;
     setStep('processing');
 
-    let { data: resData, error: resError } = await supabase.rpc('create_reservation', {
+    const { data: resData, error: resError } = await supabase.rpc('create_reservation', {
       p_unit_id: unitId,
       p_duration_hours: durationHours,
       p_payment_method: paymentMethod,
     });
-    if ((resError || !resData) && resError?.message?.toLowerCase().includes('function') ) {
-      const { data: unit } = await supabase.from('property_units').select('property_id,status,reservation_fee').eq('id', unitId).maybeSingle();
-      if (unit?.status === 'available') {
-        const expires = new Date(Date.now() + durationHours * 3600000).toISOString();
-        const { data: direct, error: directError } = await supabase.from('reservations').insert({ unit_id: unitId, property_id: unit.property_id, customer_id: profile.id, reservation_fee: Number(unit.reservation_fee || reservationFee), status: 'pending', expires_at: expires }).select('*').single();
-        if (!directError && direct) {
-          await supabase.from('property_units').update({ status: 'reserved' }).eq('id', unitId).eq('status','available');
-          await supabase.from('payments').insert({
-            user_id: profile.id,
-            reservation_id: direct.id,
-            property_id: unit.property_id,
-            unit_id: unitId,
-            amount: Number(direct.reservation_fee || reservationFee),
-            payment_type: 'reservation',
-            payment_method: paymentMethod,
-            status: 'pending',
-            verified: false,
-          });
-          resData = direct; resError = null;
-        }
-      }
-    }
+
     if (resError || !resData) {
       const message = resError?.message || 'Could not create reservation. Please try again.';
       toast(message.includes('already') || message.includes('reserved') ? 'This unit is no longer available.' : message, 'error');
@@ -518,7 +497,7 @@ function ReservationModal({ unitId, onClose }: { unitId: string; onClose: () => 
         <div className="text-center py-8">
           <Spinner className="w-12 h-12 text-brand-500 mx-auto mb-4" />
           <h4 className="font-semibold text-ink-900 mb-1">Processing Payment</h4>
-          <p className="text-sm text-ink-500">Please wait while we confirm your transaction...</p>
+          <p className="text-sm text-ink-500">Creating your reservation and a secure pending payment record...</p>
         </div>
       )}
 

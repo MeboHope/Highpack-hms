@@ -235,3 +235,7 @@ h6 {
 .hero-premium .text-accent-100 { color: #fff1bd !important; }
 .dashboard-stat-clickable { position: relative; overflow: hidden; }
 .dashboard-stat-clickable::after { content: 'View details →'; position: absolute; right: 14px; bottom: 10px; font-size: 10px; font-weight: 700; color: #315b91; opacity: .72; }
+/* High-contrast typography for navy/gold dashboard banners. */
+.brand-gold-gradient h1, .brand-gold-gradient h2, .brand-gold-gradient h3, .brand-gold-gradient h4 { color:#fff !important; }
+.brand-gold-gradient p { color:rgba(255,255,255,.92) !important; }
+.brand-gold-gradient .text-white\/75, .brand-gold-gradient .text-white\/80, .brand-gold-gradient .text-white\/70 { color:rgba(255,255,255,.92) !important; }

@@ -19,7 +19,7 @@ export function OwnerDashboard() {
   const [period, setPeriod] = useState(new Date().toISOString().slice(0, 7));
   const [summary, setSummary] = useState<Array<{
     id: string; name: string; propertyType: string; unitTypes: Record<string, number>; units: number; available: number; reserved: number;
-    occupied: number; tenants: number; expectedRent: number; collectedRent: number; tax: number;
+    occupied: number; tenants: number; expectedRent: number; collectedRent: number; tax: number; floors: Record<string, { total: number; available: number; occupied: number; reserved: number }>;
   }>>([]);
 
   useEffect(() => {
@@ -36,13 +36,13 @@ export function OwnerDashboard() {
       next.setMonth(next.getMonth() + 1);
       const end = next.toISOString().slice(0, 10);
       const [{ data: units }, { data: leases }, { data: payments }, { data: taxRecords }] = await Promise.all([
-        supabase.from('property_units').select('id,property_id,status,monthly_rent,house_type,bedrooms').in('property_id', ids),
+        supabase.from('property_units').select('id,property_id,status,monthly_rent,house_type,bedrooms,floor').in('property_id', ids),
         supabase.from('leases').select('property_id,tenant_id,status').in('property_id', ids).eq('status', 'active'),
         supabase.from('payments').select('property_id,amount,status,verified,payment_type').in('property_id', ids).eq('status', 'successful').eq('verified', true).gte('created_at', start).lt('created_at', end),
         supabase.from('tax_records').select('property_id,estimated_tax,period').in('property_id', ids).eq('period', period),
       ]);
 
-      const unitList = (units || []) as Pick<PropertyUnit, 'id'|'property_id'|'status'|'monthly_rent'|'house_type'|'bedrooms'>[];
+      const unitList = (units || []) as Pick<PropertyUnit, 'id'|'property_id'|'status'|'monthly_rent'|'house_type'|'bedrooms'|'floor'>[];
       const leaseList = (leases || []) as Pick<Lease, 'property_id'|'tenant_id'|'status'>[];
       const paymentList = (payments || []) as Pick<Payment, 'property_id'|'amount'|'status'|'verified'|'payment_type'>[];
       const taxList = (taxRecords || []) as Pick<TaxRecord, 'property_id'|'estimated_tax'>[];
@@ -66,6 +66,15 @@ export function OwnerDashboard() {
           expectedRent: propertyUnits.filter((u) => u.status === 'occupied').reduce((sum, u) => sum + Number(u.monthly_rent || 0), 0),
           collectedRent: propertyPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0),
           tax: propertyTax,
+          floors: propertyUnits.reduce<Record<string, { total: number; available: number; occupied: number; reserved: number }>>((acc, u) => {
+            const key = u.floor == null ? 'Ground / Unspecified' : `Floor ${u.floor}`;
+            acc[key] ||= { total: 0, available: 0, occupied: 0, reserved: 0 };
+            acc[key].total += 1;
+            if (u.status === 'available') acc[key].available += 1;
+            if (u.status === 'occupied') acc[key].occupied += 1;
+            if (u.status === 'reserved') acc[key].reserved += 1;
+            return acc;
+          }, {}),
         };
       }));
       setLoading(false);
@@ -119,32 +128,22 @@ export function OwnerDashboard() {
       </div>
 
       <Card className="overflow-hidden">
-        <div className="flex flex-col gap-2 border-b border-ink-100 p-5 sm:flex-row sm:items-center sm:justify-between">
-          <div><h3 className="font-semibold text-ink-900">Property-by-property performance</h3><p className="text-sm text-ink-500">Each building is separated so you can immediately see what is happening.</p></div>
+        <div className="flex flex-col gap-3 border-b border-ink-100 p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div><h3 className="font-semibold text-ink-900">Property-by-property performance</h3><p className="text-sm text-ink-500">A visual operating snapshot for every property. Click a card to inspect units and floors.</p></div>
           <span className="badge bg-brand-50 text-brand-700">Live portfolio data</span>
         </div>
-        {summary.length === 0 ? (
-          <EmptyState icon={<Building2 className="w-8 h-8" />} title="No properties yet" description="Add your first property to start tracking its units and income." />
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[980px] text-sm">
-              <thead className="bg-ink-50 text-left text-ink-500">
-                <tr>
-                  <th className="px-5 py-3 font-medium">Property</th><th className="px-5 py-3 font-medium">Type</th><th className="px-5 py-3 font-medium">Units</th><th className="px-5 py-3 font-medium">Vacant</th><th className="px-5 py-3 font-medium">Reserved</th><th className="px-5 py-3 font-medium">Occupied</th><th className="px-5 py-3 font-medium">Tenants</th><th className="px-5 py-3 font-medium">Rent Collected</th><th className="px-5 py-3 font-medium">Est. Tax</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-ink-100">
-                {summary.map((row) => (
-                  <tr key={row.id} className="cursor-pointer hover:bg-brand-50/50" onClick={() => navigate(`/owner/units/${row.id}`)}>
-                    <td className="px-5 py-4 font-semibold text-ink-900">{row.name}</td>
-                    <td className="px-5 py-4"><div className="flex flex-wrap gap-1"><span className="badge bg-ink-100 text-ink-600">{row.propertyType}</span>{Object.entries(row.unitTypes).map(([type, count]) => <span key={type} className="badge bg-brand-50 text-brand-700">{type}: {count}</span>)}</div></td>
-                    <td className="px-5 py-4">{row.units}</td><td className="px-5 py-4 text-ink-500">{row.available}</td><td className="px-5 py-4 text-ink-500">{row.reserved}</td><td className="px-5 py-4 font-medium">{row.occupied}</td><td className="px-5 py-4">{row.tenants}</td><td className="px-5 py-4 font-semibold">{formatKES(row.collectedRent)}</td><td className="px-5 py-4 font-semibold text-brand-700">{formatKES(row.tax)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        {summary.length === 0 ? <EmptyState icon={<Building2 className="w-8 h-8" />} title="No properties yet" description="Add your first property to start tracking its units and income." /> :
+          <div className="grid grid-cols-1 gap-5 p-5 xl:grid-cols-2">
+            {summary.map((row) => { const occupancy = row.units ? Math.round((row.occupied / row.units) * 100) : 0; return <button key={row.id} type="button" onClick={() => navigate(`/owner/units/${row.id}`)} className="group text-left rounded-2xl border border-ink-100 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-brand-200 hover:shadow-soft-lg focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+              <div className="flex items-start gap-4"><img src={getPropertyImages(row.propertyType)[0]} alt="" className="h-24 w-24 shrink-0 rounded-xl object-cover" /><div className="min-w-0 flex-1">
+                <div className="flex items-start justify-between gap-3"><div><h4 className="font-bold text-ink-900 group-hover:text-brand-700">{row.name}</h4><div className="mt-1 flex flex-wrap gap-1.5"><span className="badge bg-ink-100 text-ink-600">{row.propertyType}</span>{Object.entries(row.unitTypes).map(([type,count]) => <span key={type} className="badge bg-brand-50 text-brand-700">{type} · {count}</span>)}</div></div><span className="text-xs font-semibold text-brand-700">View details →</span></div>
+                <div className="mt-3"><div className="mb-1 flex justify-between text-[11px] text-ink-500"><span>Occupancy</span><span className="font-semibold text-ink-700">{occupancy}%</span></div><div className="h-1.5 rounded-full bg-ink-100"><div className="h-1.5 rounded-full bg-brand-500" style={{width:`${occupancy}%`}} /></div></div>
+              </div></div>
+              <div className="mt-4 grid grid-cols-4 gap-2">{[[row.units,'Units','text-ink-900'],[row.available,'Vacant','text-brand-700'],[row.reserved,'Reserved','text-accent-700'],[row.occupied,'Occupied','text-blue-700']].map(([value,label,cls]) => <div key={String(label)} className="rounded-xl bg-ink-50 p-2.5"><p className={`text-lg font-bold ${cls}`}>{value}</p><p className="text-[10px] uppercase tracking-wide text-ink-400">{label}</p></div>)}</div>
+              <div className="mt-3 grid grid-cols-3 gap-3 border-t border-ink-100 pt-3 text-xs"><div><p className="text-ink-400">Tenants</p><p className="mt-0.5 font-semibold text-ink-900">{row.tenants}</p></div><div><p className="text-ink-400">Rent collected</p><p className="mt-0.5 font-semibold text-ink-900">{formatKES(row.collectedRent)}</p></div><div><p className="text-ink-400">Est. tax</p><p className="mt-0.5 font-semibold text-brand-700">{formatKES(row.tax)}</p></div></div>
+              {row.propertyType.toLowerCase().includes('apartment') && <div className="mt-3 rounded-xl bg-brand-50/60 p-3"><p className="mb-2 text-xs font-semibold text-brand-900">Floor availability</p><div className="grid grid-cols-2 gap-2 sm:grid-cols-3">{Object.entries(row.floors).sort((a,b)=>a[0].localeCompare(b[0],undefined,{numeric:true})).map(([floor,x]) => <div key={floor} className="rounded-lg border border-brand-100 bg-white px-2.5 py-2"><p className="text-[11px] font-semibold text-ink-800">{floor}</p><p className="text-[11px] text-brand-700"><strong>{x.available}</strong> available / {x.total}</p></div>)}</div></div>}
+            </button>; })}
+          </div>}
       </Card>
 
       <div className="mt-7 grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -550,18 +549,9 @@ export function OwnerReservations() {
   }, [profile]);
 
   const convertToLease = async (r: Reservation & { property_units: { unit_number: string; monthly_rent?: number; security_deposit?: number }; properties: { name: string } }) => {
-    const start = new Date();
-    const end = new Date(start); end.setFullYear(end.getFullYear() + 1);
-    const { error } = await supabase.from('leases').insert({
-      tenant_id: r.customer_id, property_id: r.property_id, unit_id: r.unit_id, reservation_id: r.id,
-      lease_start: start.toISOString().slice(0,10), lease_end: end.toISOString().slice(0,10),
-      monthly_rent: Number(r.property_units.monthly_rent || 0), deposit: Number(r.property_units.security_deposit || 0),
-      status: 'active', signed_by_tenant: false, signed_by_owner: true,
-    });
+    const start = new Date().toISOString().slice(0, 10);
+    const { error } = await supabase.rpc('create_lease_from_reservation', { p_reservation_id: r.id, p_lease_start: start, p_lease_months: 12 });
     if (error) { toast(`Could not create lease: ${error.message}`, 'error'); return; }
-    await supabase.from('reservations').update({ status: 'converted' }).eq('id', r.id);
-    await supabase.from('property_units').update({ status: 'occupied' }).eq('id', r.unit_id);
-    await supabase.from('notifications').insert({ user_id: r.customer_id, title: 'Lease activated', message: `Your lease for ${r.properties.name}, Unit ${r.property_units.unit_number} is now active.`, type: 'lease' });
     toast('Reservation converted to an active lease.', 'success');
     setLeaseReservation(null);
     setReservations(reservations.map((x) => x.id === r.id ? { ...x, status: 'converted' } : x));
@@ -701,7 +691,7 @@ function AddExpenseModal({ properties, ownerId, onClose }: { properties: Propert
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { error } = await supabase.from('expenses').insert({ ...form, owner_id: ownerId, amount: parseFloat(form.amount) });
+    const { error } = await supabase.rpc('create_owner_expense', { p_property_id: form.property_id, p_category: form.category, p_amount: parseFloat(form.amount), p_expense_date: form.expense_date, p_vendor: form.vendor || null, p_description: form.description || null, p_payment_method: form.payment_method });
     setLoading(false);
     if (error) { toast('Could not record expense.', 'error'); return; }
     toast('Expense recorded!', 'success');
@@ -1011,31 +1001,35 @@ export function OwnerPayments() {
 }
 
 export function OwnerReports() {
-  return (
-    <DashboardLayout navItems={ownerNav} title="Reports">
-      <h2 className="text-xl font-bold text-ink-900 mb-6">Financial Reports</h2>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {[
-          { title: 'Rental Income Report', desc: 'Monthly rental income breakdown', icon: <Wallet className="w-5 h-5" /> },
-          { title: 'Expense Report', desc: 'Property expenses by category', icon: <Receipt className="w-5 h-5" /> },
-          { title: 'Occupancy Report', desc: 'Unit occupancy and vacancy rates', icon: <Building2 className="w-5 h-5" /> },
-          { title: 'Tax Report', desc: 'Tax calculations and payments', icon: <TrendingUp className="w-5 h-5" /> },
-          { title: 'Reservation Report', desc: 'Reservation activity and conversion', icon: <Calendar className="w-5 h-5" /> },
-          { title: 'Tenant Report', desc: 'Active tenants and lease status', icon: <Users className="w-5 h-5" /> },
-        ].map((r) => (
-          <Card key={r.title} className="p-5 hover:shadow-md transition-shadow cursor-pointer">
-            <div className="w-10 h-10 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center mb-3">{r.icon}</div>
-            <h3 className="font-semibold text-ink-900 mb-1">{r.title}</h3>
-            <p className="text-sm text-ink-500 mb-4">{r.desc}</p>
-            <div className="flex gap-2">
-              <button className="btn-secondary text-xs flex-1"><Download className="w-3.5 h-3.5" /> PDF</button>
-              <button className="btn-secondary text-xs flex-1"><Download className="w-3.5 h-3.5" /> CSV</button>
-            </div>
-          </Card>
-        ))}
-      </div>
-    </DashboardLayout>
-  );
+  const { profile } = useAuth();
+  const { toast } = useToast();
+  const [busy, setBusy] = useState(false);
+  const download = (filename: string, content: string, mime = 'text/plain') => { const blob = new Blob([content], { type: `${mime};charset=utf-8` }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = filename; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); };
+  const csv = (rows: string[][]) => rows.map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
+  const makePdf = (title: string, lines: string[]) => {
+    const esc = (x: string) => x.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
+    const commands = [`BT /F1 16 Tf 50 760 Td (${esc(title)}) Tj /F1 9 Tf`, ...lines.slice(0, 40).map(x => `0 -16 Td (${esc(x).slice(0, 105)}) Tj`), 'ET'].join(' ');
+    const objects = ['<< /Type /Catalog /Pages 2 0 R >>', '<< /Type /Pages /Kids [3 0 R] /Count 1 >>', '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>', '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>', `<< /Length ${commands.length} >>\nstream\n${commands}\nendstream`];
+    let pdf = '%PDF-1.4\n'; const offsets = [0]; objects.forEach((obj, i) => { offsets.push(pdf.length); pdf += `${i + 1} 0 obj\n${obj}\nendobj\n`; }); const xref = pdf.length; pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`; for (let i = 1; i < offsets.length; i++) pdf += `${String(offsets[i]).padStart(10, '0')} 00000 n \n`; pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`; download(`${title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.pdf`, pdf, 'application/pdf');
+  };
+  const generate = async (kind: string) => {
+    if (!profile) return; setBusy(true);
+    try {
+      const { data: props } = await supabase.from('properties').select('id,name,property_type').eq('owner_id', profile.id);
+      const ids = (props || []).map(p => p.id);
+      const [{ data: units }, { data: payments }, { data: expenses }, { data: leases }] = await Promise.all([
+        ids.length ? supabase.from('property_units').select('property_id,status,monthly_rent').in('property_id', ids) : Promise.resolve({ data: [] as any[] }),
+        ids.length ? supabase.from('payments').select('property_id,amount,status,verified,payment_type,created_at').in('property_id', ids) : Promise.resolve({ data: [] as any[] }),
+        ids.length ? supabase.from('expenses').select('property_id,category,amount,expense_date').in('property_id', ids) : Promise.resolve({ data: [] as any[] }),
+        ids.length ? supabase.from('leases').select('property_id,status,tenant_id').in('property_id', ids) : Promise.resolve({ data: [] as any[] }),
+      ]);
+      const rows: string[][] = [['Property','Type','Units','Occupied','Vacant','Reserved','Active Tenants','Rent Collected','Expenses']];
+      (props || []).forEach(p => { const us=(units||[]).filter(x=>x.property_id===p.id); const ps=(payments||[]).filter(x=>x.property_id===p.id && x.status==='successful' && x.verified); const es=(expenses||[]).filter(x=>x.property_id===p.id); rows.push([p.name,p.property_type,String(us.length),String(us.filter(x=>x.status==='occupied').length),String(us.filter(x=>x.status==='available').length),String(us.filter(x=>x.status==='reserved').length),String((leases||[]).filter(x=>x.property_id===p.id && x.status==='active').length),String(ps.reduce((a,x)=>a+Number(x.amount||0),0)),String(es.reduce((a,x)=>a+Number(x.amount||0),0))]); });
+      const names: Record<string,string> = { income:'Rental Income Report', expense:'Expense Report', occupancy:'Occupancy Report', tax:'Tax & Compliance Report', reservation:'Reservation Report', tenant:'Tenant Report' }; const title=names[kind] || 'Portfolio Report'; const lines=rows.map(r=>r.join(' | ')); download(`${title.toLowerCase().replace(/[^a-z0-9]+/g,'-')}.csv`, csv(rows), 'text/csv'); makePdf(title, lines); toast(`${title} downloaded as CSV and PDF.`, 'success');
+    } catch (e) { toast(e instanceof Error ? e.message : 'Could not generate report.', 'error'); } finally { setBusy(false); }
+  };
+  const reports: Array<[string,string,string,typeof Wallet]> = [['income','Rental Income Report','Monthly rental income breakdown',Wallet],['expense','Expense Report','Property expenses by category',Receipt],['occupancy','Occupancy Report','Unit occupancy and vacancy rates',Building2],['tax','Tax Report','Tax calculations and compliance records',TrendingUp],['reservation','Reservation Report','Reservation activity and conversion',Calendar],['tenant','Tenant Report','Active tenants and lease status',Users]];
+  return <DashboardLayout navItems={ownerNav} title="Reports"><div className="mb-6 rounded-2xl brand-gold-gradient p-6 text-white shadow-soft-lg"><p className="text-sm font-semibold text-white/90">Reporting centre</p><h2 className="mt-1 text-2xl font-bold text-white">Portfolio reports</h2><p className="mt-1 max-w-2xl text-sm text-white/90">Generate downloadable operational and financial reports from your live portfolio data.</p></div><div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">{reports.map(([kind,title,desc,Icon])=><Card key={kind} className="p-5"><div className="mb-4 flex items-start justify-between"><div className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-brand-700"><Icon className="h-5 w-5"/></div><span className="badge bg-ink-50 text-ink-500">Live data</span></div><h3 className="font-semibold text-ink-900">{title}</h3><p className="mt-1 min-h-10 text-sm text-ink-500">{desc}</p><button disabled={busy} onClick={()=>generate(kind)} className="btn-primary mt-4 w-full"><Download className="h-4 w-4"/>{busy?'Generating…':'Download CSV + PDF'}</button></Card>)}</div></DashboardLayout>;
 }
 
 export function OwnerSettings() {

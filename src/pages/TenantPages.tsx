@@ -235,17 +235,15 @@ function PayRentModal({ invoice, onClose }: { invoice: RentInvoice; onClose: () 
   const handlePay = async () => {
     if (!profile) return;
     setStep('processing');
-    setTimeout(async () => {
-      const { error } = await supabase.from('payments').insert({
-        user_id: profile.id, lease_id: invoice.lease_id, property_id: invoice.property_id, unit_id: invoice.unit_id,
-        amount: invoice.balance, payment_type: 'rent', payment_method: method, status: 'pending', verified: false,
-      });
-      if (error) {
-        setStep('pay');
-        return;
-      }
-      setStep('success');
-    }, 2000);
+    const { error } = await supabase.rpc('create_rent_payment', {
+      p_invoice_id: invoice.id,
+      p_payment_method: method,
+    });
+    if (error) {
+      setStep('pay');
+      return;
+    }
+    setStep('success');
   };
 
   return (
@@ -278,7 +276,7 @@ function PayRentModal({ invoice, onClose }: { invoice: RentInvoice; onClose: () 
         <div className="text-center py-8">
           <div className="w-16 h-16 rounded-full bg-brand-100 text-brand-600 flex items-center justify-center mx-auto mb-4"><CheckCircle className="w-8 h-8" /></div>
           <h4 className="font-bold text-ink-900 text-lg mb-1">Payment Initiated</h4>
-          <p className="text-sm text-ink-500 mb-6">Your rent payment request for {formatKES(invoice.balance)} is pending verification. Your invoice will update after the payment gateway confirms the transaction.</p>
+          <p className="text-sm text-ink-500 mb-6">Your rent payment request for {formatKES(invoice.balance)} has been recorded as pending. Your invoice will update only after the payment provider or administrator verifies the transaction.</p>
           <button onClick={onClose} className="btn-primary">Done</button>
         </div>
       )}
