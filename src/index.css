@@ -198,3 +198,22 @@ h6 {
   background: rgba(201, 151, 46, 0.25);
   color: #0d2342;
 }
+
+/* =========================================================
+   PREMIUM APP SHELL + BRAND WATERMARK
+   ========================================================= */
+.app-shell { min-height: 100vh; position: relative; isolation: isolate; }
+.site-watermark {
+  position: fixed; inset: 0; z-index: -1; pointer-events: none; display: grid; place-items: center; overflow: hidden;
+}
+.site-watermark img { width: min(48vw, 560px); opacity: .018; filter: grayscale(1); }
+.premium-glow { position: absolute; border-radius: 9999px; filter: blur(2px); pointer-events: none; }
+.hero-premium {
+  background:
+    radial-gradient(circle at 82% 18%, rgba(233,184,63,.34), transparent 28%),
+    radial-gradient(circle at 15% 80%, rgba(49,91,145,.42), transparent 30%),
+    linear-gradient(125deg, #07172f 0%, #0d2342 38%, #1b3b68 67%, #956b19 120%);
+}
+.hero-premium::after { content: ''; position:absolute; inset:0; background: linear-gradient(110deg, transparent 35%, rgba(255,255,255,.08) 50%, transparent 65%); transform: skewX(-15deg) translateX(-35%); animation: heroShimmer 8s ease-in-out infinite; pointer-events:none; }
+@keyframes heroShimmer { 0%,65%{transform:skewX(-15deg) translateX(-55%)} 100%{transform:skewX(-15deg) translateX(80%)} }
+.premium-section { background: linear-gradient(180deg, #fff 0%, #f7f8fa 100%); }

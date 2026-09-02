@@ -24,12 +24,14 @@ export function StatCard({
   icon,
   trend,
   accent = 'brand',
+  onClick,
 }: {
   label: string;
   value: string | number;
   icon: ReactNode;
   trend?: string;
   accent?: 'brand' | 'accent' | 'blue' | 'red' | 'ink';
+  onClick?: () => void;
 }) {
   const accents = {
     brand: 'bg-brand-50 text-brand-600',
@@ -39,7 +41,13 @@ export function StatCard({
     ink: 'bg-ink-100 text-ink-600',
   };
   return (
-    <div className="card p-5">
+    <div
+      className={`card p-5 ${onClick ? 'cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-soft-lg focus-within:ring-2 focus-within:ring-brand-500/20' : ''}`}
+      onClick={onClick}
+      onKeyDown={(e) => { if (onClick && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onClick(); } }}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+    >
       <div className="flex items-center justify-between mb-3">
         <span className="text-sm font-medium text-ink-500">{label}</span>
         <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${accents[accent]}`}>

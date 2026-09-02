@@ -1,5 +1,5 @@
 import { Link } from '@/context/RouterContext';
-import highparkLogo from '@/assets/highpark-logo.jpg';
+import highparkLogo from '@/assets/highpark-logo-clean.png';
 
 export function Brand({ compact = false }: { compact?: boolean }) {
   return (
@@ -7,7 +7,7 @@ export function Brand({ compact = false }: { compact?: boolean }) {
       <img
         src={highparkLogo}
         alt="HighPark Consult Ltd"
-        className={compact ? 'h-16 w-24 object-contain' : 'h-24 w-36 object-contain'}
+        className={compact ? 'h-20 w-28 object-contain' : 'h-28 w-40 object-contain'}
       />
     </Link>
   );

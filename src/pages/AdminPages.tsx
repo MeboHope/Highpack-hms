@@ -1,91 +1,78 @@
 import { useState, useEffect } from 'react';
-import { Building2, Users, Calendar, Wallet, Settings, Home, CheckCircle, XCircle, ShieldCheck, TrendingUp, Receipt, Download } from 'lucide-react';
+import { Building2, Users, Calendar, Wallet, Home, CheckCircle, XCircle, ShieldCheck, Receipt } from 'lucide-react';
 import { DashboardLayout, adminNav } from '@/components/DashboardLayout';
 import { StatCard, Card, Badge, EmptyState, LoadingPage } from '@/components/ui';
-import { ConfirmDialog } from '@/components/Modal';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
-import { formatKES, formatDate, titleCase } from '@/lib/constants';
+import { useRouter } from '@/context/RouterContext';
+import { formatKES, formatDate, titleCase, normalizeUnitType } from '@/lib/constants';
 import type { Property, Profile, Reservation, Payment, SystemSettings } from '@/lib/supabase';
 
 export function AdminDashboard() {
   const { profile } = useAuth();
+  const { navigate } = useRouter();
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({ properties: 0, units: 0, available: 0, reserved: 0, occupied: 0, customers: 0, tenants: 0, reservationsToday: 0, monthlyRevenue: 0, outstanding: 0, expenses: 0, taxTracked: 0 });
+  const [period, setPeriod] = useState(new Date().toISOString().slice(0, 7));
+  const [summary, setSummary] = useState<Array<{ id: string; name: string; type: string; units: number; occupied: number; available: number; reserved: number; tenants: number; rent: number; tax: number }>>([]);
+  const [customerCount, setCustomerCount] = useState(0);
+  const [unitMix, setUnitMix] = useState<Record<string, { total: number; occupied: number; available: number }>>({});
 
   useEffect(() => {
     (async () => {
-      const { count: properties } = await supabase.from('properties').select('*', { count: 'exact', head: true });
-      const { count: units } = await supabase.from('property_units').select('*', { count: 'exact', head: true });
-      const { count: available } = await supabase.from('property_units').select('*', { count: 'exact', head: true }).eq('status', 'available');
-      const { count: reserved } = await supabase.from('property_units').select('*', { count: 'exact', head: true }).eq('status', 'reserved');
-      const { count: occupied } = await supabase.from('property_units').select('*', { count: 'exact', head: true }).eq('status', 'occupied');
-      const { count: customers } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'customer');
-      const { count: tenants } = await supabase.from('leases').select('*', { count: 'exact', head: true }).eq('status', 'active');
-      const { data: payments } = await supabase.from('payments').select('amount, verified').eq('status', 'successful');
-      const revenue = ((payments as Payment[]) || []).filter((p) => p.verified).reduce((s, p) => s + p.amount, 0);
-
-      setStats({
-        properties: properties || 0, units: units || 0, available: available || 0, reserved: reserved || 0,
-        occupied: occupied || 0, customers: customers || 0, tenants: tenants || 0, reservationsToday: 0,
-        monthlyRevenue: revenue, outstanding: 0, expenses: 0, taxTracked: 0,
-      });
+      const start = `${period}-01`;
+      const next = new Date(`${period}-01T00:00:00`); next.setMonth(next.getMonth() + 1);
+      const end = next.toISOString().slice(0, 10);
+      const [{ data: props }, { data: units }, { data: leases }, { data: payments }, { data: taxes }, { count: customers }] = await Promise.all([
+        supabase.from('properties').select('id,name,property_type').order('created_at', { ascending: false }),
+        supabase.from('property_units').select('property_id,status,house_type,bedrooms'),
+        supabase.from('leases').select('property_id,status').eq('status', 'active'),
+        supabase.from('payments').select('property_id,amount,payment_type,status,verified').eq('status', 'successful').eq('verified', true).gte('created_at', start).lt('created_at', end),
+        supabase.from('tax_records').select('property_id,estimated_tax').eq('period', period),
+        supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'customer'),
+      ]);
+      setCustomerCount(customers || 0);
+      const properties = (props || []) as { id: string; name: string; property_type: string }[];
+      const unitList = (units || []) as { property_id: string; status: string; house_type: string | null; bedrooms: number }[];
+      setUnitMix(unitList.reduce<Record<string, { total: number; occupied: number; available: number }>>((acc, u) => { const key = normalizeUnitType(u.house_type, u.bedrooms); acc[key] ||= { total: 0, occupied: 0, available: 0 }; acc[key].total++; if (u.status === 'occupied') acc[key].occupied++; if (u.status === 'available') acc[key].available++; return acc; }, {}));
+      const leaseList = (leases || []) as { property_id: string; status: string }[];
+      const paymentList = (payments || []) as { property_id: string | null; amount: number; payment_type: string; status: string; verified: boolean }[];
+      const taxList = (taxes || []) as { property_id: string | null; estimated_tax: number }[];
+      setSummary(properties.map((p) => ({
+        id: p.id, name: p.name, type: p.property_type,
+        units: unitList.filter((u) => u.property_id === p.id).length,
+        occupied: unitList.filter((u) => u.property_id === p.id && u.status === 'occupied').length,
+        available: unitList.filter((u) => u.property_id === p.id && u.status === 'available').length,
+        reserved: unitList.filter((u) => u.property_id === p.id && u.status === 'reserved').length,
+        tenants: leaseList.filter((l) => l.property_id === p.id).length,
+        rent: paymentList.filter((x) => x.property_id === p.id && x.payment_type === 'rent').reduce((a, x) => a + Number(x.amount || 0), 0),
+        tax: taxList.filter((x) => x.property_id === p.id).reduce((a, x) => a + Number(x.estimated_tax || 0), 0),
+      })));
       setLoading(false);
     })();
-  }, [profile]);
+  }, [profile, period]);
 
   if (loading) return <DashboardLayout navItems={adminNav} title="Dashboard"><LoadingPage /></DashboardLayout>;
+  const totals = summary.reduce((a, r) => ({ properties: a.properties + 1, units: a.units + r.units, occupied: a.occupied + r.occupied, available: a.available + r.available, reserved: a.reserved + r.reserved, tenants: a.tenants + r.tenants, rent: a.rent + r.rent, tax: a.tax + r.tax }), { properties: 0, units: 0, occupied: 0, available: 0, reserved: 0, tenants: 0, rent: 0, tax: 0 });
 
   return (
     <DashboardLayout navItems={adminNav} title="Dashboard">
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard label="Total Properties" value={stats.properties} icon={<Building2 className="w-5 h-5" />} />
-        <StatCard label="Total Units" value={stats.units} icon={<Home className="w-5 h-5" />} accent="accent" />
-        <StatCard label="Available" value={stats.available} icon={<Home className="w-5 h-5" />} accent="ink" />
-        <StatCard label="Reserved" value={stats.reserved} icon={<Calendar className="w-5 h-5" />} accent="accent" />
-        <StatCard label="Occupied" value={stats.occupied} icon={<Users className="w-5 h-5" />} accent="blue" />
-        <StatCard label="Customers" value={stats.customers} icon={<Users className="w-5 h-5" />} />
-        <StatCard label="Active Tenants" value={stats.tenants} icon={<Users className="w-5 h-5" />} accent="brand" />
-        <StatCard label="Monthly Revenue" value={formatKES(stats.monthlyRevenue)} icon={<Wallet className="w-5 h-5" />} accent="blue" />
-        <StatCard label="Outstanding Rent" value={formatKES(stats.outstanding)} icon={<Receipt className="w-5 h-5" />} accent="red" />
-        <StatCard label="Expenses" value={formatKES(stats.expenses)} icon={<Receipt className="w-5 h-5" />} accent="ink" />
-        <StatCard label="Tax Tracked" value={formatKES(stats.taxTracked)} icon={<TrendingUp className="w-5 h-5" />} accent="accent" />
-        <StatCard label="Reservations Today" value={stats.reservationsToday} icon={<Calendar className="w-5 h-5" />} />
+      <div className="mb-7 rounded-2xl brand-gradient p-6 text-white shadow-soft-lg"><p className="text-sm text-white/70">HighPark Consult administration</p><h2 className="mt-1 text-2xl font-bold">Portfolio control centre</h2><p className="mt-2 max-w-2xl text-sm text-white/75">Monitor properties, unit types, occupancy, tenants, verified rent collection and tax records from one screen.</p></div>
+      <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-ink-100 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between"><div><p className="text-sm font-semibold text-ink-900">Reporting period</p><p className="text-xs text-ink-500">Rent and tax figures are scoped to this month.</p></div><input type="month" className="input sm:w-52" value={period} onChange={(e) => setPeriod(e.target.value)} /></div>
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4 mb-7">
+        <StatCard label="Properties" value={totals.properties} icon={<Building2 className="w-5 h-5" />} onClick={() => navigate('/admin/properties')} />
+        <StatCard label="Units" value={totals.units} icon={<Home className="w-5 h-5" />} accent="accent" onClick={() => navigate('/admin/properties')} />
+        <StatCard label="Occupied" value={totals.occupied} icon={<Users className="w-5 h-5" />} accent="blue" onClick={() => navigate('/admin/properties')} />
+        <StatCard label="Available" value={totals.available} icon={<Home className="w-5 h-5" />} accent="ink" onClick={() => navigate('/admin/properties')} />
+        <StatCard label="Reserved" value={totals.reserved} icon={<Calendar className="w-5 h-5" />} accent="accent" onClick={() => navigate('/admin/reservations')} />
+        <StatCard label="Active Tenants" value={totals.tenants} icon={<Users className="w-5 h-5" />} onClick={() => navigate('/admin/users')} />
+        <StatCard label={`Verified Rent · ${period}`} value={formatKES(totals.rent)} icon={<Wallet className="w-5 h-5" />} accent="blue" onClick={() => navigate('/admin/payments')} />
+        <StatCard label={`Estimated Tax · ${period}`} value={formatKES(totals.tax)} icon={<Receipt className="w-5 h-5" />} accent="red" onClick={() => navigate('/admin/settings')} />
       </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="p-6">
-          <h3 className="font-semibold text-ink-900 mb-4">Platform Overview</h3>
-          <div className="space-y-3">
-            {[
-              { label: 'Property Occupancy', value: stats.units > 0 ? Math.round((stats.occupied / stats.units) * 100) : 0, color: 'bg-brand-500' },
-              { label: 'Reservation Rate', value: stats.units > 0 ? Math.round((stats.reserved / stats.units) * 100) : 0, color: 'bg-accent-500' },
-              { label: 'Vacancy Rate', value: stats.units > 0 ? Math.round((stats.available / stats.units) * 100) : 0, color: 'bg-ink-400' },
-            ].map((item) => (
-              <div key={item.label}>
-                <div className="flex justify-between text-sm mb-1"><span className="text-ink-600">{item.label}</span><span className="font-semibold">{item.value}%</span></div>
-                <div className="w-full bg-ink-100 rounded-full h-2"><div className={`${item.color} h-2 rounded-full`} style={{ width: `${item.value}%` }} /></div>
-              </div>
-            ))}
-          </div>
-        </Card>
-        <Card className="p-6">
-          <h3 className="font-semibold text-ink-900 mb-4">Revenue Trend</h3>
-          <div className="flex items-end gap-2 h-48">
-            {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug'].map((m, i) => {
-              const h = 20 + ((i * 23) % 70);
-              return (
-                <div key={m} className="flex-1 flex flex-col items-center gap-1">
-                  <div className="w-full bg-brand-200 rounded-t-lg" style={{ height: `${h}%` }}>
-                    <div className="w-full bg-brand-500 rounded-t-lg" style={{ height: `${h * 0.8}%` }} />
-                  </div>
-                  <span className="text-xs text-ink-400">{m}</span>
-                </div>
-              );
-            })}
-          </div>
-        </Card>
+      <Card className="overflow-hidden"><div className="border-b border-ink-100 p-5"><h3 className="font-semibold text-ink-900">Property performance</h3><p className="text-sm text-ink-500">Separate totals for each property, including property type, units, tenants, rent and tax.</p></div><div className="overflow-x-auto"><table className="w-full min-w-[900px] text-sm"><thead className="bg-ink-50 text-left text-ink-500"><tr><th className="px-5 py-3 font-medium">Property</th><th className="px-5 py-3 font-medium">Type</th><th className="px-5 py-3 font-medium">Units</th><th className="px-5 py-3 font-medium">Occupied</th><th className="px-5 py-3 font-medium">Vacant</th><th className="px-5 py-3 font-medium">Reserved</th><th className="px-5 py-3 font-medium">Tenants</th><th className="px-5 py-3 font-medium">Rent</th><th className="px-5 py-3 font-medium">Tax</th></tr></thead><tbody className="divide-y divide-ink-100">{summary.map((r) => <tr key={r.id} className="cursor-pointer hover:bg-brand-50/50" onClick={() => navigate(`/admin/properties`)}><td className="px-5 py-4 font-semibold text-ink-900">{r.name}</td><td className="px-5 py-4"><span className="badge bg-ink-100 text-ink-600">{r.type}</span></td><td className="px-5 py-4">{r.units}</td><td className="px-5 py-4">{r.occupied}</td><td className="px-5 py-4">{r.available}</td><td className="px-5 py-4">{r.reserved}</td><td className="px-5 py-4">{r.tenants}</td><td className="px-5 py-4 font-semibold">{formatKES(r.rent)}</td><td className="px-5 py-4 font-semibold text-brand-700">{formatKES(r.tax)}</td></tr>)}</tbody></table></div></Card>
+      <div className="mt-7 grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <Card className="p-6"><div className="mb-4"><h3 className="font-semibold text-ink-900">Actual unit-type mix</h3><p className="text-xs text-ink-500">Bedsitters, 1-bedroom, 2-bedroom and other rentable unit types.</p></div><div className="grid grid-cols-2 gap-3">{Object.entries(unitMix).sort((a,b) => b[1].total-a[1].total).map(([type, x]) => <div key={type} className="rounded-xl border border-ink-100 bg-ink-50 p-3"><p className="text-sm font-semibold text-ink-800">{type}</p><p className="mt-1 text-2xl font-bold text-brand-700">{x.total}</p><p className="text-[11px] text-ink-500">{x.occupied} occupied · {x.available} available</p></div>)}{!Object.keys(unitMix).length && <p className="text-sm text-ink-500">No units yet.</p>}</div></Card>
+        <Card className="p-6"><h3 className="font-semibold text-ink-900 mb-4">Customer base</h3><p className="text-3xl font-bold text-brand-700">{customerCount}</p><p className="mt-1 text-sm text-ink-500">Registered customer/tenant accounts</p><div className="mt-5 grid grid-cols-2 gap-3"><div className="rounded-xl bg-brand-50 p-4"><p className="text-xs text-brand-700">Verified properties</p><p className="mt-1 text-lg font-bold text-brand-900">{summary.length}</p></div><div className="rounded-xl bg-ink-50 p-4"><p className="text-xs text-ink-500">Reserved units</p><p className="mt-1 text-lg font-bold text-ink-900">{totals.reserved}</p></div></div></Card>
       </div>
     </DashboardLayout>
   );
@@ -197,6 +184,7 @@ export function AdminUsers() {
 }
 
 export function AdminReservations() {
+  const { navigate } = useRouter();
   const [reservations, setReservations] = useState<(Reservation & { property_units: { unit_number: string }; properties: { name: string } })[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -222,7 +210,7 @@ export function AdminReservations() {
               </thead>
               <tbody className="divide-y divide-ink-100">
                 {reservations.map((r) => (
-                  <tr key={r.id} className="hover:bg-ink-50">
+                  <tr key={r.id} className="cursor-pointer hover:bg-brand-50/50" onClick={() => navigate(`/admin/properties`)}>
                     <td className="px-4 py-3 font-medium text-ink-900">{r.properties?.name}</td>
                     <td className="px-4 py-3">{r.property_units?.unit_number}</td>
                     <td className="px-4 py-3">{formatKES(r.reservation_fee)}</td>
@@ -295,11 +283,13 @@ export function AdminSettings() {
   const [settings, setSettings] = useState<SystemSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.from('system_settings').select('*').eq('id', 1).maybeSingle();
-      setSettings(data as SystemSettings | null);
+      const { data, error } = await supabase.from('system_settings').select('*').eq('id', 1).maybeSingle();
+      if (error) setLoadError(error.message);
+      setSettings((data as SystemSettings | null) ?? { id: 1, reservation_fee: 2000, reservation_duration_hours: 48, reservation_fee_policy: 'non_refundable', currency: 'KES', platform_commission_pct: 5, default_tax_rate_pct: 7.5, mpesa_enabled: false, card_enabled: true, bank_transfer_enabled: true, require_property_verification: true, updated_at: new Date().toISOString() });
       setLoading(false);
     })();
   }, []);
@@ -308,7 +298,7 @@ export function AdminSettings() {
     e.preventDefault();
     if (!settings) return;
     setSaving(true);
-    await supabase.from('system_settings').update({
+    const { error } = await supabase.from('system_settings').upsert({ id: 1,
       reservation_fee: settings.reservation_fee,
       reservation_duration_hours: settings.reservation_duration_hours,
       reservation_fee_policy: settings.reservation_fee_policy,
@@ -318,8 +308,9 @@ export function AdminSettings() {
       card_enabled: settings.card_enabled,
       bank_transfer_enabled: settings.bank_transfer_enabled,
       require_property_verification: settings.require_property_verification,
-    }).eq('id', 1);
+    }, { onConflict: 'id' });
     setSaving(false);
+    if (error) { toast(`Could not save settings: ${error.message}`, 'error'); return; }
     toast('Settings saved successfully', 'success');
   };
 
@@ -327,7 +318,8 @@ export function AdminSettings() {
 
   return (
     <DashboardLayout navItems={adminNav} title="Settings">
-      <h2 className="text-xl font-bold text-ink-900 mb-6">System Settings</h2>
+      <h2 className="text-xl font-bold text-ink-900 mb-2">System Settings</h2>
+      {loadError && <div className="mb-6 rounded-xl border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-800">Settings loaded with defaults because the database returned an error: {loadError}</div>}
       <Card className="p-6 max-w-3xl">
         <form onSubmit={handleSave} className="space-y-6">
           <div>

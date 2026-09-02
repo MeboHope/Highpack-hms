@@ -48,6 +48,19 @@ export const FURNISHING_OPTIONS = [
   { value: 'unfurnished', label: 'Unfurnished' },
 ] as const;
 
+
+
+export function normalizeUnitType(houseType: string | null | undefined, bedrooms: number | null | undefined): string {
+  if (houseType?.trim()) return titleCase(houseType.trim());
+  const count = Number(bedrooms || 0);
+  if (count <= 0) return 'Bedsitter / Studio';
+  if (count === 1) return '1 Bedroom';
+  if (count === 2) return '2 Bedroom';
+  if (count === 3) return '3 Bedroom';
+  if (count === 4) return '4 Bedroom';
+  return '5+ Bedroom';
+}
+
 export function formatKES(amount: number): string {
   return new Intl.NumberFormat('en-KE', {
     style: 'currency',

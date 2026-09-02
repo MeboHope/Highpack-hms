@@ -1,9 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
-import { MapPin, BedDouble, Bath, SlidersHorizontal, X, Grid3x3, Map as MapIcon, ShieldCheck, Search } from 'lucide-react';
+import { MapPin, BedDouble, Bath, SlidersHorizontal,  Grid3x3, Map as MapIcon, ShieldCheck, Search } from 'lucide-react';
 import { Link, useRouter } from '@/context/RouterContext';
 import { supabase } from '@/lib/supabase';
-import { formatKES, KENYAN_COUNTIES, PROPERTY_TYPES, titleCase } from '@/lib/constants';
-import { SkeletonCard, EmptyState, Badge } from '@/components/ui';
+import { formatKES, KENYAN_COUNTIES, PROPERTY_TYPES } from '@/lib/constants';
+import { SkeletonCard, EmptyState } from '@/components/ui';
 import { getPropertyImage } from '@/lib/images';
 import type { Property, PropertyUnit } from '@/lib/supabase';
 
@@ -266,8 +266,6 @@ function MapView({ properties }: { properties: PropertyRow[] }) {
               const units = p.property_units || [];
               const minRent = units.length > 0 ? Math.min(...units.map((u) => u.monthly_rent)) : 0;
               const image = p.photos?.[0] || getPropertyImage(p.property_type);
-              const top = 10 + ((i * 37) % 70);
-              const left = 10 + ((i * 53) % 70);
               return (
                 <div key={p.id} className="relative">
                   <Link to={`/property/${p.id}`} className="card overflow-hidden hover:shadow-md transition-all block">

@@ -15,12 +15,13 @@ import {
 } from '@/pages/OwnerPages';
 import {
   TenantDashboard, TenantRent, TenantMaintenance, TenantLease, TenantHouse,
-  TenantMessages, TenantSettings,
+  TenantMessages, TenantSettings, TenantReservations, TenantViewings,
 } from '@/pages/TenantPages';
 import {
   AdminDashboard, AdminProperties, AdminUsers, AdminReservations, AdminPayments, AdminSettings,
 } from '@/pages/AdminPages';
 import type { JSX } from 'react';
+import highparkLogo from '@/assets/highpark-logo-clean.png';
 
 function PublicLayout({ children }: { children: JSX.Element }) {
   return (
@@ -88,6 +89,8 @@ function Routes() {
 
   // Tenant routes
   if (path === '/tenant') return isTenant ? <TenantDashboard /> : <AccessDenied />;
+  if (path === '/tenant/reservations') return isTenant ? <TenantReservations /> : <AccessDenied />;
+  if (path === '/tenant/viewings') return isTenant ? <TenantViewings /> : <AccessDenied />;
   if (path === '/tenant/house') return isTenant ? <TenantHouse /> : <AccessDenied />;
   if (path === '/tenant/rent') return isTenant ? <TenantRent /> : <AccessDenied />;
   if (path === '/tenant/maintenance') return isTenant ? <TenantMaintenance /> : <AccessDenied />;
@@ -118,13 +121,16 @@ function Routes() {
 
 function App() {
   return (
-    <RouterProvider>
-      <AuthProvider>
-        <ToastProvider>
-          <Routes />
-        </ToastProvider>
-      </AuthProvider>
-    </RouterProvider>
+    <div className="app-shell">
+      <div className="site-watermark" aria-hidden="true"><img src={highparkLogo} alt="" /></div>
+      <RouterProvider>
+        <AuthProvider>
+          <ToastProvider>
+            <Routes />
+          </ToastProvider>
+        </AuthProvider>
+      </RouterProvider>
+    </div>
   );
 }
 

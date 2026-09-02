@@ -1,17 +1,19 @@
 import { useState, useEffect } from 'react';
-import { Home, Wallet, FileText, Wrench, Bell, Settings, Calendar, CheckCircle, Plus, MapPin, BedDouble, Bath, ShieldCheck } from 'lucide-react';
+import { Home, Wallet, FileText, Wrench, Bell, Calendar, CheckCircle, Plus, MapPin, BedDouble, Bath, ShieldCheck, Search, ArrowRight, Clock, Eye } from 'lucide-react';
 import { DashboardLayout, tenantNav } from '@/components/DashboardLayout';
 import { StatCard, Card, Badge, EmptyState, LoadingPage } from '@/components/ui';
 import { Modal } from '@/components/Modal';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
+import { useRouter } from '@/context/RouterContext';
 import { formatKES, formatDate, titleCase, MAINTENANCE_CATEGORIES } from '@/lib/constants';
 import { getPropertyImages } from '@/lib/images';
-import type { Lease, RentInvoice, MaintenanceRequest, Payment, Reservation, Property, PropertyUnit } from '@/lib/supabase';
+import type { Lease, RentInvoice, MaintenanceRequest, Reservation, Property, PropertyUnit } from '@/lib/supabase';
 
 export function TenantDashboard() {
   const { profile } = useAuth();
+  const { navigate } = useRouter();
   const [loading, setLoading] = useState(true);
   const [lease, setLease] = useState<(Lease & { properties: Property; property_units: PropertyUnit }) | null>(null);
   const [invoices, setInvoices] = useState<RentInvoice[]>([]);
@@ -47,6 +49,23 @@ export function TenantDashboard() {
         <StatCard label="Reservations" value={reservations.length} icon={<Calendar className="w-5 h-5" />} accent="accent" />
         <StatCard label="Lease Status" value={lease ? titleCase(lease.status) : 'No lease'} icon={<FileText className="w-5 h-5" />} accent="blue" />
       </div>
+
+      <Card className="mb-6 overflow-hidden border-brand-100">
+        <div className="brand-gradient p-6 text-white">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div><p className="text-sm font-medium text-white/70">Your home journey</p><h2 className="mt-1 text-2xl font-bold">Find, reserve and manage your home in one place.</h2><p className="mt-2 max-w-2xl text-sm text-white/75">Browse verified properties, compare exact units, request a viewing, reserve a house and then manage rent, lease and maintenance here.</p></div>
+            <button onClick={() => navigate('/properties')} className="btn-accent shrink-0"><Search className="h-4 w-4" /> Find a Home <ArrowRight className="h-4 w-4" /></button>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-px bg-ink-100 sm:grid-cols-4">
+          {[
+            { label: 'Browse homes', text: 'Photos, videos & units', to: '/properties', icon: Search },
+            { label: 'Reservations', text: 'Track applications', to: '/tenant/reservations', icon: Calendar },
+            { label: 'Viewings', text: 'Manage appointments', to: '/tenant/viewings', icon: Eye },
+            { label: 'Pay rent', text: 'Invoices & balances', to: '/tenant/rent', icon: Wallet },
+          ].map((a) => { const Icon = a.icon; return <button key={a.to} onClick={() => navigate(a.to)} className="bg-white p-4 text-left transition hover:bg-brand-50"><Icon className="h-5 w-5 text-brand-600" /><p className="mt-2 text-sm font-semibold text-ink-900">{a.label}</p><p className="text-xs text-ink-500">{a.text}</p></button>; })}
+        </div>
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="p-6">
@@ -121,9 +140,32 @@ export function TenantDashboard() {
   );
 }
 
+export function TenantReservations() {
+  const { profile } = useAuth();
+  const { navigate } = useRouter();
+  const [reservations, setReservations] = useState<(Reservation & { property_units: { unit_number: string; monthly_rent: number }; properties: { name: string; town: string; county: string; photos: string[] } })[]>([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => { if (!profile) return; (async () => { const { data } = await supabase.from('reservations').select('*, property_units(unit_number,monthly_rent), properties(name,town,county,photos)').eq('customer_id', profile.id).order('created_at', { ascending: false }); setReservations((data as typeof reservations) || []); setLoading(false); })(); }, [profile]);
+  return <DashboardLayout navItems={tenantNav} title="Reservations">
+    <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><h2 className="text-xl font-bold text-ink-900">My Reservations</h2><p className="mt-1 text-sm text-ink-500">Track every house you have reserved and its current status.</p></div><button onClick={() => navigate('/properties')} className="btn-primary"><Search className="h-4 w-4" /> Find another home</button></div>
+    {loading ? <LoadingPage /> : reservations.length === 0 ? <EmptyState icon={<Calendar className="w-8 h-8" />} title="No reservations yet" description="Choose an available unit from the property marketplace and reserve it here." action={<button onClick={() => navigate('/properties')} className="btn-primary">Browse available homes</button>} /> : <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">{reservations.map(r => <Card key={r.id} className="overflow-hidden"><div className="flex gap-4 p-5"><img src={r.properties?.photos?.[0] || getPropertyImages('Apartment')[0]} alt="" className="h-24 w-28 rounded-xl object-cover" /><div className="min-w-0 flex-1"><div className="flex items-start justify-between gap-2"><div><h3 className="font-semibold text-ink-900">{r.properties?.name}</h3><p className="text-sm text-ink-500">Unit {r.property_units?.unit_number} · {r.properties?.town}, {r.properties?.county}</p></div><Badge status={r.status} /></div><div className="mt-3 flex flex-wrap gap-4 text-sm"><span><span className="text-ink-400">Monthly rent</span> <strong>{formatKES(r.property_units?.monthly_rent || 0)}</strong></span><span><span className="text-ink-400">Fee</span> <strong>{formatKES(r.reservation_fee)}</strong></span></div><div className="mt-4 flex gap-2"><button onClick={() => navigate(`/property/${r.property_id}`)} className="btn-secondary text-xs"><Eye className="h-4 w-4" /> View property</button></div></div></div></Card>)}</div>}
+  </DashboardLayout>;
+}
+
+export function TenantViewings() {
+  const { profile } = useAuth();
+  const { navigate } = useRouter();
+  const [viewings, setViewings] = useState<Array<{ id: string; property_id: string; unit_id: string | null; appointment_date: string; appointment_time: string; status: string; notes: string | null; properties: { name: string; town: string; county: string } | null }>>([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => { if (!profile) return; (async () => { const { data } = await supabase.from('viewing_appointments').select('*, properties(name,town,county)').eq('customer_id', profile.id).order('appointment_date', { ascending: true }).order('appointment_time', { ascending: true }); setViewings((data as typeof viewings) || []); setLoading(false); })(); }, [profile]);
+  return <DashboardLayout navItems={tenantNav} title="Viewings">
+    <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><h2 className="text-xl font-bold text-ink-900">Property Viewings</h2><p className="mt-1 text-sm text-ink-500">Keep your scheduled inspections and appointments organized.</p></div><button onClick={() => navigate('/properties')} className="btn-primary"><Search className="h-4 w-4" /> Find a property</button></div>
+    {loading ? <LoadingPage /> : viewings.length === 0 ? <EmptyState icon={<Clock className="w-8 h-8" />} title="No viewings scheduled" description="Open a property and choose Schedule Viewing to request an appointment." action={<button onClick={() => navigate('/properties')} className="btn-primary">Browse properties</button>} /> : <div className="space-y-3">{viewings.map(v => <Card key={v.id} className="p-5"><div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div><div className="flex items-center gap-2"><h3 className="font-semibold text-ink-900">{v.properties?.name}</h3><Badge status={v.status} /></div><p className="mt-1 text-sm text-ink-500">{v.properties?.town}, {v.properties?.county}</p><p className="mt-2 text-sm font-medium text-ink-700">{formatDate(v.appointment_date)} · {v.appointment_time}</p>{v.notes && <p className="mt-1 text-xs text-ink-500">{v.notes}</p>}</div><button onClick={() => navigate(`/property/${v.property_id}`)} className="btn-secondary text-sm">View property</button></div></Card>)}</div>}
+  </DashboardLayout>;
+}
+
 export function TenantRent() {
   const { profile } = useAuth();
-  const { toast } = useToast();
   const [invoices, setInvoices] = useState<(RentInvoice & { properties: { name: string }; property_units: { unit_number: string } })[]>([]);
   const [loading, setLoading] = useState(true);
   const [payInvoice, setPayInvoice] = useState<RentInvoice | null>(null);
@@ -186,7 +228,6 @@ export function TenantRent() {
 
 function PayRentModal({ invoice, onClose }: { invoice: RentInvoice; onClose: () => void }) {
   const { profile } = useAuth();
-  const { toast } = useToast();
   const [method, setMethod] = useState<'mpesa' | 'card' | 'bank_transfer'>('mpesa');
   const [phone, setPhone] = useState('');
   const [step, setStep] = useState<'pay' | 'processing' | 'success'>('pay');
@@ -248,7 +289,6 @@ function PayRentModal({ invoice, onClose }: { invoice: RentInvoice; onClose: () 
 
 export function TenantMaintenance() {
   const { profile } = useAuth();
-  const { toast } = useToast();
   const [requests, setRequests] = useState<(MaintenanceRequest & { property_units: { unit_number: string }; properties: { name: string } })[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);

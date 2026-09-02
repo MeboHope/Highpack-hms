@@ -190,9 +190,7 @@ export function DashboardLayout({
                 <Menu className="w-6 h-6" />
               </button>
 
-              <h1 className="text-lg font-bold text-ink-900 capitalize">
-                {title}
-              </h1>
+              <div><p className="hidden sm:block text-[10px] font-bold uppercase tracking-[0.18em] text-brand-600">HighPark Consult</p><h1 className="text-lg font-bold text-ink-900 capitalize">{title}</h1></div>
             </div>
 
             <div className="flex items-center gap-2">
@@ -255,6 +253,11 @@ export const ownerNav = [
     icon: <Receipt className="w-5 h-5" />,
   },
   {
+    label: 'Viewings',
+    to: '/tenant/viewings',
+    icon: <Calendar className="w-5 h-5" />,
+  },
+  {
     label: 'Maintenance',
     to: '/owner/maintenance',
     icon: <Wrench className="w-5 h-5" />,
@@ -283,6 +286,16 @@ export const tenantNav = [
     icon: <LayoutDashboard className="w-5 h-5" />,
   },
   {
+    label: 'Find a Home',
+    to: '/properties',
+    icon: <Search className="w-5 h-5" />,
+  },
+  {
+    label: 'Reservations',
+    to: '/tenant/reservations',
+    icon: <Calendar className="w-5 h-5" />,
+  },
+  {
     label: 'My House',
     to: '/tenant/house',
     icon: <Home className="w-5 h-5" />,
@@ -296,6 +309,11 @@ export const tenantNav = [
     label: 'Lease',
     to: '/tenant/lease',
     icon: <FileText className="w-5 h-5" />,
+  },
+  {
+    label: 'Viewings',
+    to: '/tenant/viewings',
+    icon: <Calendar className="w-5 h-5" />,
   },
   {
     label: 'Maintenance',

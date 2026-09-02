@@ -23,6 +23,7 @@ import {
 } from '@/lib/constants';
 import { SkeletonCard } from '@/components/ui';
 import { getPropertyImage } from '@/lib/images';
+import highparkLogo from '@/assets/highpark-logo-clean.png';
 
 interface PropertyWithUnits {
   id: string;
@@ -236,7 +237,11 @@ export function HomePage() {
           HERO SECTION
           ====================================================== */}
 
-      <section className="relative overflow-hidden bg-gradient-to-br from-brand-700 via-brand-600 to-brand-800">
+      <section className="hero-premium relative overflow-hidden">
+
+        <div className="absolute -right-24 -top-24 h-80 w-80 rounded-full bg-accent-400/20 blur-3xl" />
+        <div className="absolute -bottom-32 -left-20 h-96 w-96 rounded-full bg-brand-400/20 blur-3xl" />
+        <img src={highparkLogo} alt="" aria-hidden="true" className="absolute right-[4%] top-1/2 hidden w-[28rem] -translate-y-1/2 opacity-[0.055] grayscale invert lg:block" />
 
         {/* Background pattern */}
         <div
@@ -247,7 +252,7 @@ export function HomePage() {
           }}
         />
 
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
 
           {/* Hero heading */}
           <div className="text-center mb-10">
@@ -267,7 +272,7 @@ export function HomePage() {
               SEARCH CARD
               ================================================== */}
 
-          <div className="bg-white rounded-2xl shadow-2xl p-4 sm:p-6 max-w-5xl mx-auto">
+          <div className="bg-white/95 backdrop-blur rounded-3xl shadow-soft-lg ring-1 ring-white/40 p-4 sm:p-6 max-w-5xl mx-auto">
 
             <form
               onSubmit={handleSearch}

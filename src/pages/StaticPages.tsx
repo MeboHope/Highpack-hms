@@ -1,7 +1,26 @@
-import { Home, Mail, Phone, MapPin, MessageSquare, Search, ShieldCheck, Zap, TrendingUp, Building2, Wallet, FileText, Users, Award } from 'lucide-react';
+import { Home, Mail, Phone, MapPin, MessageSquare, Search, ShieldCheck, TrendingUp, Building2 } from 'lucide-react';
+import { useEffect, useRef } from 'react';
 import { useState } from 'react';
 import { Link } from '@/context/RouterContext';
 import { useToast } from '@/context/ToastContext';
+
+function AboutCount({ value, suffix = '', prefix = '', label }: { value: number; suffix?: string; prefix?: string; label: string }) {
+  const [count, setCount] = useState(0);
+  const [started, setStarted] = useState(false);
+  const ref = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const node = ref.current; if (!node) return;
+    const observer = new IntersectionObserver(([entry]) => { if (entry.isIntersecting) setStarted(true); }, { threshold: .5 });
+    observer.observe(node); return () => observer.disconnect();
+  }, []);
+  useEffect(() => {
+    if (!started) return;
+    const start = performance.now(); const duration = 1600; let frame = 0;
+    const tick = (now: number) => { const progress = Math.min(1, (now-start)/duration); const eased = 1-Math.pow(1-progress,3); setCount(Math.floor(value*eased)); if(progress<1) frame=requestAnimationFrame(tick); else setCount(value); };
+    frame=requestAnimationFrame(tick); return () => cancelAnimationFrame(frame);
+  }, [started, value]);
+  return <div ref={ref} className="card p-6 text-center hover:-translate-y-1 transition-transform"><p className="text-2xl sm:text-3xl font-bold text-brand-700 tabular-nums">{prefix}{count.toLocaleString()}{suffix}</p><p className="text-sm text-ink-500 mt-1">{label}</p></div>;
+}
 
 export function AboutPage() {
   return (
@@ -57,15 +76,12 @@ export function AboutPage() {
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-12">
         {[
-          { value: '500+', label: 'Verified Properties' },
-          { value: '1,200+', label: 'Happy Tenants' },
-          { value: '20+', label: 'Counties' },
-          { value: 'KSh 50M+', label: 'Rent Processed' },
+          { value: 500, suffix: '+', label: 'Verified Properties' },
+          { value: 1200, suffix: '+', label: 'Happy Tenants' },
+          { value: 20, suffix: '+', label: 'Counties' },
+          { value: 50, prefix: 'KSh ', suffix: 'M+', label: 'Rent Processed' },
         ].map((stat) => (
-          <div key={stat.label} className="card p-6 text-center">
-            <p className="text-2xl sm:text-3xl font-bold text-brand-700">{stat.value}</p>
-            <p className="text-sm text-ink-500 mt-1">{stat.label}</p>
-          </div>
+          <AboutCount key={stat.label} {...stat} />
         ))}
       </div>
 
@@ -106,9 +122,9 @@ export function ContactPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="space-y-4">
           {[
-            { icon: <Phone className="w-5 h-5" />, title: 'Call Us', value: '+254 700 000 000', sub: 'Mon–Fri, 8am–6pm' },
-            { icon: <Mail className="w-5 h-5" />, title: 'Email Us', value: 'hello@highparkconsult.co.ke', sub: 'We reply within 24 hours' },
-            { icon: <MapPin className="w-5 h-5" />, title: 'Visit Us', value: 'Westlands, Nairobi', sub: 'Kenya' },
+            { icon: <Phone className="w-5 h-5" />, title: 'Call Us', value: '+254 710 382989', sub: 'HighPark K Consult LTD GROUP' },
+            { icon: <Mail className="w-5 h-5" />, title: 'Email Us', value: 'lawparkconsultltd@gmail.com', sub: 'We reply within 24 hours' },
+            { icon: <MapPin className="w-5 h-5" />, title: 'Office', value: '5017-00100, Nairobi', sub: 'Kenya' },
             { icon: <MessageSquare className="w-5 h-5" />, title: 'Live Chat', value: 'Available in-app', sub: 'For registered users' },
           ].map((item) => (
             <div key={item.title} className="card p-5">

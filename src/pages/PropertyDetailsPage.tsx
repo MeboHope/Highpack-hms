@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { MapPin, BedDouble, Bath, ShieldCheck, Heart, Share2, Phone, Calendar, ChevronLeft, ChevronRight, Car, Wifi, Droplets, Zap, PawPrint, CheckCircle, X, MessageSquare } from 'lucide-react';
 import { Link, useRouter } from '@/context/RouterContext';
 import { supabase } from '@/lib/supabase';
-import { formatKES, titleCase, PROPERTY_AMENITIES } from '@/lib/constants';
+import { formatKES, titleCase } from '@/lib/constants';
 import { Badge, Spinner, EmptyState } from '@/components/ui';
 import { Modal } from '@/components/Modal';
 import { useAuth } from '@/context/AuthContext';
@@ -87,7 +87,7 @@ export function PropertyDetailsPage({ propertyId }: { propertyId: string }) {
   const shareProperty = async () => {
     const url = window.location.href;
     if (navigator.share) {
-      try { await navigator.share({ title: property?.name, url }); } catch {}
+      try { await navigator.share({ title: property?.name, url }); } catch { /* user cancelled sharing */ }
     } else {
       await navigator.clipboard.writeText(url);
       toast('Property link copied to clipboard', 'success');
@@ -169,6 +169,15 @@ export function PropertyDetailsPage({ propertyId }: { propertyId: string }) {
           ))}
         </div>
       </div>
+
+      {property.videos?.length > 0 && (
+        <div className="mb-8 rounded-2xl border border-ink-100 bg-white p-5 shadow-sm">
+          <div className="mb-4 flex items-center justify-between"><div><h3 className="font-semibold text-ink-900">Property walkthroughs</h3><p className="text-sm text-ink-500">Watch owner-uploaded videos before booking a viewing or reservation.</p></div><span className="badge bg-brand-50 text-brand-700">{property.videos.length} video{property.videos.length === 1 ? '' : 's'}</span></div>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            {property.videos.map((video) => <video key={video} src={video} controls preload="metadata" className="w-full rounded-xl bg-ink-950" />)}
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Main Content */}
@@ -380,74 +389,56 @@ function ReservationModal({ unitId, propertyId, onClose }: { unitId: string; pro
   const [step, setStep] = useState<'summary' | 'pay' | 'processing' | 'success'>('summary');
   const [paymentMethod, setPaymentMethod] = useState<'mpesa' | 'card' | 'bank_transfer'>('mpesa');
   const [phone, setPhone] = useState('');
-  const [reservationId, setReservationId] = useState<string | null>(null);
+  const [reservationFee, setReservationFee] = useState(2000);
+  const [durationHours, setDurationHours] = useState(48);
+
+  useEffect(() => {
+    (async () => {
+      const [{ data: unit }, { data: settings }] = await Promise.all([
+        supabase.from('property_units').select('reservation_fee').eq('id', unitId).maybeSingle(),
+        supabase.from('system_settings').select('reservation_fee,reservation_duration_hours').eq('id', 1).maybeSingle(),
+      ]);
+      setReservationFee(Number(unit?.reservation_fee ?? settings?.reservation_fee ?? 2000));
+      setDurationHours(Number(settings?.reservation_duration_hours ?? 48));
+    })();
+  }, [unitId]);
 
   const handleReserve = async () => {
     if (!profile) return;
     setStep('processing');
 
-    // Create reservation
-    const { data: resData, error: resError } = await supabase
-      .from('reservations')
-      .insert({
-        unit_id: unitId,
-        property_id: propertyId,
-        customer_id: profile.id,
-        reservation_fee: 2000,
-        status: 'pending',
-        expires_at: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
-      })
-      .select()
-      .single();
+    const { data: resData, error: resError } = await supabase.rpc('create_reservation', {
+      p_unit_id: unitId,
+      p_duration_hours: durationHours,
+    });
 
-    if (resError) {
-      toast(resError.message.includes('unique') ? 'This unit has just been reserved by another customer.' : 'Could not create reservation. Please try again.', 'error');
+    if (resError || !resData) {
+      const message = resError?.message || 'Could not create reservation. Please try again.';
+      toast(message.includes('already') || message.includes('reserved') ? 'This unit is no longer available.' : message, 'error');
       setStep('summary');
       return;
     }
 
-    setReservationId(resData.id);
-
-    // Create payment record (pending — in production this would go through a real gateway)
-    await supabase.from('payments').insert({
+    const { error: paymentError } = await supabase.from('payments').insert({
       user_id: profile.id,
       reservation_id: resData.id,
       property_id: propertyId,
       unit_id: unitId,
-      amount: 2000,
+      amount: Number(resData.reservation_fee || reservationFee),
       payment_type: 'reservation',
       payment_method: paymentMethod,
       status: 'pending',
       verified: false,
     });
 
-    // Simulate payment confirmation (in production, this comes from a webhook)
-    setTimeout(async () => {
-      // Update payment to successful + verified
-      await supabase.from('payments')
-        .update({ status: 'successful', verified: true, transaction_ref: `TXN${Date.now()}` })
-        .eq('reservation_id', resData.id);
+    if (paymentError) {
+      toast(`Reservation created, but payment setup failed: ${paymentError.message}`, 'error');
+      setStep('summary');
+      return;
+    }
 
-      // Update reservation status
-      await supabase.from('reservations')
-        .update({ status: 'confirmed' })
-        .eq('id', resData.id);
+    setStep('success');
 
-      // Update unit status
-      await supabase.from('property_units')
-        .update({ status: 'reserved' })
-        .eq('id', unitId);
-
-      // Create notification
-      await supabase.from('notifications').insert({
-        user_id: profile.id,
-        title: 'Reservation Confirmed',
-        message: 'Your reservation has been confirmed. Complete your tenancy registration to move in.',
-        type: 'reservation',
-      });
-
-      setStep('success');
-    }, 2000);
   };
 
   return (
@@ -457,9 +448,9 @@ function ReservationModal({ unitId, propertyId, onClose }: { unitId: string; pro
           <div className="bg-brand-50 rounded-xl p-4 mb-4">
             <h4 className="font-semibold text-ink-900 mb-2">Reservation Summary</h4>
             <div className="space-y-2 text-sm">
-              <div className="flex justify-between"><span className="text-ink-500">Reservation Fee</span> <span className="font-semibold">KSh 2,000</span></div>
+              <div className="flex justify-between"><span className="text-ink-500">Reservation Fee</span> <span className="font-semibold">{formatKES(reservationFee)}</span></div>
               <div className="flex justify-between"><span className="text-ink-500">Policy</span> <span>Non-refundable</span></div>
-              <div className="flex justify-between"><span className="text-ink-500">Valid For</span> <span>48 hours</span></div>
+              <div className="flex justify-between"><span className="text-ink-500">Valid For</span> <span>{durationHours} hours</span></div>
             </div>
           </div>
           <div className="mb-4">
@@ -491,11 +482,11 @@ function ReservationModal({ unitId, propertyId, onClose }: { unitId: string; pro
           )}
           <div className="bg-yellow-50 rounded-xl p-3 mb-4">
             <p className="text-xs text-yellow-700">
-              By proceeding, you agree to pay a non-refundable reservation fee of KSh 2,000. The fee is deductible from your security deposit upon tenancy.
+              By proceeding, you agree to the configured reservation fee. The exact fee and holding period are shown above.
             </p>
           </div>
           <button onClick={handleReserve} className="btn-primary w-full">
-            Pay KSh 2,000 Reservation Fee
+            Continue with {formatKES(reservationFee)} Reservation
           </button>
         </div>
       )}
@@ -513,8 +504,8 @@ function ReservationModal({ unitId, propertyId, onClose }: { unitId: string; pro
           <div className="w-16 h-16 rounded-full bg-brand-100 text-brand-600 flex items-center justify-center mx-auto mb-4">
             <CheckCircle className="w-8 h-8" />
           </div>
-          <h4 className="font-bold text-ink-900 text-lg mb-1">Reservation Confirmed!</h4>
-          <p className="text-sm text-ink-500 mb-6">Your unit has been reserved for 48 hours. Complete your tenancy registration to secure your new home.</p>
+          <h4 className="font-bold text-ink-900 text-lg mb-1">Reservation Request Received!</h4>
+          <p className="text-sm text-ink-500 mb-6">Your reservation hold is active for {durationHours} hours. Payment confirmation is still pending and will only be marked successful by the payment provider.</p>
           <div className="flex gap-3">
             <button onClick={() => navigate('/tenant')} className="btn-primary flex-1">Complete Tenancy</button>
             <button onClick={onClose} className="btn-secondary flex-1">Close</button>

@@ -4,7 +4,7 @@ import { Link, useRouter } from '@/context/RouterContext';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import { Brand } from '@/components/Brand';
-import highparkLogo from '@/assets/highpark-logo.jpg';
+import highparkLogo from '@/assets/highpark-logo-clean.png';
 
 export function Header() {
   const { path, navigate } = useRouter();
@@ -207,8 +207,8 @@ export function Header() {
 export function Footer() {
   return (
     <footer className="mt-20 bg-brand-950 text-ink-300">
-      <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 gap-10 md:grid-cols-4">
+      <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
+        <div className="mb-10 grid grid-cols-1 gap-10 rounded-3xl border border-white/10 bg-white/[0.03] p-7 md:grid-cols-[1.3fr_.8fr_.8fr_1.1fr] md:p-9">
           <div>
             <Link to="/" className="inline-flex rounded-xl bg-white p-2" aria-label="HighPark Consult Ltd">
               <img src={highparkLogo} alt="HighPark Consult Ltd" className="h-24 w-24 object-contain" />
@@ -216,6 +216,7 @@ export function Footer() {
             <p className="mt-4 max-w-sm text-sm leading-6 text-ink-400">
               HighPark Consult Ltd — trusted property solutions, strategic guidance, and professional property management in Kenya.
             </p>
+            <p className="mt-5 text-xs font-semibold uppercase tracking-[0.18em] text-accent-300">HighPark K Consult LTD GROUP</p>
           </div>
 
           <div>
@@ -238,11 +239,12 @@ export function Footer() {
           </div>
 
           <div>
-            <h3 className="text-sm font-semibold text-white">Contact</h3>
-            <div className="mt-4 space-y-2 text-sm text-ink-400">
-              <p>Nairobi, Kenya</p>
-              <p>+254 700 000 000</p>
-              <p>hello@highparkconsult.co.ke</p>
+            <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-accent-300">Contact & Office</h3>
+            <div className="mt-4 space-y-3 text-sm text-ink-400">
+              <p className="leading-6">5017-00100<br />Nairobi, Kenya</p>
+              <a href="tel:+254710382989" className="block font-semibold text-white hover:text-accent-300">+254 710 382989</a>
+              <a href="mailto:lawparkconsultltd@gmail.com" className="block hover:text-white">lawparkconsultltd@gmail.com</a>
+              <a href="https://wa.me/254710382989" target="_blank" rel="noreferrer" className="block hover:text-white">WhatsApp · +254 710 382989</a>
             </div>
           </div>
         </div>

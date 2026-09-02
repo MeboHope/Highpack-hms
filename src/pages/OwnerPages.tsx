@@ -1,117 +1,165 @@
 import { useState, useEffect } from 'react';
-import { Building2, Home, Calendar, Users, Wallet, Receipt, Wrench, TrendingUp, FileText, Settings, Plus, MapPin, BedDouble, Bath, Trash2, Edit3, Eye, CheckCircle, XCircle, Download, Calculator } from 'lucide-react';
+import { Building2, Home, Calendar, Users, Wallet, Receipt, Wrench, TrendingUp, FileText, Plus, MapPin, BedDouble, Bath, Trash2, Eye, CheckCircle, XCircle, Download, Calculator } from 'lucide-react';
 import { DashboardLayout, ownerNav } from '@/components/DashboardLayout';
-import { StatCard, Card, Badge, EmptyState, Spinner, LoadingPage } from '@/components/ui';
+import { StatCard, Card, Badge, EmptyState, LoadingPage } from '@/components/ui';
 import { Modal, ConfirmDialog } from '@/components/Modal';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import { useRouter } from '@/context/RouterContext';
-import { formatKES, formatDate, titleCase, PROPERTY_TYPES, KENYAN_COUNTIES, PROPERTY_AMENITIES, EXPENSE_CATEGORIES } from '@/lib/constants';
+import { formatKES, formatDate, titleCase, normalizeUnitType, PROPERTY_TYPES, KENYAN_COUNTIES, PROPERTY_AMENITIES, EXPENSE_CATEGORIES } from '@/lib/constants';
+import { uploadPropertyMedia, deletePropertyMedia } from '@/lib/media';
 import { getPropertyImages } from '@/lib/images';
 import type { Property, PropertyUnit, Reservation, Lease, Expense, TaxRecord, MaintenanceRequest, Payment } from '@/lib/supabase';
 
 export function OwnerDashboard() {
   const { profile } = useAuth();
+  const { navigate } = useRouter();
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({ properties: 0, units: 0, occupied: 0, vacant: 0, reserved: 0, expectedRent: 0, collected: 0, outstanding: 0, expenses: 0, maintenance: 0, tenants: 0 });
+  const [period, setPeriod] = useState(new Date().toISOString().slice(0, 7));
+  const [summary, setSummary] = useState<Array<{
+    id: string; name: string; propertyType: string; unitTypes: Record<string, number>; units: number; available: number; reserved: number;
+    occupied: number; tenants: number; expectedRent: number; collectedRent: number; tax: number;
+  }>>([]);
 
   useEffect(() => {
     if (!profile) return;
+    setLoading(true);
     (async () => {
-      const { data: props } = await supabase.from('properties').select('id').eq('owner_id', profile.id);
-      const propIds = (props || []).map((p) => p.id);
-      if (propIds.length === 0) { setLoading(false); return; }
+      const { data: props } = await supabase.from('properties').select('id,name,property_type').eq('owner_id', profile.id).order('created_at', { ascending: false });
+      const propertyList = (props || []) as { id: string; name: string; property_type: string }[];
+      const ids = propertyList.map((p) => p.id);
+      if (!ids.length) { setSummary([]); setLoading(false); return; }
 
-      const { data: units } = await supabase.from('property_units').select('*').in('property_id', propIds);
-      const unitList = (units as PropertyUnit[]) || [];
-      const occupied = unitList.filter((u) => u.status === 'occupied').length;
-      const vacant = unitList.filter((u) => u.status === 'available').length;
-      const reserved = unitList.filter((u) => u.status === 'reserved').length;
-      const expectedRent = unitList.filter((u) => u.status === 'occupied').reduce((s, u) => s + u.monthly_rent, 0);
+      const start = `${period}-01`;
+      const next = new Date(`${period}-01T00:00:00`);
+      next.setMonth(next.getMonth() + 1);
+      const end = next.toISOString().slice(0, 10);
+      const [{ data: units }, { data: leases }, { data: payments }, { data: taxRecords }] = await Promise.all([
+        supabase.from('property_units').select('id,property_id,status,monthly_rent,house_type,bedrooms').in('property_id', ids),
+        supabase.from('leases').select('property_id,tenant_id,status').in('property_id', ids).eq('status', 'active'),
+        supabase.from('payments').select('property_id,amount,status,verified,payment_type').in('property_id', ids).eq('status', 'successful').eq('verified', true).gte('created_at', start).lt('created_at', end),
+        supabase.from('tax_records').select('property_id,estimated_tax,period').in('property_id', ids).eq('period', period),
+      ]);
 
-      const { data: leases } = await supabase.from('leases').select('*').in('property_id', propIds).eq('status', 'active');
-      const leaseList = (leases as Lease[]) || [];
+      const unitList = (units || []) as Pick<PropertyUnit, 'id'|'property_id'|'status'|'monthly_rent'|'house_type'|'bedrooms'>[];
+      const leaseList = (leases || []) as Pick<Lease, 'property_id'|'tenant_id'|'status'>[];
+      const paymentList = (payments || []) as Pick<Payment, 'property_id'|'amount'|'status'|'verified'|'payment_type'>[];
+      const taxList = (taxRecords || []) as Pick<TaxRecord, 'property_id'|'estimated_tax'>[];
 
-      const { data: payments } = await supabase.from('payments').select('amount, status, verified').in('property_id', propIds).eq('status', 'successful');
-      const payList = (payments as Payment[]) || [];
-      const collected = payList.filter((p) => p.verified).reduce((s, p) => s + p.amount, 0);
-
-      const { data: expenses } = await supabase.from('expenses').select('amount').in('property_id', propIds);
-      const totalExpenses = ((expenses as Expense[]) || []).reduce((s, e) => s + e.amount, 0);
-
-      const { data: maint } = await supabase.from('maintenance_requests').select('id').in('property_id', propIds).neq('status', 'closed');
-
-      setStats({
-        properties: propIds.length,
-        units: unitList.length,
-        occupied,
-        vacant,
-        reserved,
-        expectedRent,
-        collected,
-        outstanding: Math.max(0, expectedRent - collected),
-        expenses: totalExpenses,
-        maintenance: (maint || []).length,
-        tenants: leaseList.length,
-      });
+      setSummary(propertyList.map((property) => {
+        const propertyUnits = unitList.filter((u) => u.property_id === property.id);
+        const propertyLeases = leaseList.filter((l) => l.property_id === property.id);
+        const propertyPayments = paymentList.filter((p) => p.property_id === property.id && p.payment_type === 'rent');
+        const propertyTax = taxList.filter((t) => t.property_id === property.id).reduce((sum, t) => sum + Number(t.estimated_tax || 0), 0);
+        const unitTypes = propertyUnits.reduce<Record<string, number>>((types, unit) => { const key = normalizeUnitType(unit.house_type, unit.bedrooms); types[key] = (types[key] || 0) + 1; return types; }, {});
+        return {
+          id: property.id,
+          name: property.name,
+          propertyType: property.property_type,
+          unitTypes,
+          units: propertyUnits.length,
+          available: propertyUnits.filter((u) => u.status === 'available').length,
+          reserved: propertyUnits.filter((u) => u.status === 'reserved').length,
+          occupied: propertyUnits.filter((u) => u.status === 'occupied').length,
+          tenants: propertyLeases.length,
+          expectedRent: propertyUnits.filter((u) => u.status === 'occupied').reduce((sum, u) => sum + Number(u.monthly_rent || 0), 0),
+          collectedRent: propertyPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0),
+          tax: propertyTax,
+        };
+      }));
       setLoading(false);
     })();
-  }, [profile]);
+  }, [profile, period]);
 
   if (loading) return <DashboardLayout navItems={ownerNav} title="Dashboard"><LoadingPage /></DashboardLayout>;
 
+  const totals = summary.reduce((acc, row) => ({
+    properties: acc.properties + 1,
+    units: acc.units + row.units,
+    occupied: acc.occupied + row.occupied,
+    available: acc.available + row.available,
+    reserved: acc.reserved + row.reserved,
+    tenants: acc.tenants + row.tenants,
+    expectedRent: acc.expectedRent + row.expectedRent,
+    collectedRent: acc.collectedRent + row.collectedRent,
+    tax: acc.tax + row.tax,
+  }), { properties: 0, units: 0, occupied: 0, available: 0, reserved: 0, tenants: 0, expectedRent: 0, collectedRent: 0, tax: 0 });
+
   return (
     <DashboardLayout navItems={ownerNav} title="Dashboard">
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard label="Total Properties" value={stats.properties} icon={<Building2 className="w-5 h-5" />} />
-        <StatCard label="Total Units" value={stats.units} icon={<Home className="w-5 h-5" />} accent="accent" />
-        <StatCard label="Occupied" value={stats.occupied} icon={<Users className="w-5 h-5" />} accent="blue" />
-        <StatCard label="Vacant" value={stats.vacant} icon={<Home className="w-5 h-5" />} accent="ink" />
-        <StatCard label="Reserved" value={stats.reserved} icon={<Calendar className="w-5 h-5" />} accent="accent" />
-        <StatCard label="Expected Rent/mo" value={formatKES(stats.expectedRent)} icon={<Wallet className="w-5 h-5" />} />
-        <StatCard label="Rent Collected" value={formatKES(stats.collected)} icon={<Wallet className="w-5 h-5" />} accent="blue" />
-        <StatCard label="Outstanding" value={formatKES(stats.outstanding)} icon={<Receipt className="w-5 h-5" />} accent="red" />
-        <StatCard label="Expenses" value={formatKES(stats.expenses)} icon={<Receipt className="w-5 h-5" />} accent="ink" />
-        <StatCard label="Maintenance" value={stats.maintenance} icon={<Wrench className="w-5 h-5" />} accent="accent" />
-        <StatCard label="Active Tenants" value={stats.tenants} icon={<Users className="w-5 h-5" />} />
-        <StatCard label="Taxable Income" value={formatKES(Math.max(0, stats.collected - stats.expenses))} icon={<TrendingUp className="w-5 h-5" />} accent="blue" />
+      <div className="mb-7 rounded-2xl brand-gold-gradient p-6 text-white shadow-soft-lg">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-medium text-white/75">Portfolio overview</p>
+            <h2 className="mt-1 text-2xl font-bold">Good day, {profile?.full_name?.split(' ')[0] || 'Owner'}</h2>
+            <p className="mt-1 max-w-2xl text-sm text-white/80">A single view of your properties, unit mix, tenants, rent collection and tax exposure.</p>
+          </div>
+          <div className="grid grid-cols-2 gap-3 text-center">
+            <div className="rounded-xl bg-white/10 px-5 py-3 backdrop-blur"><p className="text-2xl font-bold">{totals.properties}</p><p className="text-xs text-white/70">Properties</p></div>
+            <div className="rounded-xl bg-white/10 px-5 py-3 backdrop-blur"><p className="text-2xl font-bold">{totals.units}</p><p className="text-xs text-white/70">Units</p></div>
+          </div>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-ink-100 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+        <div><p className="text-sm font-semibold text-ink-900">Dashboard reporting period</p><p className="text-xs text-ink-500">Rent and tax figures below are scoped to this month; occupancy is live.</p></div>
+        <input type="month" className="input sm:w-52" value={period} onChange={(e) => setPeriod(e.target.value)} />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4 mb-7">
+        <StatCard label="Total Units" value={totals.units} icon={<Home className="w-5 h-5" />} onClick={() => navigate('/owner/properties')} />
+        <StatCard label="Occupied" value={totals.occupied} icon={<Users className="w-5 h-5" />} accent="blue" onClick={() => navigate('/owner/properties')} />
+        <StatCard label="Vacant" value={totals.available} icon={<Home className="w-5 h-5" />} accent="ink" onClick={() => navigate('/owner/properties')} />
+        <StatCard label="Active Tenants" value={totals.tenants} icon={<Users className="w-5 h-5" />} accent="accent" onClick={() => navigate('/owner/tenants')} />
+        <StatCard label="Expected Rent / mo" value={formatKES(totals.expectedRent)} icon={<Wallet className="w-5 h-5" />} onClick={() => navigate('/owner/payments')} />
+        <StatCard label={`Rent Collected · ${period}`} value={formatKES(totals.collectedRent)} icon={<Wallet className="w-5 h-5" />} accent="blue" onClick={() => navigate('/owner/payments')} />
+        <StatCard label="Reserved Units" value={totals.reserved} icon={<Calendar className="w-5 h-5" />} accent="accent" onClick={() => navigate('/owner/reservations')} />
+        <StatCard label={`Estimated Tax · ${period}`} value={formatKES(totals.tax)} icon={<TrendingUp className="w-5 h-5" />} accent="red" onClick={() => navigate('/owner/tax')} />
+      </div>
+
+      <Card className="overflow-hidden">
+        <div className="flex flex-col gap-2 border-b border-ink-100 p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div><h3 className="font-semibold text-ink-900">Property-by-property performance</h3><p className="text-sm text-ink-500">Each building is separated so you can immediately see what is happening.</p></div>
+          <span className="badge bg-brand-50 text-brand-700">Live portfolio data</span>
+        </div>
+        {summary.length === 0 ? (
+          <EmptyState icon={<Building2 className="w-8 h-8" />} title="No properties yet" description="Add your first property to start tracking its units and income." />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[980px] text-sm">
+              <thead className="bg-ink-50 text-left text-ink-500">
+                <tr>
+                  <th className="px-5 py-3 font-medium">Property</th><th className="px-5 py-3 font-medium">Type</th><th className="px-5 py-3 font-medium">Units</th><th className="px-5 py-3 font-medium">Vacant</th><th className="px-5 py-3 font-medium">Reserved</th><th className="px-5 py-3 font-medium">Occupied</th><th className="px-5 py-3 font-medium">Tenants</th><th className="px-5 py-3 font-medium">Rent Collected</th><th className="px-5 py-3 font-medium">Est. Tax</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-ink-100">
+                {summary.map((row) => (
+                  <tr key={row.id} className="cursor-pointer hover:bg-brand-50/50" onClick={() => navigate(`/owner/units/${row.id}`)}>
+                    <td className="px-5 py-4 font-semibold text-ink-900">{row.name}</td>
+                    <td className="px-5 py-4"><div className="flex flex-wrap gap-1"><span className="badge bg-ink-100 text-ink-600">{row.propertyType}</span>{Object.entries(row.unitTypes).map(([type, count]) => <span key={type} className="badge bg-brand-50 text-brand-700">{type}: {count}</span>)}</div></td>
+                    <td className="px-5 py-4">{row.units}</td><td className="px-5 py-4 text-ink-500">{row.available}</td><td className="px-5 py-4 text-ink-500">{row.reserved}</td><td className="px-5 py-4 font-medium">{row.occupied}</td><td className="px-5 py-4">{row.tenants}</td><td className="px-5 py-4 font-semibold">{formatKES(row.collectedRent)}</td><td className="px-5 py-4 font-semibold text-brand-700">{formatKES(row.tax)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+
+      <div className="mt-7 grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card className="p-6">
-          <h3 className="font-semibold text-ink-900 mb-4">Monthly Rental Income</h3>
-          <div className="flex items-end gap-2 h-48">
-            {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug'].map((m, i) => {
-              const h = 30 + ((i * 17) % 60);
-              return (
-                <div key={m} className="flex-1 flex flex-col items-center gap-1">
-                  <div className="w-full bg-brand-200 rounded-t-lg" style={{ height: `${h}%` }}>
-                    <div className="w-full bg-brand-500 rounded-t-lg" style={{ height: `${h * 0.7}%` }} />
-                  </div>
-                  <span className="text-xs text-ink-400">{m}</span>
-                </div>
-              );
-            })}
+          <div className="mb-4"><h3 className="font-semibold text-ink-900">Unit type mix</h3><p className="text-xs text-ink-500">Across all your properties.</p></div>
+          <div className="grid grid-cols-2 gap-3">
+            {Object.entries(summary.reduce<Record<string, number>>((acc, row) => { Object.entries(row.unitTypes).forEach(([type, count]) => { acc[type] = (acc[type] || 0) + count; }); return acc; }, {})).sort((a,b) => b[1]-a[1]).map(([type,count]) => <div key={type} className="rounded-xl border border-ink-100 bg-ink-50 p-3"><p className="text-sm font-semibold text-ink-800">{type}</p><p className="mt-1 text-xl font-bold text-brand-700">{count}</p><p className="text-[11px] text-ink-500">units</p></div>)}
+            {summary.length === 0 && <p className="text-sm text-ink-500">Your unit mix will appear here.</p>}
           </div>
         </Card>
         <Card className="p-6">
-          <h3 className="font-semibold text-ink-900 mb-4">Occupancy Rate</h3>
-          <div className="flex items-center justify-center h-48">
-            <div className="relative w-40 h-40">
-              <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
-                <circle cx="50" cy="50" r="40" fill="none" stroke="#eceef2" strokeWidth="12" />
-                <circle
-                  cx="50" cy="50" r="40" fill="none" stroke="#1ea25e" strokeWidth="12"
-                  strokeDasharray={`${stats.units > 0 ? (stats.occupied / stats.units) * 251 : 0} 251`}
-                  strokeLinecap="round"
-                />
-              </svg>
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-3xl font-bold text-ink-900">{stats.units > 0 ? Math.round((stats.occupied / stats.units) * 100) : 0}%</span>
-                <span className="text-xs text-ink-400">Occupied</span>
-              </div>
-            </div>
+          <h3 className="font-semibold text-ink-900 mb-4">Collection health</h3>
+          <div className="space-y-4">
+            <div><div className="mb-1 flex justify-between text-sm"><span className="text-ink-500">Rent collection</span><span className="font-semibold">{totals.expectedRent ? Math.min(100, Math.round((totals.collectedRent / totals.expectedRent) * 100)) : 0}%</span></div><div className="h-2 rounded-full bg-ink-100"><div className="h-2 rounded-full bg-brand-500" style={{ width: `${totals.expectedRent ? Math.min(100, (totals.collectedRent / totals.expectedRent) * 100) : 0}%` }} /></div></div>
+            <div className="grid grid-cols-2 gap-3"><div className="rounded-xl bg-brand-50 p-4"><p className="text-xs text-brand-700">Collected</p><p className="mt-1 text-lg font-bold text-brand-900">{formatKES(totals.collectedRent)}</p></div><div className="rounded-xl bg-red-50 p-4"><p className="text-xs text-red-700">Estimated tax</p><p className="mt-1 text-lg font-bold text-red-900">{formatKES(totals.tax)}</p></div></div>
           </div>
         </Card>
       </div>
@@ -127,6 +175,7 @@ export function OwnerProperties() {
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [mediaProperty, setMediaProperty] = useState<Property | null>(null);
 
   const load = async () => {
     if (!profile) return;
@@ -172,6 +221,7 @@ export function OwnerProperties() {
                 <div className="flex gap-2">
                   <button onClick={() => navigate(`/property/${p.id}`)} className="btn-secondary text-sm flex-1"><Eye className="w-4 h-4" /> View</button>
                   <button onClick={() => navigate(`/owner/units/${p.id}`)} className="btn-secondary text-sm flex-1"><Home className="w-4 h-4" /> Units</button>
+                  <button onClick={() => setMediaProperty(p)} className="btn-secondary text-sm flex-1">Media</button>
                   <button onClick={() => setDeleteId(p.id)} className="btn-ghost text-red-500"><Trash2 className="w-4 h-4" /></button>
                 </div>
               </div>
@@ -182,6 +232,7 @@ export function OwnerProperties() {
 
       {showAdd && <AddPropertyModal onClose={() => { setShowAdd(false); load(); }} />}
       <ConfirmDialog open={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={handleDelete} title="Delete Property" message="Are you sure? This will also delete all units, reservations, and leases associated with this property. This cannot be undone." confirmLabel="Delete" danger />
+      {mediaProperty && <PropertyMediaModal property={mediaProperty} onClose={() => { setMediaProperty(null); load(); }} />}
     </DashboardLayout>
   );
 }
@@ -194,29 +245,46 @@ function AddPropertyModal({ onClose }: { onClose: () => void }) {
     number_of_units: 1, parking: false, water_availability: true, electricity: true, internet: false, pets_allowed: false,
   });
   const [amenities, setAmenities] = useState<string[]>([]);
+  const [photos, setPhotos] = useState<File[]>([]);
+  const [videos, setVideos] = useState<File[]>([]);
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!profile) return;
     setLoading(true);
-    const { error } = await supabase.from('properties').insert({
+    const { data: property, error } = await supabase.from('properties').insert({
       ...form,
       owner_id: profile.id,
       amenities,
-      photos: getPropertyImages(form.property_type),
+      photos: [],
+      videos: [],
       status: 'pending_verification',
-    });
+    }).select('id').single();
+    if (error || !property) { setLoading(false); toast(error?.message || 'Could not create property. Please try again.', 'error'); return; }
+
+    const uploadedPhotos: string[] = [];
+    const uploadedVideos: string[] = [];
+    for (const file of photos) {
+      const url = await uploadPropertyMedia(profile.id, property.id, file);
+      if (url) uploadedPhotos.push(url); else toast(`Could not upload ${file.name}`, 'error');
+    }
+    for (const file of videos) {
+      const url = await uploadPropertyMedia(profile.id, property.id, file);
+      if (url) uploadedVideos.push(url); else toast(`Could not upload ${file.name}`, 'error');
+    }
+    const { error: mediaError } = await supabase.from('properties').update({ photos: uploadedPhotos, videos: uploadedVideos }).eq('id', property.id);
     setLoading(false);
-    if (error) { toast('Could not create property. Please try again.', 'error'); return; }
+    if (mediaError) { toast('Property was created, but its media could not be saved.', 'error'); return; }
     toast('Property created! It will be reviewed by our team before going live.', 'success');
     onClose();
   };
 
   return (
     <Modal open onClose={onClose} title="Add Property" size="lg">
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <div className="rounded-xl bg-brand-50 p-4 text-sm text-brand-900"><strong>Property first, media second.</strong> Add the building details below, then attach clear photos and an optional walkthrough video. The listing stays pending until an administrator verifies it.</div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div><label className="label">Property Name</label><input className="input" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Sunrise Apartments" /></div>
           <div><label className="label">Property Type</label><select className="input" value={form.property_type} onChange={(e) => setForm({ ...form, property_type: e.target.value })}>{PROPERTY_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}</select></div>
           <div><label className="label">County</label><select className="input" value={form.county} onChange={(e) => setForm({ ...form, county: e.target.value })}>{KENYAN_COUNTIES.map((c) => <option key={c} value={c}>{c}</option>)}</select></div>
@@ -230,27 +298,71 @@ function AddPropertyModal({ onClose }: { onClose: () => void }) {
           <label className="label">Amenities</label>
           <div className="flex flex-wrap gap-2">
             {PROPERTY_AMENITIES.map((a) => (
-              <button key={a} type="button" onClick={() => setAmenities(amenities.includes(a) ? amenities.filter((x) => x !== a) : [...amenities, a])}
-                className={`badge cursor-pointer ${amenities.includes(a) ? 'bg-brand-100 text-brand-700' : 'bg-ink-100 text-ink-500'}`}>{a}</button>
+              <button key={a} type="button" onClick={() => setAmenities(amenities.includes(a) ? amenities.filter((x) => x !== a) : [...amenities, a])} className={`badge cursor-pointer ${amenities.includes(a) ? 'bg-brand-100 text-brand-700' : 'bg-ink-100 text-ink-500'}`}>{a}</button>
             ))}
           </div>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
           {[{ k: 'parking', l: 'Parking' }, { k: 'water_availability', l: 'Water' }, { k: 'electricity', l: 'Electricity' }, { k: 'internet', l: 'Internet' }, { k: 'pets_allowed', l: 'Pets' }].map((f) => (
-            <label key={f.k} className="flex items-center gap-2 text-sm text-ink-700">
-              <input type="checkbox" className="w-4 h-4 rounded text-brand-600" checked={(form as Record<string, unknown>)[f.k] as boolean} onChange={(e) => setForm({ ...form, [f.k]: e.target.checked })} />
-              {f.l}
-            </label>
+            <label key={f.k} className="flex items-center gap-2 text-sm text-ink-700"><input type="checkbox" className="h-4 w-4 rounded text-brand-600" checked={(form as Record<string, unknown>)[f.k] as boolean} onChange={(e) => setForm({ ...form, [f.k]: e.target.checked })} />{f.l}</label>
           ))}
         </div>
-        <button type="submit" className="btn-primary w-full" disabled={loading}>{loading ? 'Creating...' : 'Create Property'}</button>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="rounded-xl border border-dashed border-brand-200 bg-brand-50/50 p-4"><label className="label">Property Photos</label><input className="input" type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={(e) => setPhotos(Array.from(e.target.files || []))} /><p className="mt-2 text-xs text-ink-500">JPG, PNG or WebP. Multiple photos allowed.</p>{photos.length > 0 && <p className="mt-1 text-xs font-medium text-brand-700">{photos.length} photo(s) selected</p>}</div>
+          <div className="rounded-xl border border-dashed border-brand-200 bg-brand-50/50 p-4"><label className="label">Property Video</label><input className="input" type="file" accept="video/mp4,video/webm,video/quicktime" multiple onChange={(e) => setVideos(Array.from(e.target.files || []))} /><p className="mt-2 text-xs text-ink-500">MP4/WebM/MOV. Keep videos reasonably sized for upload.</p>{videos.length > 0 && <p className="mt-1 text-xs font-medium text-brand-700">{videos.length} video(s) selected</p>}</div>
+        </div>
+        <button type="submit" className="btn-primary w-full" disabled={loading}>{loading ? 'Creating property & uploading media...' : 'Create Property'}</button>
       </form>
     </Modal>
   );
 }
 
-export function OwnerUnits({ propertyId }: { propertyId: string }) {
+function PropertyMediaModal({ property, onClose }: { property: Property; onClose: () => void }) {
   const { profile } = useAuth();
+  const { toast } = useToast();
+  const [photos, setPhotos] = useState<string[]>(property.photos || []);
+  const [videos, setVideos] = useState<string[]>(property.videos || []);
+  const [uploading, setUploading] = useState(false);
+
+  const uploadFiles = async (files: FileList | null, kind: 'photo' | 'video') => {
+    if (!profile || !files?.length) return;
+    setUploading(true);
+    const next = kind === 'photo' ? [...photos] : [...videos];
+    for (const file of Array.from(files)) {
+      const url = await uploadPropertyMedia(profile.id, property.id, file);
+      if (url) next.push(url); else toast(`Could not upload ${file.name}`, 'error');
+    }
+    if (kind === 'photo') setPhotos(next); else setVideos(next);
+    const { error } = await supabase.from('properties').update(kind === 'photo' ? { photos: next } : { videos: next }).eq('id', property.id);
+    setUploading(false);
+    if (error) { toast(`Files uploaded, but listing media could not be saved: ${error.message}`, 'error'); return; }
+    toast('Media updated successfully.', 'success');
+  };
+
+  const remove = async (url: string, kind: 'photo' | 'video') => {
+    const ok = await deletePropertyMedia(url);
+    const next = (kind === 'photo' ? photos : videos).filter((item) => item !== url);
+    if (kind === 'photo') setPhotos(next); else setVideos(next);
+    await supabase.from('properties').update(kind === 'photo' ? { photos: next } : { videos: next }).eq('id', property.id);
+    if (!ok) toast('Media removed from the listing, but the storage file may need cleanup.', 'info'); else toast('Media removed', 'success');
+  };
+
+  return (
+    <Modal open onClose={onClose} title={`Manage Media — ${property.name}`} size="lg">
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div><label className="label">Add Photos</label><input className="input" type="file" accept="image/jpeg,image/png,image/webp" multiple disabled={uploading} onChange={(e) => uploadFiles(e.target.files, 'photo')} /></div>
+          <div><label className="label">Add Videos</label><input className="input" type="file" accept="video/mp4,video/webm,video/quicktime" multiple disabled={uploading} onChange={(e) => uploadFiles(e.target.files, 'video')} /></div>
+        </div>
+        {uploading && <p className="text-sm text-brand-700">Uploading media…</p>}
+        <div><h4 className="mb-3 font-semibold text-ink-900">Photos ({photos.length})</h4>{photos.length ? <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">{photos.map((url) => <div key={url} className="group relative overflow-hidden rounded-xl border border-ink-100"><img src={url} alt="Property" className="h-32 w-full object-cover" /><button type="button" onClick={() => remove(url, 'photo')} className="absolute right-2 top-2 rounded-lg bg-white/90 px-2 py-1 text-xs font-semibold text-red-600 shadow">Remove</button></div>)}</div> : <p className="text-sm text-ink-500">No owner-uploaded photos yet.</p>}</div>
+        <div><h4 className="mb-3 font-semibold text-ink-900">Videos ({videos.length})</h4>{videos.length ? <div className="space-y-3">{videos.map((url) => <div key={url} className="flex items-center justify-between rounded-xl bg-ink-50 p-3"><video src={url} controls className="h-28 w-48 rounded-lg object-cover" /><button type="button" onClick={() => remove(url, 'video')} className="rounded-lg px-3 py-2 text-sm font-semibold text-red-600 hover:bg-red-50">Remove</button></div>)}</div> : <p className="text-sm text-ink-500">No walkthrough videos yet.</p>}</div>
+      </div>
+    </Modal>
+  );
+}
+
+export function OwnerUnits({ propertyId }: { propertyId: string }) {
   const { toast } = useToast();
   const [units, setUnits] = useState<PropertyUnit[]>([]);
   const [property, setProperty] = useState<Property | null>(null);
@@ -281,17 +393,37 @@ export function OwnerUnits({ propertyId }: { propertyId: string }) {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-xl font-bold text-ink-900">{property?.name || 'Property'} — Units</h2>
-          <p className="text-sm text-ink-500">{units.length} units total</p>
+          <p className="text-sm text-ink-500">{units.length} units total · click any unit card to manage it</p>
         </div>
         <button onClick={() => setShowAdd(true)} className="btn-primary"><Plus className="w-4 h-4" /> Add Unit</button>
       </div>
+
+      {!loading && units.length > 0 && property?.property_type === 'Apartment' && (
+        <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {Object.entries(units.reduce<Record<string, { total: number; available: number; occupied: number; reserved: number }>>((acc, unit) => {
+            const floor = unit.floor == null ? 'Unassigned' : `Floor ${unit.floor}`;
+            acc[floor] ||= { total: 0, available: 0, occupied: 0, reserved: 0 };
+            acc[floor].total++;
+            if (unit.status === 'available') acc[floor].available++;
+            if (unit.status === 'occupied') acc[floor].occupied++;
+            if (unit.status === 'reserved') acc[floor].reserved++;
+            return acc;
+          }, {})).sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true })).map(([floor, x]) => (
+            <Card key={floor} className="p-5 border-brand-100 bg-gradient-to-br from-white to-brand-50/40">
+              <p className="text-sm font-semibold text-ink-900">{floor}</p>
+              <p className="mt-1 text-2xl font-bold text-brand-700">{x.available} <span className="text-sm font-medium text-ink-400">available</span></p>
+              <p className="mt-2 text-xs text-ink-500">{x.total} total · {x.occupied} occupied · {x.reserved} reserved</p>
+            </Card>
+          ))}
+        </div>
+      )}
 
       {loading ? <LoadingPage /> : units.length === 0 ? (
         <EmptyState icon={<Home className="w-8 h-8" />} title="No units yet" description="Add individual units to this property with rent, deposit, and amenities." action={<button onClick={() => setShowAdd(true)} className="btn-primary"><Plus className="w-4 h-4" /> Add Unit</button>} />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {units.map((u) => (
-            <Card key={u.id} className="p-4">
+            <Card key={u.id} className="p-4 transition-all hover:-translate-y-0.5 hover:shadow-soft-lg">
               <div className="flex items-center justify-between mb-2">
                 <h3 className="font-semibold text-ink-900">Unit {u.unit_number}</h3>
                 <Badge status={u.status} />
@@ -385,8 +517,9 @@ function AddUnitModal({ propertyId, onClose }: { propertyId: string; onClose: ()
 export function OwnerReservations() {
   const { profile } = useAuth();
   const { toast } = useToast();
-  const [reservations, setReservations] = useState<(Reservation & { property_units: { unit_number: string }; properties: { name: string } })[]>([]);
+  const [reservations, setReservations] = useState<(Reservation & { property_units: { unit_number: string; monthly_rent?: number; security_deposit?: number }; properties: { name: string } })[]>([]);
   const [loading, setLoading] = useState(true);
+  const [leaseReservation, setLeaseReservation] = useState<(Reservation & { property_units: { unit_number: string; monthly_rent?: number; security_deposit?: number }; properties: { name: string } }) | null>(null);
 
   useEffect(() => {
     if (!profile) return;
@@ -394,14 +527,34 @@ export function OwnerReservations() {
       const { data: props } = await supabase.from('properties').select('id').eq('owner_id', profile.id);
       const propIds = (props || []).map((p) => p.id);
       if (propIds.length === 0) { setLoading(false); return; }
-      const { data } = await supabase.from('reservations').select('*, property_units(unit_number), properties(name)').in('property_id', propIds).order('created_at', { ascending: false });
+      const { data } = await supabase.from('reservations').select('*, property_units(unit_number,monthly_rent,security_deposit), properties(name)').in('property_id', propIds).order('created_at', { ascending: false });
       setReservations((data as typeof reservations) || []);
       setLoading(false);
     })();
   }, [profile]);
 
+  const convertToLease = async (r: Reservation & { property_units: { unit_number: string; monthly_rent?: number; security_deposit?: number }; properties: { name: string } }) => {
+    const start = new Date();
+    const end = new Date(start); end.setFullYear(end.getFullYear() + 1);
+    const { error } = await supabase.from('leases').insert({
+      tenant_id: r.customer_id, property_id: r.property_id, unit_id: r.unit_id, reservation_id: r.id,
+      lease_start: start.toISOString().slice(0,10), lease_end: end.toISOString().slice(0,10),
+      monthly_rent: Number(r.property_units.monthly_rent || 0), deposit: Number(r.property_units.security_deposit || 0),
+      status: 'active', signed_by_tenant: false, signed_by_owner: true,
+    });
+    if (error) { toast(`Could not create lease: ${error.message}`, 'error'); return; }
+    await supabase.from('reservations').update({ status: 'converted' }).eq('id', r.id);
+    await supabase.from('property_units').update({ status: 'occupied' }).eq('id', r.unit_id);
+    await supabase.from('notifications').insert({ user_id: r.customer_id, title: 'Lease activated', message: `Your lease for ${r.properties.name}, Unit ${r.property_units.unit_number} is now active.`, type: 'lease' });
+    toast('Reservation converted to an active lease.', 'success');
+    setLeaseReservation(null);
+    setReservations(reservations.map((x) => x.id === r.id ? { ...x, status: 'converted' } : x));
+  };
+
   const updateStatus = async (id: string, status: string) => {
+    const reservation = reservations.find((r) => r.id === id);
     await supabase.from('reservations').update({ status }).eq('id', id);
+    if (status === 'cancelled' && reservation) await supabase.from('property_units').update({ status: 'available' }).eq('id', reservation.unit_id);
     toast(`Reservation ${status}`, 'success');
     setReservations(reservations.map((r) => r.id === id ? { ...r, status: status as Reservation['status'] } : r));
   };
@@ -440,6 +593,9 @@ export function OwnerReservations() {
                           <button onClick={() => updateStatus(r.id, 'cancelled')} className="text-red-500 hover:bg-red-50 p-1.5 rounded-lg"><XCircle className="w-4 h-4" /></button>
                         </div>
                       )}
+                      {r.status === 'confirmed' && (
+                        <button onClick={() => setLeaseReservation(r)} className="rounded-lg bg-brand-50 px-2.5 py-1.5 text-xs font-semibold text-brand-700 hover:bg-brand-100">Convert to lease</button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -448,13 +604,21 @@ export function OwnerReservations() {
           </div>
         </Card>
       )}
+      {leaseReservation && (
+        <Modal open onClose={() => setLeaseReservation(null)} title="Activate Lease" size="md">
+          <div className="space-y-4">
+            <div className="rounded-xl bg-brand-50 p-4 text-sm text-brand-900"><strong>{leaseReservation.properties?.name}</strong> · Unit {leaseReservation.property_units?.unit_number}<br />This will activate a 12-month lease using the unit's current rent and deposit.</div>
+            <div className="grid grid-cols-2 gap-3"><div><label className="label">Monthly Rent</label><input className="input" value={formatKES(leaseReservation.property_units?.monthly_rent || 0)} readOnly /></div><div><label className="label">Deposit</label><input className="input" value={formatKES(leaseReservation.property_units?.security_deposit || 0)} readOnly /></div></div>
+            <button type="button" onClick={() => convertToLease(leaseReservation)} className="btn-primary w-full">Activate Lease</button>
+          </div>
+        </Modal>
+      )}
     </DashboardLayout>
   );
 }
 
 export function OwnerExpenses() {
   const { profile } = useAuth();
-  const { toast } = useToast();
   const [expenses, setExpenses] = useState<(Expense & { properties: { name: string } })[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
@@ -547,25 +711,43 @@ function AddExpenseModal({ properties, ownerId, onClose }: { properties: Propert
 
 export function OwnerTax() {
   const { profile } = useAuth();
-  const [records, setRecords] = useState<(TaxRecord & { properties: { name: string } })[]>([]);
+  const { toast } = useToast();
+  const [records, setRecords] = useState<(TaxRecord & { properties: { name: string } | null })[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCalc, setShowCalc] = useState(false);
 
-  useEffect(() => {
+  const load = async () => {
     if (!profile) return;
-    (async () => {
-      const { data } = await supabase.from('tax_records').select('*, properties(name)').eq('owner_id', profile.id).order('created_at', { ascending: false });
-      setRecords((data as typeof records) || []);
-      setLoading(false);
-    })();
-  }, [profile]);
+    const { data } = await supabase.from('tax_records').select('*, properties(name)').eq('owner_id', profile.id).order('period', { ascending: false }).order('created_at', { ascending: false });
+    setRecords((data as typeof records) || []);
+    setLoading(false);
+  };
+  useEffect(() => { load(); }, [profile]);
 
-  const totalTax = records.reduce((s, r) => s + r.estimated_tax, 0);
-  const totalPaid = records.reduce((s, r) => s + r.tax_paid, 0);
+  const prepareLatest = async () => {
+    const record = records.find((r) => r.status === 'calculated');
+    if (!record) { toast('There is no calculated tax record to prepare.', 'info'); return; }
+    const { error } = await supabase.from('tax_records').update({ status: 'prepared' }).eq('id', record.id);
+    if (error) { toast('Could not prepare the tax record.', 'error'); return; }
+    toast('Tax record prepared for filing.', 'success');
+    load();
+  };
+
+  const exportCsv = () => {
+    if (!records.length) { toast('There is no tax data to export yet.', 'info'); return; }
+    const rows = [['Period','Property','Gross Income','Allowable Expenses','Taxable Income','Tax Rate %','Estimated Tax','Tax Paid','Status','KRA Reference'], ...records.map((r) => [r.period,r.properties?.name || 'All properties',r.gross_income,r.allowable_expenses,r.taxable_income,r.tax_rate_pct,r.estimated_tax,r.tax_paid,r.status,r.kra_reference || ''])];
+    const csv = rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = `highpark-tax-report-${new Date().toISOString().slice(0,10)}.csv`; a.click(); URL.revokeObjectURL(url);
+  };
+
+  const totalTax = records.reduce((s, r) => s + Number(r.estimated_tax || 0), 0);
+  const totalPaid = records.reduce((s, r) => s + Number(r.tax_paid || 0), 0);
 
   return (
     <DashboardLayout navItems={ownerNav} title="Tax & KRA">
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 mb-6">
         <StatCard label="Estimated Tax" value={formatKES(totalTax)} icon={<TrendingUp className="w-5 h-5" />} accent="accent" />
         <StatCard label="Tax Paid" value={formatKES(totalPaid)} icon={<CheckCircle className="w-5 h-5" />} />
         <StatCard label="Outstanding" value={formatKES(Math.max(0, totalTax - totalPaid))} icon={<Receipt className="w-5 h-5" />} accent="red" />
@@ -575,51 +757,28 @@ export function OwnerTax() {
         <div className="flex items-start gap-4">
           <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0"><Calculator className="w-6 h-6" /></div>
           <div className="flex-1">
-            <h3 className="font-semibold text-ink-900 mb-1">Tax Rules Engine</h3>
-            <p className="text-sm text-ink-500 mb-4">The system uses configurable tax rules (default: 7.5% residential rental income tax). Tax rates are set by administrators and can be updated when KRA regulations change.</p>
+            <h3 className="font-semibold text-ink-900 mb-1">Tax calculation & filing workspace</h3>
+            <p className="text-sm text-ink-500 mb-4">Calculations are based on verified rent payments and recorded expenses for the selected month and property. The configured administrator tax rate is used for the estimate.</p>
             <div className="flex flex-wrap gap-2">
               <button onClick={() => setShowCalc(true)} className="btn-primary text-sm"><Calculator className="w-4 h-4" /> Calculate Tax</button>
-              <button className="btn-secondary text-sm"><FileText className="w-4 h-4" /> Prepare Tax Record</button>
-              <button className="btn-secondary text-sm"><Download className="w-4 h-4" /> Export Report</button>
+              <button onClick={prepareLatest} className="btn-secondary text-sm"><FileText className="w-4 h-4" /> Prepare a Tax Record</button>
+              <button onClick={exportCsv} className="btn-secondary text-sm"><Download className="w-4 h-4" /> Export Report</button>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="card p-4 mb-6 bg-yellow-50 border-yellow-200">
-        <p className="text-sm text-yellow-700">
-          <strong>KRA Integration:</strong> This system is designed to integrate with official KRA-approved services. Tax calculations are estimates based on configured rates. Actual KRA filings must be completed through official KRA channels (KRA Portal, iTax, or authorized payment providers).
-        </p>
-      </div>
+      <div className="card p-4 mb-6 bg-yellow-50 border-yellow-200"><p className="text-sm text-yellow-700"><strong>Important:</strong> These are estimates, not an electronic KRA filing. Actual filing/payment must use the applicable official KRA process.</p></div>
 
       {loading ? <LoadingPage /> : records.length === 0 ? (
-        <EmptyState icon={<TrendingUp className="w-8 h-8" />} title="No tax records yet" description="Calculate your tax liability to generate records for KRA filing." action={<button onClick={() => setShowCalc(true)} className="btn-primary"><Calculator className="w-4 h-4" /> Calculate Tax</button>} />
+        <EmptyState icon={<TrendingUp className="w-8 h-8" />} title="No tax records yet" description="Calculate a period to create a tax record." action={<button onClick={() => setShowCalc(true)} className="btn-primary"><Calculator className="w-4 h-4" /> Calculate Tax</button>} />
       ) : (
         <Card className="overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-ink-50 text-ink-500 text-left">
-                <tr><th className="px-4 py-3 font-medium">Period</th><th className="px-4 py-3 font-medium">Property</th><th className="px-4 py-3 font-medium">Gross Income</th><th className="px-4 py-3 font-medium">Expenses</th><th className="px-4 py-3 font-medium">Taxable</th><th className="px-4 py-3 font-medium">Est. Tax</th><th className="px-4 py-3 font-medium">Status</th></tr>
-              </thead>
-              <tbody className="divide-y divide-ink-100">
-                {records.map((r) => (
-                  <tr key={r.id} className="hover:bg-ink-50">
-                    <td className="px-4 py-3 font-medium text-ink-900">{r.period}</td>
-                    <td className="px-4 py-3">{r.properties?.name || 'All'}</td>
-                    <td className="px-4 py-3">{formatKES(r.gross_income)}</td>
-                    <td className="px-4 py-3">{formatKES(r.allowable_expenses)}</td>
-                    <td className="px-4 py-3">{formatKES(r.taxable_income)}</td>
-                    <td className="px-4 py-3 font-semibold">{formatKES(r.estimated_tax)}</td>
-                    <td className="px-4 py-3"><Badge status={r.status} /></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <div className="overflow-x-auto"><table className="w-full min-w-[920px] text-sm"><thead className="bg-ink-50 text-ink-500 text-left"><tr><th className="px-4 py-3 font-medium">Period</th><th className="px-4 py-3 font-medium">Property</th><th className="px-4 py-3 font-medium">Gross Income</th><th className="px-4 py-3 font-medium">Expenses</th><th className="px-4 py-3 font-medium">Taxable</th><th className="px-4 py-3 font-medium">Rate</th><th className="px-4 py-3 font-medium">Est. Tax</th><th className="px-4 py-3 font-medium">Status</th></tr></thead><tbody className="divide-y divide-ink-100">{records.map((r) => <tr key={r.id} className="hover:bg-ink-50"><td className="px-4 py-3 font-medium text-ink-900">{r.period}</td><td className="px-4 py-3">{r.properties?.name || 'All properties'}</td><td className="px-4 py-3">{formatKES(r.gross_income)}</td><td className="px-4 py-3">{formatKES(r.allowable_expenses)}</td><td className="px-4 py-3">{formatKES(r.taxable_income)}</td><td className="px-4 py-3">{r.tax_rate_pct}%</td><td className="px-4 py-3 font-semibold">{formatKES(r.estimated_tax)}</td><td className="px-4 py-3"><Badge status={r.status} /></td></tr>)}</tbody></table></div>
         </Card>
       )}
 
-      {showCalc && <TaxCalcModal ownerId={profile?.id || ''} onClose={() => { setShowCalc(false); window.location.reload(); }} />}
+      {showCalc && <TaxCalcModal ownerId={profile?.id || ''} onClose={() => { setShowCalc(false); load(); }} />}
     </DashboardLayout>
   );
 }
@@ -627,49 +786,48 @@ export function OwnerTax() {
 function TaxCalcModal({ ownerId, onClose }: { ownerId: string; onClose: () => void }) {
   const { toast } = useToast();
   const [period, setPeriod] = useState(new Date().toISOString().slice(0, 7));
+  const [propertyId, setPropertyId] = useState('');
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [rate, setRate] = useState(7.5);
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    (async () => {
+      const [{ data: props }, { data: settings }] = await Promise.all([
+        supabase.from('properties').select('*').eq('owner_id', ownerId).order('name'),
+        supabase.from('system_settings').select('default_tax_rate_pct').eq('id', 1).maybeSingle(),
+      ]);
+      setProperties((props as Property[]) || []);
+      setRate(Number(settings?.default_tax_rate_pct ?? 7.5));
+    })();
+  }, [ownerId]);
+
   const handleCalc = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    const { data: props } = await supabase.from('properties').select('id').eq('owner_id', ownerId);
-    const propIds = (props || []).map((p) => p.id);
-
-    const { data: payments } = await supabase.from('payments').select('amount').in('property_id', propIds).eq('status', 'successful').eq('verified', true);
-    const gross = ((payments as Payment[]) || []).reduce((s, p) => s + p.amount, 0);
-
-    const { data: expenses } = await supabase.from('expenses').select('amount').in('property_id', propIds);
-    const exp = ((expenses as Expense[]) || []).reduce((s, e) => s + e.amount, 0);
-
-    const taxable = Math.max(0, gross - exp);
-    const estimatedTax = taxable * 0.075;
-
-    const { error } = await supabase.from('tax_records').insert({
-      owner_id: ownerId, period, gross_income: gross, allowable_expenses: exp,
-      taxable_income: taxable, tax_rate_pct: 7.5, estimated_tax: estimatedTax, tax_paid: 0, status: 'calculated',
-    });
+    e.preventDefault(); setLoading(true);
+    const selected = propertyId ? properties.filter((p) => p.id === propertyId) : properties;
+    if (!selected.length) { toast('Add a property before calculating tax.', 'error'); setLoading(false); return; }
+    const start = `${period}-01`;
+    const nextMonth = new Date(`${period}-01T00:00:00`); nextMonth.setMonth(nextMonth.getMonth() + 1);
+    const end = nextMonth.toISOString().slice(0, 10);
+    const results = await Promise.all(selected.map(async (property) => {
+      const [{ data: payments }, { data: expenses }] = await Promise.all([
+        supabase.from('payments').select('amount').eq('property_id', property.id).eq('payment_type', 'rent').eq('status', 'successful').eq('verified', true).gte('created_at', start).lt('created_at', end),
+        supabase.from('expenses').select('amount').eq('property_id', property.id).gte('expense_date', start).lt('expense_date', end),
+      ]);
+      const gross = ((payments || []) as { amount: number }[]).reduce((sum, p) => sum + Number(p.amount || 0), 0);
+      const exp = ((expenses || []) as { amount: number }[]).reduce((sum, x) => sum + Number(x.amount || 0), 0);
+      const taxable = Math.max(0, gross - exp);
+      const estimatedTax = taxable * (rate / 100);
+      return { propertyId: property.id, gross, exp, taxable, estimatedTax };
+    }));
+    const { error } = await supabase.from('tax_records').insert(results.map((r) => ({ owner_id: ownerId, property_id: r.propertyId, period, gross_income: r.gross, allowable_expenses: r.exp, taxable_income: r.taxable, tax_rate_pct: rate, estimated_tax: r.estimatedTax, tax_paid: 0, status: 'calculated' })));
     setLoading(false);
-    if (error) { toast('Could not calculate tax.', 'error'); return; }
-    toast('Tax calculated successfully!', 'success');
-    onClose();
+    if (error) { toast(error.message || 'Could not calculate tax.', 'error'); return; }
+    const total = results.reduce((sum, r) => sum + r.estimatedTax, 0);
+    toast(`${selected.length} property tax record${selected.length === 1 ? '' : 's'} saved: ${formatKES(total)}`, 'success'); onClose();
   };
 
-  return (
-    <Modal open onClose={onClose} title="Calculate Tax" size="sm">
-      <form onSubmit={handleCalc} className="space-y-4">
-        <div><label className="label">Tax Period (YYYY-MM)</label><input type="month" className="input" required value={period} onChange={(e) => setPeriod(e.target.value)} /></div>
-        <div className="bg-ink-50 rounded-xl p-4 text-sm space-y-2">
-          <p className="text-ink-500">This will calculate your tax based on:</p>
-          <ul className="space-y-1 text-ink-600">
-            <li>• Gross rental income (verified payments)</li>
-            <li>• Allowable expenses recorded</li>
-            <li>• Tax rate: 7.5% (residential rental income)</li>
-          </ul>
-        </div>
-        <button type="submit" className="btn-primary w-full" disabled={loading}>{loading ? 'Calculating...' : 'Calculate & Save'}</button>
-      </form>
-    </Modal>
-  );
+  return <Modal open onClose={onClose} title="Calculate Tax" size="sm"><form onSubmit={handleCalc} className="space-y-4"><div><label className="label">Tax Period</label><input type="month" className="input" required value={period} onChange={(e) => setPeriod(e.target.value)} /></div><div><label className="label">Property</label><select className="input" value={propertyId} onChange={(e) => setPropertyId(e.target.value)}><option value="">All my properties</option>{properties.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div><div className="bg-ink-50 rounded-xl p-4 text-sm space-y-2"><p className="font-medium text-ink-800">Calculation preview</p><p className="text-ink-500">Each selected property is calculated separately: verified rent for the month minus recorded expenses, multiplied by the configured rate of <strong>{rate}%</strong>. This keeps tax visible per property.</p></div><button type="submit" className="btn-primary w-full" disabled={loading}>{loading ? 'Calculating...' : 'Calculate & Save'}</button></form></Modal>;
 }
 
 export function OwnerMaintenance() {
@@ -684,7 +842,7 @@ export function OwnerMaintenance() {
       const { data: props } = await supabase.from('properties').select('id').eq('owner_id', profile.id);
       const propIds = (props || []).map((p) => p.id);
       if (propIds.length === 0) { setLoading(false); return; }
-      const { data } = await supabase.from('maintenance_requests').select('*, property_units(unit_number), properties(name)').in('property_id', propIds).order('created_at', { ascending: false });
+      const { data } = await supabase.from('maintenance_requests').select('*, property_units(unit_number,monthly_rent,security_deposit), properties(name)').in('property_id', propIds).order('created_at', { ascending: false });
       setRequests((data as typeof requests) || []);
       setLoading(false);
     })();
