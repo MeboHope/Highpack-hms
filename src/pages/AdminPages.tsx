@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Building2, Users, Calendar, Wallet, Home, CheckCircle, XCircle, ShieldCheck, Receipt } from 'lucide-react';
+import { Building2, Users, Calendar, Wallet, Home, CheckCircle, XCircle, ShieldCheck, Receipt, UserCheck } from 'lucide-react';
 import { DashboardLayout, adminNav } from '@/components/DashboardLayout';
 import { StatCard, Card, Badge, EmptyState, LoadingPage } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
@@ -7,7 +7,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import { useRouter } from '@/context/RouterContext';
 import { formatKES, formatDate, titleCase, normalizeUnitType } from '@/lib/constants';
-import type { Property, Profile, Reservation, Payment, SystemSettings } from '@/lib/supabase';
+import type { Property, Profile, Reservation, Payment, SystemSettings, TaxRecord } from '@/lib/supabase';
 
 export function AdminDashboard() {
   const { profile } = useAuth();
@@ -61,15 +61,15 @@ export function AdminDashboard() {
       <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-ink-100 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between"><div><p className="text-sm font-semibold text-ink-900">Reporting period</p><p className="text-xs text-ink-500">Rent and tax figures are scoped to this month.</p></div><input type="month" className="input sm:w-52" value={period} onChange={(e) => setPeriod(e.target.value)} /></div>
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4 mb-7">
         <StatCard label="Properties" value={totals.properties} icon={<Building2 className="w-5 h-5" />} onClick={() => navigate('/admin/properties')} />
-        <StatCard label="Units" value={totals.units} icon={<Home className="w-5 h-5" />} accent="accent" onClick={() => navigate('/admin/properties')} />
-        <StatCard label="Occupied" value={totals.occupied} icon={<Users className="w-5 h-5" />} accent="blue" onClick={() => navigate('/admin/properties')} />
-        <StatCard label="Available" value={totals.available} icon={<Home className="w-5 h-5" />} accent="ink" onClick={() => navigate('/admin/properties')} />
+        <StatCard label="Units" value={totals.units} icon={<Home className="w-5 h-5" />} accent="accent" onClick={() => navigate('/admin/units')} />
+        <StatCard label="Occupied" value={totals.occupied} icon={<Users className="w-5 h-5" />} accent="blue" onClick={() => navigate('/admin/units?status=occupied')} />
+        <StatCard label="Available" value={totals.available} icon={<Home className="w-5 h-5" />} accent="ink" onClick={() => navigate('/admin/units?status=available')} />
         <StatCard label="Reserved" value={totals.reserved} icon={<Calendar className="w-5 h-5" />} accent="accent" onClick={() => navigate('/admin/reservations')} />
-        <StatCard label="Active Tenants" value={totals.tenants} icon={<Users className="w-5 h-5" />} onClick={() => navigate('/admin/users')} />
+        <StatCard label="Active Tenants" value={totals.tenants} icon={<UserCheck className="w-5 h-5" />} onClick={() => navigate('/admin/users?role=customer&active=true')} />
         <StatCard label={`Verified Rent · ${period}`} value={formatKES(totals.rent)} icon={<Wallet className="w-5 h-5" />} accent="blue" onClick={() => navigate('/admin/payments')} />
-        <StatCard label={`Estimated Tax · ${period}`} value={formatKES(totals.tax)} icon={<Receipt className="w-5 h-5" />} accent="red" onClick={() => navigate('/admin/settings')} />
+        <StatCard label={`Estimated Tax · ${period}`} value={formatKES(totals.tax)} icon={<Receipt className="w-5 h-5" />} accent="red" onClick={() => navigate(`/admin/tax?period=${period}`)} />
       </div>
-      <Card className="overflow-hidden"><div className="border-b border-ink-100 p-5"><h3 className="font-semibold text-ink-900">Property performance</h3><p className="text-sm text-ink-500">Separate totals for each property, including property type, units, tenants, rent and tax.</p></div><div className="overflow-x-auto"><table className="w-full min-w-[900px] text-sm"><thead className="bg-ink-50 text-left text-ink-500"><tr><th className="px-5 py-3 font-medium">Property</th><th className="px-5 py-3 font-medium">Type</th><th className="px-5 py-3 font-medium">Units</th><th className="px-5 py-3 font-medium">Occupied</th><th className="px-5 py-3 font-medium">Vacant</th><th className="px-5 py-3 font-medium">Reserved</th><th className="px-5 py-3 font-medium">Tenants</th><th className="px-5 py-3 font-medium">Rent</th><th className="px-5 py-3 font-medium">Tax</th></tr></thead><tbody className="divide-y divide-ink-100">{summary.map((r) => <tr key={r.id} className="cursor-pointer hover:bg-brand-50/50" onClick={() => navigate(`/property/${r.id}`)}><td className="px-5 py-4 font-semibold text-ink-900">{r.name}</td><td className="px-5 py-4"><span className="badge bg-ink-100 text-ink-600">{r.type}</span></td><td className="px-5 py-4">{r.units}</td><td className="px-5 py-4">{r.occupied}</td><td className="px-5 py-4">{r.available}</td><td className="px-5 py-4">{r.reserved}</td><td className="px-5 py-4">{r.tenants}</td><td className="px-5 py-4 font-semibold">{formatKES(r.rent)}</td><td className="px-5 py-4 font-semibold text-brand-700">{formatKES(r.tax)}</td></tr>)}</tbody></table></div></Card>
+      <Card className="overflow-hidden"><div className="border-b border-ink-100 p-5"><h3 className="font-semibold text-ink-900">Property performance</h3><p className="text-sm text-ink-500">Separate totals for each property, including property type, units, tenants, rent and tax.</p></div><div className="overflow-x-auto"><table className="w-full min-w-[900px] text-sm"><thead className="bg-ink-50 text-left text-ink-500"><tr><th className="px-5 py-3 font-medium">Property</th><th className="px-5 py-3 font-medium">Type</th><th className="px-5 py-3 font-medium">Units</th><th className="px-5 py-3 font-medium">Occupied</th><th className="px-5 py-3 font-medium">Vacant</th><th className="px-5 py-3 font-medium">Reserved</th><th className="px-5 py-3 font-medium">Tenants</th><th className="px-5 py-3 font-medium">Rent</th><th className="px-5 py-3 font-medium">Tax</th></tr></thead><tbody className="divide-y divide-ink-100">{summary.map((r) => <tr key={r.id} className="cursor-pointer hover:bg-brand-50/50" onClick={() => navigate(`/admin/properties?property=${r.id}`)}><td className="px-5 py-4 font-semibold text-ink-900">{r.name}</td><td className="px-5 py-4"><span className="badge bg-ink-100 text-ink-600">{r.type}</span></td><td className="px-5 py-4">{r.units}</td><td className="px-5 py-4">{r.occupied}</td><td className="px-5 py-4">{r.available}</td><td className="px-5 py-4">{r.reserved}</td><td className="px-5 py-4">{r.tenants}</td><td className="px-5 py-4 font-semibold">{formatKES(r.rent)}</td><td className="px-5 py-4 font-semibold text-brand-700">{formatKES(r.tax)}</td></tr>)}</tbody></table></div></Card>
       <div className="mt-7 grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card className="p-6"><div className="mb-4"><h3 className="font-semibold text-ink-900">Actual unit-type mix</h3><p className="text-xs text-ink-500">Bedsitters, 1-bedroom, 2-bedroom and other rentable unit types.</p></div><div className="grid grid-cols-2 gap-3">{Object.entries(unitMix).sort((a,b) => b[1].total-a[1].total).map(([type, x]) => <div key={type} className="rounded-xl border border-ink-100 bg-ink-50 p-3"><p className="text-sm font-semibold text-ink-800">{type}</p><p className="mt-1 text-2xl font-bold text-brand-700">{x.total}</p><p className="text-[11px] text-ink-500">{x.occupied} occupied · {x.available} available</p></div>)}{!Object.keys(unitMix).length && <p className="text-sm text-ink-500">No units yet.</p>}</div></Card>
         <Card className="p-6"><h3 className="font-semibold text-ink-900 mb-4">Customer base</h3><p className="text-3xl font-bold text-brand-700">{customerCount}</p><p className="mt-1 text-sm text-ink-500">Registered customer/tenant accounts</p><div className="mt-5 grid grid-cols-2 gap-3"><div className="rounded-xl bg-brand-50 p-4"><p className="text-xs text-brand-700">Verified properties</p><p className="mt-1 text-lg font-bold text-brand-900">{summary.length}</p></div><div className="rounded-xl bg-ink-50 p-4"><p className="text-xs text-ink-500">Reserved units</p><p className="mt-1 text-lg font-bold text-ink-900">{totals.reserved}</p></div></div></Card>
@@ -79,6 +79,8 @@ export function AdminDashboard() {
 }
 
 export function AdminProperties() {
+  const { path } = useRouter();
+  const selectedProperty = new URLSearchParams(path.split('?')[1] || '').get('property');
   const { toast } = useToast();
   const [properties, setProperties] = useState<(Property & { profiles: { full_name: string } })[]>([]);
   const [loading, setLoading] = useState(true);
@@ -111,7 +113,7 @@ export function AdminProperties() {
               </thead>
               <tbody className="divide-y divide-ink-100">
                 {properties.map((p) => (
-                  <tr key={p.id} className="hover:bg-ink-50">
+                  <tr key={p.id} className={`${selectedProperty === p.id ? 'bg-brand-50 ring-1 ring-inset ring-brand-200' : 'hover:bg-ink-50'}`}>
                     <td className="px-4 py-3 font-medium text-ink-900">{p.name}</td>
                     <td className="px-4 py-3">{p.profiles?.full_name || '—'}</td>
                     <td className="px-4 py-3">{p.town}, {p.county}</td>
@@ -141,16 +143,21 @@ export function AdminProperties() {
 }
 
 export function AdminUsers() {
+  const { path } = useRouter();
+  const params = new URLSearchParams(path.split('?')[1] || '');
+  const roleFilter = params.get('role');
   const [users, setUsers] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
+      let query = supabase.from('profiles').select('*').order('created_at', { ascending: false });
+      if (roleFilter) query = query.eq('role', roleFilter);
+      const { data } = await query;
       setUsers((data as Profile[]) || []);
       setLoading(false);
     })();
-  }, []);
+  }, [roleFilter]);
 
   return (
     <DashboardLayout navItems={adminNav} title="Users">
@@ -274,6 +281,65 @@ export function AdminPayments() {
           </div>
         </Card>
       )}
+    </DashboardLayout>
+  );
+}
+
+
+export function AdminUnits() {
+  const { path, navigate } = useRouter();
+  const params = new URLSearchParams(path.split('?')[1] || '');
+  const status = params.get('status') || 'all';
+  const [units, setUnits] = useState<Array<{
+    id: string; property_id: string; unit_number: string; floor: number | null; house_type: string | null;
+    bedrooms: number; monthly_rent: number; status: string; properties: { name: string; property_type: string } | null;
+  }>>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      let query = supabase.from('property_units').select('id,property_id,unit_number,floor,house_type,bedrooms,monthly_rent,status,properties(name,property_type)').order('property_id').order('floor', { ascending: true });
+      if (status !== 'all') query = query.eq('status', status);
+      const { data } = await query;
+      const normalized = (data || []).map((row) => ({
+        ...row,
+        properties: Array.isArray(row.properties) ? (row.properties[0] ?? null) : (row.properties ?? null),
+      }));
+      setUnits(normalized as unknown as typeof units);
+      setLoading(false);
+    })();
+  }, [status]);
+
+  const title = status === 'all' ? 'All Units' : `${titleCase(status)} Units`;
+  return (
+    <DashboardLayout navItems={adminNav} title="Units">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div><p className="text-xs font-bold uppercase tracking-[0.16em] text-brand-600">Portfolio inventory</p><h2 className="mt-1 text-2xl font-bold text-ink-900">{title}</h2><p className="mt-1 text-sm text-ink-500">Click any unit to inspect its property and floor placement.</p></div>
+        <div className="flex gap-2 flex-wrap">
+          {['all','available','occupied','reserved','maintenance'].map((value) => <button key={value} type="button" onClick={() => navigate(value === 'all' ? '/admin/units' : `/admin/units?status=${value}`)} className={`rounded-full px-3 py-1.5 text-xs font-semibold ${status === value ? 'bg-brand-700 text-white' : 'bg-white border border-ink-200 text-ink-600'}`}>{titleCase(value)}</button>)}
+        </div>
+      </div>
+      {loading ? <LoadingPage /> : units.length === 0 ? <EmptyState icon={<Home className="w-8 h-8" />} title="No matching units" description="Units will appear here as properties are configured." /> : (
+        <Card className="overflow-hidden">
+          <div className="overflow-x-auto"><table className="w-full min-w-[850px] text-sm"><thead className="bg-ink-50 text-left text-ink-500"><tr><th className="px-4 py-3">Property</th><th className="px-4 py-3">Type</th><th className="px-4 py-3">Unit</th><th className="px-4 py-3">Floor</th><th className="px-4 py-3">Bedrooms</th><th className="px-4 py-3">Rent</th><th className="px-4 py-3">Status</th></tr></thead><tbody className="divide-y divide-ink-100">{units.map((u) => <tr key={u.id} className="cursor-pointer hover:bg-brand-50/60" onClick={() => navigate(`/property/${u.property_id}`)}><td className="px-4 py-4 font-semibold text-ink-900">{u.properties?.name || '—'}</td><td className="px-4 py-4">{u.properties?.property_type || '—'}</td><td className="px-4 py-4 font-medium">{u.unit_number}</td><td className="px-4 py-4">{u.floor ? `Floor ${u.floor}` : '—'}</td><td className="px-4 py-4">{u.bedrooms || 'Studio'}</td><td className="px-4 py-4 font-semibold">{formatKES(u.monthly_rent)}</td><td className="px-4 py-4"><Badge status={u.status} /></td></tr>)}</tbody></table></div>
+        </Card>
+      )}
+    </DashboardLayout>
+  );
+}
+
+export function AdminTax() {
+  const { path } = useRouter();
+  const period = new URLSearchParams(path.split('?')[1] || '').get('period') || new Date().toISOString().slice(0, 7);
+  const [records, setRecords] = useState<Array<TaxRecord & { properties: { name: string } | null }>>([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => { (async () => { const { data } = await supabase.from('tax_records').select('*, properties(name)').eq('period', period).order('created_at', { ascending: false }); setRecords((data as typeof records) || []); setLoading(false); })(); }, [period]);
+  const total = records.reduce((sum, r) => sum + Number(r.estimated_tax || 0), 0);
+  return (
+    <DashboardLayout navItems={adminNav} title="Tax">
+      <div className="mb-6"><p className="text-xs font-bold uppercase tracking-[0.16em] text-brand-600">Compliance overview</p><h2 className="mt-1 text-2xl font-bold text-ink-900">Tax records · {period}</h2><p className="mt-1 text-sm text-ink-500">Estimated tax by property for the selected reporting period.</p></div>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6"><StatCard label="Tax Records" value={records.length} icon={<Receipt className="w-5 h-5" />} /><StatCard label="Estimated Tax" value={formatKES(total)} icon={<Receipt className="w-5 h-5" />} accent="red" /><StatCard label="Prepared / Filed" value={records.filter(r => ['prepared','filed','paid'].includes(r.status)).length} icon={<CheckCircle className="w-5 h-5" />} accent="blue" /></div>
+      {loading ? <LoadingPage /> : records.length === 0 ? <EmptyState icon={<Receipt className="w-8 h-8" />} title="No tax records for this period" description="Calculate tax from the owner tax workspace to create a record." /> : <Card className="overflow-hidden"><div className="overflow-x-auto"><table className="w-full text-sm"><thead className="bg-ink-50 text-left text-ink-500"><tr><th className="px-4 py-3">Property</th><th className="px-4 py-3">Gross income</th><th className="px-4 py-3">Expenses</th><th className="px-4 py-3">Taxable</th><th className="px-4 py-3">Tax</th><th className="px-4 py-3">Status</th></tr></thead><tbody className="divide-y divide-ink-100">{records.map(r => <tr key={r.id} className="hover:bg-ink-50"><td className="px-4 py-4 font-semibold text-ink-900">{r.properties?.name || 'Portfolio'}</td><td className="px-4 py-4">{formatKES(r.gross_income)}</td><td className="px-4 py-4">{formatKES(r.allowable_expenses)}</td><td className="px-4 py-4">{formatKES(r.taxable_income)}</td><td className="px-4 py-4 font-bold text-brand-700">{formatKES(r.estimated_tax)}</td><td className="px-4 py-4"><Badge status={r.status} /></td></tr>)}</tbody></table></div></Card>}
     </DashboardLayout>
   );
 }

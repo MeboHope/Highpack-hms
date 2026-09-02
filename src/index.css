@@ -225,3 +225,13 @@ h6 {
   .stat-chip span { @apply block text-[10px] font-semibold uppercase tracking-wide text-ink-500; }
   .contact-row { @apply flex items-start gap-3 rounded-xl p-2 -mx-2 transition-colors hover:bg-white/5 hover:text-white; }
 }
+
+/* Ensure headings remain readable on branded hero surfaces. */
+.brand-gradient h1, .brand-gradient h2, .brand-gradient h3, .brand-gradient h4,
+.hero-premium h1, .hero-premium h2, .hero-premium h3, .hero-premium h4 { color: #fff !important; }
+.brand-gradient p, .hero-premium p { color: rgba(255,255,255,.82); }
+.hero-premium .text-white { color: #fff !important; }
+.hero-premium .text-brand-100 { color: #dbe8f8 !important; }
+.hero-premium .text-accent-100 { color: #fff1bd !important; }
+.dashboard-stat-clickable { position: relative; overflow: hidden; }
+.dashboard-stat-clickable::after { content: 'View details →'; position: absolute; right: 14px; bottom: 10px; font-size: 10px; font-weight: 700; color: #315b91; opacity: .72; }

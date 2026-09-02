@@ -44,7 +44,7 @@ export function PropertiesPage() {
       if (propertyError) { console.error('Property marketplace load error:', propertyError); if (!cancelled) { setProperties([]); setLoading(false); } return; }
       const props = (propertyData || []) as Property[];
       const ids = props.map((p) => p.id);
-      let unitMap = new Map<string, PropertyUnit[]>();
+      const unitMap = new Map<string, PropertyUnit[]>();
       if (ids.length) {
         const { data: unitData, error: unitError } = await supabase.from('property_units').select('*').in('property_id', ids).order('unit_number');
         if (unitError) console.error('Unit marketplace load error:', unitError);

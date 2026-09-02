@@ -213,33 +213,6 @@ export function HomePage() {
     );
   };
 
-  /* ==========================================================
-     STATISTICS
-     ========================================================== */
-
-  const stats: Stat[] = [
-    {
-      value: 500,
-      suffix: '+',
-      label: 'Verified Properties',
-    },
-    {
-      value: 1200,
-      suffix: '+',
-      label: 'Happy Tenants',
-    },
-    {
-      value: 20,
-      suffix: '+',
-      label: 'Counties Covered',
-    },
-    {
-      value: 2,
-      prefix: '< ',
-      suffix: 'h',
-      label: 'Avg. Response Time',
-    },
-  ];
 
   return (
     <div>
@@ -481,8 +454,8 @@ export function HomePage() {
           properties.length === 0 && (
             <div className="text-center py-16">
               <p className="text-ink-500">
-                No properties available yet.
-                Check back soon!
+                No verified properties are available right now.
+                Once an administrator verifies a listing, it will appear here automatically.
               </p>
             </div>
           )}

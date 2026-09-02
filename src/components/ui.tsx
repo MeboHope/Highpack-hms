@@ -42,7 +42,7 @@ export function StatCard({
   };
   return (
     <div
-      className={`card p-5 ${onClick ? 'cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-soft-lg focus-within:ring-2 focus-within:ring-brand-500/20' : ''}`}
+      className={`card p-5 ${onClick ? 'dashboard-stat-clickable cursor-pointer transition-all hover:-translate-y-1 hover:shadow-soft-lg hover:border-brand-200 focus-within:ring-2 focus-within:ring-brand-500/20' : ''}`}
       onClick={onClick}
       onKeyDown={(e) => { if (onClick && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onClick(); } }}
       role={onClick ? 'button' : undefined}

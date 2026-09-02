@@ -349,6 +349,11 @@ export const adminNav = [
     icon: <Users className="w-5 h-5" />,
   },
   {
+    label: 'Units & Inventory',
+    to: '/admin/units',
+    icon: <Building2 className="w-5 h-5" />,
+  },
+  {
     label: 'Reservations',
     to: '/admin/reservations',
     icon: <Calendar className="w-5 h-5" />,
@@ -357,6 +362,11 @@ export const adminNav = [
     label: 'Payments',
     to: '/admin/payments',
     icon: <Wallet className="w-5 h-5" />,
+  },
+  {
+    label: 'Tax',
+    to: '/admin/tax',
+    icon: <Receipt className="w-5 h-5" />,
   },
   {
     label: 'Settings',

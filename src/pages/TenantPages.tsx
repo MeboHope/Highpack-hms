@@ -236,15 +236,14 @@ function PayRentModal({ invoice, onClose }: { invoice: RentInvoice; onClose: () 
     if (!profile) return;
     setStep('processing');
     setTimeout(async () => {
-      await supabase.from('payments').insert({
+      const { error } = await supabase.from('payments').insert({
         user_id: profile.id, lease_id: invoice.lease_id, property_id: invoice.property_id, unit_id: invoice.unit_id,
-        amount: invoice.balance, payment_type: 'rent', payment_method: method, status: 'successful', verified: true,
-        transaction_ref: `TXN${Date.now()}`,
+        amount: invoice.balance, payment_type: 'rent', payment_method: method, status: 'pending', verified: false,
       });
-      await supabase.from('rent_invoices').update({ balance: 0, status: 'paid' }).eq('id', invoice.id);
-      await supabase.from('notifications').insert({
-        user_id: profile.id, title: 'Rent Payment Received', message: `Your rent payment of ${formatKES(invoice.balance)} for ${invoice.period} has been received.`, type: 'payment',
-      });
+      if (error) {
+        setStep('pay');
+        return;
+      }
       setStep('success');
     }, 2000);
   };
@@ -278,8 +277,8 @@ function PayRentModal({ invoice, onClose }: { invoice: RentInvoice; onClose: () 
       {step === 'success' && (
         <div className="text-center py-8">
           <div className="w-16 h-16 rounded-full bg-brand-100 text-brand-600 flex items-center justify-center mx-auto mb-4"><CheckCircle className="w-8 h-8" /></div>
-          <h4 className="font-bold text-ink-900 text-lg mb-1">Payment Successful!</h4>
-          <p className="text-sm text-ink-500 mb-6">Your rent payment of {formatKES(invoice.balance)} has been received. A receipt has been generated.</p>
+          <h4 className="font-bold text-ink-900 text-lg mb-1">Payment Initiated</h4>
+          <p className="text-sm text-ink-500 mb-6">Your rent payment request for {formatKES(invoice.balance)} is pending verification. Your invoice will update after the payment gateway confirms the transaction.</p>
           <button onClick={onClose} className="btn-primary">Done</button>
         </div>
       )}
