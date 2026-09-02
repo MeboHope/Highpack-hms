@@ -7,7 +7,7 @@ export function Brand({ compact = false }: { compact?: boolean }) {
       <img
         src={highparkLogo}
         alt="HighPark Consult Ltd"
-        className={compact ? 'h-20 w-28 object-contain' : 'h-28 w-40 object-contain'}
+        className={compact ? 'h-24 w-32 object-contain' : 'h-32 w-44 object-contain'}
       />
     </Link>
   );

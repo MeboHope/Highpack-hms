@@ -152,6 +152,12 @@ export function HomePage() {
   >([]);
 
   const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState<Stat[]>([
+    { value: 0, suffix: '+', label: 'Verified Properties' },
+    { value: 0, suffix: '+', label: 'Available Homes' },
+    { value: 0, suffix: '+', label: 'Counties Covered' },
+    { value: 24, prefix: '< ', suffix: 'h', label: 'Reservation Hold' },
+  ]);
 
   const [search, setSearch] = useState({
     location: '',
@@ -160,24 +166,29 @@ export function HomePage() {
   });
 
   useEffect(() => {
+    let cancelled = false;
     (async () => {
-      const { data } = await supabase
-        .from('properties')
-        .select(
-          'id, name, county, town, estate, property_type, photos, status, property_units(monthly_rent, bedrooms, bathrooms, status)'
-        )
-        .eq('status', 'verified')
-        .order('created_at', {
-          ascending: false,
-        })
-        .limit(6);
-
-      setProperties(
-        (data as PropertyWithUnits[]) || []
-      );
-
-      setLoading(false);
+      const { data: props, error } = await supabase.from('properties').select('id,name,county,town,estate,property_type,photos,status,created_at').eq('status','verified').order('created_at',{ascending:false}).limit(6);
+      if (error) console.error('Home property load error:', error);
+      const ids = (props || []).map((p) => p.id);
+      const [{ count: verifiedCount }, { count: availableCount }, { data: countyRows }] = await Promise.all([
+        supabase.from('properties').select('id', { count: 'exact', head: true }).eq('status', 'verified'),
+        supabase.from('property_units').select('id', { count: 'exact', head: true }).eq('status', 'available'),
+        supabase.from('properties').select('county').eq('status', 'verified'),
+      ]);
+      setStats([
+        { value: verifiedCount || 0, suffix: '+', label: 'Verified Properties' },
+        { value: availableCount || 0, suffix: '+', label: 'Available Homes' },
+        { value: new Set((countyRows || []).map((r) => r.county).filter(Boolean)).size, suffix: '+', label: 'Counties Covered' },
+        { value: 24, prefix: '< ', suffix: 'h', label: 'Reservation Hold' },
+      ]);
+      const { data: units } = ids.length ? await supabase.from('property_units').select('property_id,monthly_rent,bedrooms,bathrooms,status').in('property_id', ids) : { data: [] as never[] };
+      const grouped = new Map<string, PropertyWithUnits['property_units']>();
+      for (const u of (units || []) as { property_id: string; monthly_rent: number; bedrooms: number; bathrooms: number; status: string }[]) { const arr = grouped.get(u.property_id) || []; arr.push(u); grouped.set(u.property_id, arr); }
+      const result = (props || []).map((p) => ({ ...p, property_units: grouped.get(p.id) || [] })) as PropertyWithUnits[];
+      if (!cancelled) { setProperties(result); setLoading(false); }
     })();
+    return () => { cancelled = true; };
   }, []);
 
   const handleSearch = (e: React.FormEvent) => {
@@ -237,7 +248,7 @@ export function HomePage() {
           HERO SECTION
           ====================================================== */}
 
-      <section className="hero-premium relative overflow-hidden">
+      <section className="hero-premium relative overflow-hidden rounded-b-[2.5rem] shadow-[0_24px_80px_rgba(13,35,66,.18)]">
 
         <div className="absolute -right-24 -top-24 h-80 w-80 rounded-full bg-accent-400/20 blur-3xl" />
         <div className="absolute -bottom-32 -left-20 h-96 w-96 rounded-full bg-brand-400/20 blur-3xl" />
@@ -255,7 +266,8 @@ export function HomePage() {
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
 
           {/* Hero heading */}
-          <div className="text-center mb-10">
+          <div className="mx-auto mb-10 max-w-4xl text-center">
+            <div className="mx-auto mb-5 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-accent-100 backdrop-blur"><ShieldCheck className="h-4 w-4" /> Verified homes · Kenya</div>
 
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white mb-4 leading-tight">
               Find Your Next Home in Kenya

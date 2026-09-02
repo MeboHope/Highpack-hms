@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Building2, Home, Calendar, Users, Wallet, Receipt, Wrench, TrendingUp, FileText, Plus, MapPin, BedDouble, Bath, Trash2, Eye, CheckCircle, XCircle, Download, Calculator } from 'lucide-react';
+import { Building2, Home, Calendar, Users, Wallet, Receipt, Wrench, TrendingUp, FileText, Plus, MapPin, BedDouble, Bath, Trash2, Eye, CheckCircle, XCircle, Download, Calculator, Layers3, ImagePlus, Video, Music2 } from 'lucide-react';
 import { DashboardLayout, ownerNav } from '@/components/DashboardLayout';
 import { StatCard, Card, Badge, EmptyState, LoadingPage } from '@/components/ui';
 import { Modal, ConfirmDialog } from '@/components/Modal';
@@ -217,7 +217,7 @@ export function OwnerProperties() {
                   <h3 className="font-semibold text-ink-900 truncate">{p.name}</h3>
                   <Badge status={p.status} />
                 </div>
-                <p className="text-sm text-ink-500 flex items-center gap-1 mb-3"><MapPin className="w-3.5 h-3.5" /> {p.town}, {p.county}</p>
+                <p className="text-sm text-ink-500 flex items-center gap-1 mb-3"><MapPin className="w-3.5 h-3.5" /> {p.town}, {p.county}</p><div className="mb-4 grid grid-cols-3 gap-2"><button type="button" onClick={() => navigate(`/owner/units/${p.id}`)} className="stat-chip"><strong>{p.number_of_units || 0}</strong><span>Units</span></button><button type="button" onClick={() => navigate(`/owner/units/${p.id}`)} className="stat-chip"><strong>{p.number_of_floors || 1}</strong><span>Floors</span></button><button type="button" onClick={() => navigate(`/owner/units/${p.id}`)} className="stat-chip"><strong>{p.property_type === 'Apartment' ? 'View' : 'Open'}</strong><span>Structure</span></button></div>
                 <div className="flex gap-2">
                   <button onClick={() => navigate(`/property/${p.id}`)} className="btn-secondary text-sm flex-1"><Eye className="w-4 h-4" /> View</button>
                   <button onClick={() => navigate(`/owner/units/${p.id}`)} className="btn-secondary text-sm flex-1"><Home className="w-4 h-4" /> Units</button>
@@ -242,11 +242,12 @@ function AddPropertyModal({ onClose }: { onClose: () => void }) {
   const { toast } = useToast();
   const [form, setForm] = useState({
     name: '', description: '', property_type: 'Apartment', county: 'Nairobi', town: '', estate: '', street: '',
-    number_of_units: 1, parking: false, water_availability: true, electricity: true, internet: false, pets_allowed: false,
+    number_of_units: 1, number_of_floors: 1, parking: false, water_availability: true, electricity: true, internet: false, pets_allowed: false,
   });
   const [amenities, setAmenities] = useState<string[]>([]);
   const [photos, setPhotos] = useState<File[]>([]);
   const [videos, setVideos] = useState<File[]>([]);
+  const [audio, setAudio] = useState<File[]>([]);
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -259,12 +260,14 @@ function AddPropertyModal({ onClose }: { onClose: () => void }) {
       amenities,
       photos: [],
       videos: [],
+      audio: [],
       status: 'pending_verification',
     }).select('id').single();
     if (error || !property) { setLoading(false); toast(error?.message || 'Could not create property. Please try again.', 'error'); return; }
 
     const uploadedPhotos: string[] = [];
     const uploadedVideos: string[] = [];
+    const uploadedAudio: string[] = [];
     for (const file of photos) {
       const url = await uploadPropertyMedia(profile.id, property.id, file);
       if (url) uploadedPhotos.push(url); else toast(`Could not upload ${file.name}`, 'error');
@@ -273,7 +276,11 @@ function AddPropertyModal({ onClose }: { onClose: () => void }) {
       const url = await uploadPropertyMedia(profile.id, property.id, file);
       if (url) uploadedVideos.push(url); else toast(`Could not upload ${file.name}`, 'error');
     }
-    const { error: mediaError } = await supabase.from('properties').update({ photos: uploadedPhotos, videos: uploadedVideos }).eq('id', property.id);
+    for (const file of audio) {
+      const url = await uploadPropertyMedia(profile.id, property.id, file);
+      if (url) uploadedAudio.push(url); else toast(`Could not upload ${file.name}`, 'error');
+    }
+    const { error: mediaError } = await supabase.from('properties').update({ photos: uploadedPhotos, videos: uploadedVideos, audio: uploadedAudio }).eq('id', property.id);
     setLoading(false);
     if (mediaError) { toast('Property was created, but its media could not be saved.', 'error'); return; }
     toast('Property created! It will be reviewed by our team before going live.', 'success');
@@ -291,7 +298,6 @@ function AddPropertyModal({ onClose }: { onClose: () => void }) {
           <div><label className="label">Town</label><input className="input" required value={form.town} onChange={(e) => setForm({ ...form, town: e.target.value })} placeholder="Kilimani" /></div>
           <div><label className="label">Estate/Neighborhood</label><input className="input" value={form.estate} onChange={(e) => setForm({ ...form, estate: e.target.value })} placeholder="Kilimani" /></div>
           <div><label className="label">Street/Address</label><input className="input" value={form.street} onChange={(e) => setForm({ ...form, street: e.target.value })} placeholder="Argwings Kodhek Road" /></div>
-          <div><label className="label">Number of Units</label><input type="number" className="input" min="1" value={form.number_of_units} onChange={(e) => setForm({ ...form, number_of_units: parseInt(e.target.value) || 1 })} /></div>
         </div>
         <div><label className="label">Description</label><textarea className="input" rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Describe your property..." /></div>
         <div>
@@ -302,14 +308,20 @@ function AddPropertyModal({ onClose }: { onClose: () => void }) {
             ))}
           </div>
         </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div><label className="label">Total Units</label><input type="number" min="1" className="input" value={form.number_of_units} onChange={(e) => setForm({ ...form, number_of_units: Math.max(1, parseInt(e.target.value || '1')) })} /></div>
+          <div><label className="label">Number of Floors</label><input type="number" min="1" className="input" value={form.number_of_floors} onChange={(e) => setForm({ ...form, number_of_floors: Math.max(1, parseInt(e.target.value || '1')) })} /></div>
+          <div className="rounded-xl bg-brand-50 p-4 text-sm text-brand-800"><strong>Apartment?</strong><p className="mt-1">Set the floor count now. Units can later be assigned to each floor.</p></div>
+        </div>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
           {[{ k: 'parking', l: 'Parking' }, { k: 'water_availability', l: 'Water' }, { k: 'electricity', l: 'Electricity' }, { k: 'internet', l: 'Internet' }, { k: 'pets_allowed', l: 'Pets' }].map((f) => (
             <label key={f.k} className="flex items-center gap-2 text-sm text-ink-700"><input type="checkbox" className="h-4 w-4 rounded text-brand-600" checked={(form as Record<string, unknown>)[f.k] as boolean} onChange={(e) => setForm({ ...form, [f.k]: e.target.checked })} />{f.l}</label>
           ))}
         </div>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="rounded-xl border border-dashed border-brand-200 bg-brand-50/50 p-4"><label className="label">Property Photos</label><input className="input" type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={(e) => setPhotos(Array.from(e.target.files || []))} /><p className="mt-2 text-xs text-ink-500">JPG, PNG or WebP. Multiple photos allowed.</p>{photos.length > 0 && <p className="mt-1 text-xs font-medium text-brand-700">{photos.length} photo(s) selected</p>}</div>
-          <div className="rounded-xl border border-dashed border-brand-200 bg-brand-50/50 p-4"><label className="label">Property Video</label><input className="input" type="file" accept="video/mp4,video/webm,video/quicktime" multiple onChange={(e) => setVideos(Array.from(e.target.files || []))} /><p className="mt-2 text-xs text-ink-500">MP4/WebM/MOV. Keep videos reasonably sized for upload.</p>{videos.length > 0 && <p className="mt-1 text-xs font-medium text-brand-700">{videos.length} video(s) selected</p>}</div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="rounded-2xl border border-dashed border-brand-200 bg-brand-50/50 p-4"><ImagePlus className="mb-2 h-5 w-5 text-brand-600" /><label className="label">Photos</label><input className="input" type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={(e) => setPhotos(Array.from(e.target.files || []))} /><p className="mt-2 text-xs text-ink-500">JPG, PNG, WebP.</p></div>
+          <div className="rounded-2xl border border-dashed border-brand-200 bg-brand-50/50 p-4"><Video className="mb-2 h-5 w-5 text-brand-600" /><label className="label">Walkthrough Videos</label><input className="input" type="file" accept="video/mp4,video/webm,video/quicktime" multiple onChange={(e) => setVideos(Array.from(e.target.files || []))} /><p className="mt-2 text-xs text-ink-500">MP4, WebM, MOV.</p></div>
+          <div className="rounded-2xl border border-dashed border-accent-200 bg-accent-50/50 p-4"><Music2 className="mb-2 h-5 w-5 text-accent-600" /><label className="label">Audio / Voice Tour</label><input className="input" type="file" accept="audio/mpeg,audio/wav,audio/ogg,audio/mp4,audio/x-m4a" multiple onChange={(e) => setAudio(Array.from(e.target.files || []))} /><p className="mt-2 text-xs text-ink-500">MP3, WAV, OGG, M4A.</p></div>
         </div>
         <button type="submit" className="btn-primary w-full" disabled={loading}>{loading ? 'Creating property & uploading media...' : 'Create Property'}</button>
       </form>
@@ -322,41 +334,47 @@ function PropertyMediaModal({ property, onClose }: { property: Property; onClose
   const { toast } = useToast();
   const [photos, setPhotos] = useState<string[]>(property.photos || []);
   const [videos, setVideos] = useState<string[]>(property.videos || []);
+  const [audio, setAudio] = useState<string[]>(property.audio || []);
   const [uploading, setUploading] = useState(false);
 
-  const uploadFiles = async (files: FileList | null, kind: 'photo' | 'video') => {
+  const uploadFiles = async (files: FileList | null, kind: 'photo' | 'video' | 'audio') => {
     if (!profile || !files?.length) return;
     setUploading(true);
-    const next = kind === 'photo' ? [...photos] : [...videos];
+    const next = kind === 'photo' ? [...photos] : kind === 'video' ? [...videos] : [...audio];
     for (const file of Array.from(files)) {
       const url = await uploadPropertyMedia(profile.id, property.id, file);
       if (url) next.push(url); else toast(`Could not upload ${file.name}`, 'error');
     }
-    if (kind === 'photo') setPhotos(next); else setVideos(next);
-    const { error } = await supabase.from('properties').update(kind === 'photo' ? { photos: next } : { videos: next }).eq('id', property.id);
+    if (kind === 'photo') setPhotos(next); else if (kind === 'video') setVideos(next); else setAudio(next);
+    const payload = kind === 'photo' ? { photos: next } : kind === 'video' ? { videos: next } : { audio: next };
+    const { error } = await supabase.from('properties').update(payload).eq('id', property.id);
     setUploading(false);
     if (error) { toast(`Files uploaded, but listing media could not be saved: ${error.message}`, 'error'); return; }
     toast('Media updated successfully.', 'success');
   };
 
-  const remove = async (url: string, kind: 'photo' | 'video') => {
+  const remove = async (url: string, kind: 'photo' | 'video' | 'audio') => {
     const ok = await deletePropertyMedia(url);
-    const next = (kind === 'photo' ? photos : videos).filter((item) => item !== url);
-    if (kind === 'photo') setPhotos(next); else setVideos(next);
-    await supabase.from('properties').update(kind === 'photo' ? { photos: next } : { videos: next }).eq('id', property.id);
+    const current = kind === 'photo' ? photos : kind === 'video' ? videos : audio;
+    const next = current.filter((item) => item !== url);
+    if (kind === 'photo') setPhotos(next); else if (kind === 'video') setVideos(next); else setAudio(next);
+    const payload = kind === 'photo' ? { photos: next } : kind === 'video' ? { videos: next } : { audio: next };
+    await supabase.from('properties').update(payload).eq('id', property.id);
     if (!ok) toast('Media removed from the listing, but the storage file may need cleanup.', 'info'); else toast('Media removed', 'success');
   };
 
   return (
     <Modal open onClose={onClose} title={`Manage Media — ${property.name}`} size="lg">
       <div className="space-y-6">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div><label className="label">Add Photos</label><input className="input" type="file" accept="image/jpeg,image/png,image/webp" multiple disabled={uploading} onChange={(e) => uploadFiles(e.target.files, 'photo')} /></div>
           <div><label className="label">Add Videos</label><input className="input" type="file" accept="video/mp4,video/webm,video/quicktime" multiple disabled={uploading} onChange={(e) => uploadFiles(e.target.files, 'video')} /></div>
+          <div><label className="label">Add Audio</label><input className="input" type="file" accept="audio/mpeg,audio/wav,audio/ogg,audio/mp4,audio/x-m4a" multiple disabled={uploading} onChange={(e) => uploadFiles(e.target.files, 'audio')} /></div>
         </div>
         {uploading && <p className="text-sm text-brand-700">Uploading media…</p>}
         <div><h4 className="mb-3 font-semibold text-ink-900">Photos ({photos.length})</h4>{photos.length ? <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">{photos.map((url) => <div key={url} className="group relative overflow-hidden rounded-xl border border-ink-100"><img src={url} alt="Property" className="h-32 w-full object-cover" /><button type="button" onClick={() => remove(url, 'photo')} className="absolute right-2 top-2 rounded-lg bg-white/90 px-2 py-1 text-xs font-semibold text-red-600 shadow">Remove</button></div>)}</div> : <p className="text-sm text-ink-500">No owner-uploaded photos yet.</p>}</div>
         <div><h4 className="mb-3 font-semibold text-ink-900">Videos ({videos.length})</h4>{videos.length ? <div className="space-y-3">{videos.map((url) => <div key={url} className="flex items-center justify-between rounded-xl bg-ink-50 p-3"><video src={url} controls className="h-28 w-48 rounded-lg object-cover" /><button type="button" onClick={() => remove(url, 'video')} className="rounded-lg px-3 py-2 text-sm font-semibold text-red-600 hover:bg-red-50">Remove</button></div>)}</div> : <p className="text-sm text-ink-500">No walkthrough videos yet.</p>}</div>
+        <div><h4 className="mb-3 font-semibold text-ink-900">Audio / Voice Tours ({audio.length})</h4>{audio.length ? <div className="space-y-3">{audio.map((url) => <div key={url} className="flex items-center gap-3 rounded-xl bg-accent-50 p-3"><Music2 className="h-5 w-5 text-accent-600" /><audio src={url} controls className="min-w-0 flex-1" /><button type="button" onClick={() => remove(url, 'audio')} className="rounded-lg px-3 py-2 text-sm font-semibold text-red-600 hover:bg-red-50">Remove</button></div>)}</div> : <p className="text-sm text-ink-500">No audio tours yet.</p>}</div>
       </div>
     </Modal>
   );
@@ -398,23 +416,21 @@ export function OwnerUnits({ propertyId }: { propertyId: string }) {
         <button onClick={() => setShowAdd(true)} className="btn-primary"><Plus className="w-4 h-4" /> Add Unit</button>
       </div>
 
-      {!loading && units.length > 0 && property?.property_type === 'Apartment' && (
+      {!loading && property?.property_type === 'Apartment' && (
         <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {Object.entries(units.reduce<Record<string, { total: number; available: number; occupied: number; reserved: number }>>((acc, unit) => {
-            const floor = unit.floor == null ? 'Unassigned' : `Floor ${unit.floor}`;
-            acc[floor] ||= { total: 0, available: 0, occupied: 0, reserved: 0 };
-            acc[floor].total++;
-            if (unit.status === 'available') acc[floor].available++;
-            if (unit.status === 'occupied') acc[floor].occupied++;
-            if (unit.status === 'reserved') acc[floor].reserved++;
-            return acc;
-          }, {})).sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true })).map(([floor, x]) => (
-            <Card key={floor} className="p-5 border-brand-100 bg-gradient-to-br from-white to-brand-50/40">
-              <p className="text-sm font-semibold text-ink-900">{floor}</p>
-              <p className="mt-1 text-2xl font-bold text-brand-700">{x.available} <span className="text-sm font-medium text-ink-400">available</span></p>
-              <p className="mt-2 text-xs text-ink-500">{x.total} total · {x.occupied} occupied · {x.reserved} reserved</p>
-            </Card>
-          ))}
+          {Array.from({ length: Math.max(1, property?.number_of_floors || 1) }, (_, i) => i + 1).map((floorNumber) => {
+            const floorUnits = units.filter((u) => u.floor === floorNumber);
+            const available = floorUnits.filter((u) => u.status === 'available').length;
+            const occupied = floorUnits.filter((u) => u.status === 'occupied').length;
+            const reserved = floorUnits.filter((u) => u.status === 'reserved').length;
+            return (
+              <Card key={floorNumber} className="p-5 border-brand-100 bg-gradient-to-br from-white to-brand-50/40 shadow-sm">
+                <div className="flex items-center justify-between"><p className="text-sm font-semibold text-ink-900">Floor {floorNumber}</p><Layers3 className="h-4 w-4 text-brand-500" /></div>
+                <p className="mt-2 text-2xl font-bold text-brand-700">{available} <span className="text-sm font-medium text-ink-400">available</span></p>
+                <p className="mt-2 text-xs text-ink-500">{floorUnits.length} total · {occupied} occupied · {reserved} reserved</p>
+              </Card>
+            );
+          })}
         </div>
       )}
 

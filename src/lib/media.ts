@@ -8,7 +8,7 @@ export async function uploadPropertyMedia(ownerId: string, propertyId: string, f
     console.error('Property media upload error: file exceeds 100 MB limit');
     return null;
   }
-  const allowed = ['image/jpeg', 'image/png', 'image/webp', 'video/mp4', 'video/webm', 'video/quicktime'];
+  const allowed = ['image/jpeg', 'image/png', 'image/webp', 'video/mp4', 'video/webm', 'video/quicktime', 'audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/mp4', 'audio/x-m4a'];
   if (!allowed.includes(file.type)) {
     console.error(`Property media upload error: unsupported type ${file.type}`);
     return null;

@@ -206,7 +206,7 @@ h6 {
 .site-watermark {
   position: fixed; inset: 0; z-index: -1; pointer-events: none; display: grid; place-items: center; overflow: hidden;
 }
-.site-watermark img { width: min(48vw, 560px); opacity: .018; filter: grayscale(1); }
+.site-watermark img { width: min(52vw, 620px); opacity: .028; filter: grayscale(1); }
 .premium-glow { position: absolute; border-radius: 9999px; filter: blur(2px); pointer-events: none; }
 .hero-premium {
   background:
@@ -217,3 +217,11 @@ h6 {
 .hero-premium::after { content: ''; position:absolute; inset:0; background: linear-gradient(110deg, transparent 35%, rgba(255,255,255,.08) 50%, transparent 65%); transform: skewX(-15deg) translateX(-35%); animation: heroShimmer 8s ease-in-out infinite; pointer-events:none; }
 @keyframes heroShimmer { 0%,65%{transform:skewX(-15deg) translateX(-55%)} 100%{transform:skewX(-15deg) translateX(80%)} }
 .premium-section { background: linear-gradient(180deg, #fff 0%, #f7f8fa 100%); }
+
+
+@layer components {
+  .stat-chip { @apply rounded-xl border border-brand-100 bg-brand-50/70 px-2 py-2 text-center transition-all hover:-translate-y-0.5 hover:border-accent-300 hover:bg-white hover:shadow-sm; }
+  .stat-chip strong { @apply block text-lg font-bold text-brand-800; }
+  .stat-chip span { @apply block text-[10px] font-semibold uppercase tracking-wide text-ink-500; }
+  .contact-row { @apply flex items-start gap-3 rounded-xl p-2 -mx-2 transition-colors hover:bg-white/5 hover:text-white; }
+}

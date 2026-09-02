@@ -34,40 +34,33 @@ export function PropertiesPage() {
   });
 
   useEffect(() => {
+    let cancelled = false;
     (async () => {
-      let query = supabase
-        .from('properties')
-        .select('*, property_units(*)')
-        .eq('status', 'verified')
-        .order('created_at', { ascending: false });
-
+      setLoading(true);
+      let query = supabase.from('properties').select('*').eq('status', 'verified').order('created_at', { ascending: false });
       if (filters.location) query = query.eq('county', filters.location);
       if (filters.type) query = query.eq('property_type', filters.type);
-
-      const { data } = await query;
-      let results = (data as PropertyRow[]) || [];
-
-      // Client-side filtering on units
-      results = results.filter((p) => {
-        const units = p.property_units || [];
-        if (units.length === 0) return false;
-        return units.some((u) => {
-          if (filters.bedrooms !== '' && u.bedrooms < parseInt(filters.bedrooms)) return false;
-          if (filters.minRent && u.monthly_rent < parseInt(filters.minRent)) return false;
-          if (filters.maxRent && u.monthly_rent > parseInt(filters.maxRent)) return false;
-          if (filters.furnishing && u.furnishing !== filters.furnishing) return false;
-          return true;
-        });
-      });
-
+      const { data: propertyData, error: propertyError } = await query;
+      if (propertyError) { console.error('Property marketplace load error:', propertyError); if (!cancelled) { setProperties([]); setLoading(false); } return; }
+      const props = (propertyData || []) as Property[];
+      const ids = props.map((p) => p.id);
+      let unitMap = new Map<string, PropertyUnit[]>();
+      if (ids.length) {
+        const { data: unitData, error: unitError } = await supabase.from('property_units').select('*').in('property_id', ids).order('unit_number');
+        if (unitError) console.error('Unit marketplace load error:', unitError);
+        for (const unit of (unitData || []) as PropertyUnit[]) { const arr = unitMap.get(unit.property_id) || []; arr.push(unit); unitMap.set(unit.property_id, arr); }
+      }
+      let results = props.map((p) => ({ ...p, property_units: unitMap.get(p.id) || [] }));
+      const hasUnitFilters = filters.bedrooms !== '' || filters.minRent !== '' || filters.maxRent !== '' || filters.furnishing !== '';
+      if (hasUnitFilters) results = results.filter((p) => p.property_units.some((u) => (filters.bedrooms === '' || u.bedrooms >= parseInt(filters.bedrooms)) && (!filters.minRent || u.monthly_rent >= parseInt(filters.minRent)) && (!filters.maxRent || u.monthly_rent <= parseInt(filters.maxRent)) && (!filters.furnishing || u.furnishing === filters.furnishing)));
       if (filters.parking) results = results.filter((p) => p.parking);
       if (filters.water) results = results.filter((p) => p.water_availability);
       if (filters.internet) results = results.filter((p) => p.internet);
       if (filters.pets) results = results.filter((p) => p.pets_allowed);
-
-      setProperties(results);
-      setLoading(false);
+      results = results.filter((p) => p.property_units.some((u) => u.status === 'available') || !hasUnitFilters);
+      if (!cancelled) { setProperties(results); setLoading(false); }
     })();
+    return () => { cancelled = true; };
   }, [filters]);
 
   const hasActiveFilters = Object.entries(filters).some(([k, v]) => k !== 'parking' && k !== 'water' && k !== 'internet' && k !== 'pets' ? v : v === true);

@@ -1,7 +1,8 @@
-import { Home, Mail, Phone, MapPin, MessageSquare, Search, ShieldCheck, TrendingUp, Building2 } from 'lucide-react';
+import { Home, Mail, Phone, MapPin, Search, ShieldCheck, TrendingUp, Building2, MessageCircle, Navigation } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { useState } from 'react';
 import { Link } from '@/context/RouterContext';
+import { supabase } from '@/lib/supabase';
 import { useToast } from '@/context/ToastContext';
 
 function AboutCount({ value, suffix = '', prefix = '', label }: { value: number; suffix?: string; prefix?: string; label: string }) {
@@ -19,10 +20,35 @@ function AboutCount({ value, suffix = '', prefix = '', label }: { value: number;
     const tick = (now: number) => { const progress = Math.min(1, (now-start)/duration); const eased = 1-Math.pow(1-progress,3); setCount(Math.floor(value*eased)); if(progress<1) frame=requestAnimationFrame(tick); else setCount(value); };
     frame=requestAnimationFrame(tick); return () => cancelAnimationFrame(frame);
   }, [started, value]);
-  return <div ref={ref} className="card p-6 text-center hover:-translate-y-1 transition-transform"><p className="text-2xl sm:text-3xl font-bold text-brand-700 tabular-nums">{prefix}{count.toLocaleString()}{suffix}</p><p className="text-sm text-ink-500 mt-1">{label}</p></div>;
+  return <div ref={ref} className="card group p-6 text-center hover:-translate-y-1 transition-all hover:shadow-soft-lg"><div className="mx-auto mb-3 h-1 w-10 rounded-full bg-accent-500 transition-all group-hover:w-16" /><p className="text-3xl sm:text-4xl font-bold text-brand-700 tabular-nums">{prefix}{count.toLocaleString()}{suffix}</p><p className="text-sm text-ink-500 mt-1">{label}</p></div>;
 }
 
 export function AboutPage() {
+  const [stats, setStats] = useState([
+    { value: 0, suffix: '+', label: 'Verified Properties' },
+    { value: 0, suffix: '+', label: 'Customer Accounts' },
+    { value: 0, suffix: '+', label: 'Counties Represented' },
+    { value: 0, prefix: 'KSh ', suffix: '+', label: 'Verified Rent Processed' },
+  ]);
+  useEffect(() => {
+    (async () => {
+      const [{ count: propertyCount }, { count: customerCount }, { data: countyRows }, { data: paymentRows }] = await Promise.all([
+        supabase.from('properties').select('id', { count: 'exact', head: true }).eq('status', 'verified'),
+        supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'customer'),
+        supabase.from('properties').select('county').eq('status', 'verified'),
+        supabase.from('payments').select('amount').eq('payment_type', 'rent').eq('status', 'successful').eq('verified', true),
+      ]);
+      const counties = new Set((countyRows || []).map((row) => row.county).filter(Boolean)).size;
+      const rent = Math.round((paymentRows || []).reduce((sum, row) => sum + Number(row.amount || 0), 0));
+      setStats([
+        { value: propertyCount || 0, suffix: '+', label: 'Verified Properties' },
+        { value: customerCount || 0, suffix: '+', label: 'Customer Accounts' },
+        { value: counties, suffix: '+', label: 'Counties Represented' },
+        { value: rent, prefix: 'KSh ', suffix: '+', label: 'Verified Rent Processed' },
+      ]);
+    })();
+  }, []);
+
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <div className="text-center mb-12">
@@ -75,12 +101,7 @@ export function AboutPage() {
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-12">
-        {[
-          { value: 500, suffix: '+', label: 'Verified Properties' },
-          { value: 1200, suffix: '+', label: 'Happy Tenants' },
-          { value: 20, suffix: '+', label: 'Counties' },
-          { value: 50, prefix: 'KSh ', suffix: 'M+', label: 'Rent Processed' },
-        ].map((stat) => (
+        {stats.map((stat) => (
           <AboutCount key={stat.label} {...stat} />
         ))}
       </div>
@@ -125,7 +146,8 @@ export function ContactPage() {
             { icon: <Phone className="w-5 h-5" />, title: 'Call Us', value: '+254 710 382989', sub: 'HighPark K Consult LTD GROUP' },
             { icon: <Mail className="w-5 h-5" />, title: 'Email Us', value: 'lawparkconsultltd@gmail.com', sub: 'We reply within 24 hours' },
             { icon: <MapPin className="w-5 h-5" />, title: 'Office', value: '5017-00100, Nairobi', sub: 'Kenya' },
-            { icon: <MessageSquare className="w-5 h-5" />, title: 'Live Chat', value: 'Available in-app', sub: 'For registered users' },
+            { icon: <MessageCircle className="w-5 h-5" />, title: 'WhatsApp', value: '+254 710 382989', sub: 'Chat with HighPark Consult' },
+            { icon: <Navigation className="w-5 h-5" />, title: 'Postal / Office', value: '5017-00100', sub: 'Nairobi, Kenya' },
           ].map((item) => (
             <div key={item.title} className="card p-5">
               <div className="flex items-start gap-3">

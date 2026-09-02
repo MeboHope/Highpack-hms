@@ -61,6 +61,7 @@ export interface Property {
   longitude: number | null;
   map_url: string | null;
   number_of_units: number;
+  number_of_floors: number;
   amenities: string[];
   parking: boolean;
   security_info: string | null;
@@ -70,6 +71,7 @@ export interface Property {
   pets_allowed: boolean;
   photos: string[];
   videos: string[];
+  audio: string[];
   status: PropertyStatus;
   created_at: string;
   updated_at: string;

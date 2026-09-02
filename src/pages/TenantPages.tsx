@@ -44,10 +44,10 @@ export function TenantDashboard() {
   return (
     <DashboardLayout navItems={tenantNav} title="Dashboard">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <StatCard label="Monthly Rent" value={lease ? formatKES(lease.monthly_rent) : '—'} icon={<Wallet className="w-5 h-5" />} />
-        <StatCard label="Outstanding" value={formatKES(outstandingBalance)} icon={<FileText className="w-5 h-5" />} accent="red" />
-        <StatCard label="Reservations" value={reservations.length} icon={<Calendar className="w-5 h-5" />} accent="accent" />
-        <StatCard label="Lease Status" value={lease ? titleCase(lease.status) : 'No lease'} icon={<FileText className="w-5 h-5" />} accent="blue" />
+        <StatCard label="Monthly Rent" value={lease ? formatKES(lease.monthly_rent) : '—'} icon={<Wallet className="w-5 h-5" />} onClick={() => navigate(lease ? '/tenant/rent' : '/properties')} />
+        <StatCard label="Outstanding" value={formatKES(outstandingBalance)} icon={<FileText className="w-5 h-5" />} accent="red" onClick={() => navigate('/tenant/rent')} />
+        <StatCard label="Reservations" value={reservations.length} icon={<Calendar className="w-5 h-5" />} accent="accent" onClick={() => navigate('/tenant/reservations')} />
+        <StatCard label="Lease Status" value={lease ? titleCase(lease.status) : 'No lease'} icon={<FileText className="w-5 h-5" />} accent="blue" onClick={() => navigate(lease ? '/tenant/lease' : '/properties')} />
       </div>
 
       <Card className="mb-6 overflow-hidden border-brand-100">
@@ -305,7 +305,7 @@ export function TenantMaintenance() {
   return (
     <DashboardLayout navItems={tenantNav} title="Maintenance">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-bold text-ink-900">Maintenance Requests</h2>
+        <div><h2 className="text-xl font-bold text-ink-900">Maintenance & Service Requests</h2><p className="mt-1 text-sm text-ink-500">Active tenants can report issues. Customers with a current reservation can also submit pre-move-in concerns.</p></div>
         <button onClick={() => setShowAdd(true)} className="btn-primary"><Plus className="w-4 h-4" /> New Request</button>
       </div>
       {loading ? <LoadingPage /> : requests.length === 0 ? (
@@ -346,9 +346,14 @@ function AddMaintenanceModal({ tenantId, onClose }: { tenantId: string; onClose:
     e.preventDefault();
     setLoading(true);
     const { data: lease } = await supabase.from('leases').select('property_id, unit_id').eq('tenant_id', tenantId).eq('status', 'active').maybeSingle();
-    if (!lease) { toast('You need an active lease to submit maintenance requests.', 'error'); setLoading(false); return; }
+    let target = lease;
+    if (!target) {
+      const { data: reservation } = await supabase.from('reservations').select('property_id, unit_id').eq('customer_id', tenantId).in('status', ['pending','confirmed']).order('created_at', { ascending: false }).limit(1).maybeSingle();
+      target = reservation;
+    }
+    if (!target) { toast('Reserve a home first so we know which property and unit the request belongs to.', 'info'); setLoading(false); return; }
     const { error } = await supabase.from('maintenance_requests').insert({
-      tenant_id: tenantId, property_id: lease.property_id, unit_id: lease.unit_id,
+      tenant_id: tenantId, property_id: target.property_id, unit_id: target.unit_id,
       category: form.category.toLowerCase(), priority: form.priority, description: form.description, status: 'submitted',
     });
     setLoading(false);

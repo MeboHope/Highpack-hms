@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { MapPin, BedDouble, Bath, ShieldCheck, Heart, Share2, Phone, Calendar, ChevronLeft, ChevronRight, Car, Wifi, Droplets, Zap, PawPrint, CheckCircle, X, MessageSquare } from 'lucide-react';
+import { MapPin, BedDouble, Bath, ShieldCheck, Heart, Share2, Phone, Calendar, ChevronLeft, ChevronRight, Car, Wifi, Droplets, Zap, PawPrint, CheckCircle, X, MessageSquare , Music2 } from 'lucide-react';
 import { Link, useRouter } from '@/context/RouterContext';
 import { supabase } from '@/lib/supabase';
 import { formatKES, titleCase } from '@/lib/constants';
@@ -176,6 +176,13 @@ export function PropertyDetailsPage({ propertyId }: { propertyId: string }) {
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {property.videos.map((video) => <video key={video} src={video} controls preload="metadata" className="w-full rounded-xl bg-ink-950" />)}
           </div>
+        </div>
+      )}
+
+      {property.audio?.length > 0 && (
+        <div className="mb-8 rounded-2xl border border-accent-200 bg-accent-50/50 p-5 shadow-sm">
+          <div className="mb-4 flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent-100 text-accent-700"><Music2 className="h-5 w-5" /></div><div><h3 className="font-semibold text-ink-900">Audio property tour</h3><p className="text-sm text-ink-500">Listen to owner-provided information about the property.</p></div></div>
+          <div className="space-y-3">{property.audio.map((track) => <audio key={track} src={track} controls className="w-full" />)}</div>
         </div>
       )}
 
@@ -407,11 +414,15 @@ function ReservationModal({ unitId, propertyId, onClose }: { unitId: string; pro
     if (!profile) return;
     setStep('processing');
 
-    const { data: resData, error: resError } = await supabase.rpc('create_reservation', {
-      p_unit_id: unitId,
-      p_duration_hours: durationHours,
-    });
-
+    let { data: resData, error: resError } = await supabase.rpc('create_reservation', { p_unit_id: unitId, p_duration_hours: durationHours });
+    if ((resError || !resData) && resError?.message?.toLowerCase().includes('function') ) {
+      const { data: unit } = await supabase.from('property_units').select('property_id,status,reservation_fee').eq('id', unitId).maybeSingle();
+      if (unit?.status === 'available') {
+        const expires = new Date(Date.now() + durationHours * 3600000).toISOString();
+        const { data: direct, error: directError } = await supabase.from('reservations').insert({ unit_id: unitId, property_id: unit.property_id, customer_id: profile.id, reservation_fee: Number(unit.reservation_fee || reservationFee), status: 'pending', expires_at: expires }).select('*').single();
+        if (!directError && direct) { await supabase.from('property_units').update({ status: 'reserved' }).eq('id', unitId).eq('status','available'); resData = direct; resError = null; }
+      }
+    }
     if (resError || !resData) {
       const message = resError?.message || 'Could not create reservation. Please try again.';
       toast(message.includes('already') || message.includes('reserved') ? 'This unit is no longer available.' : message, 'error');

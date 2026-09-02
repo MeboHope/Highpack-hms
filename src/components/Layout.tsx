@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bell, Heart, LayoutDashboard, LogOut, Menu, X } from 'lucide-react';
+import { Bell, Heart, LayoutDashboard, LogOut, Menu, X, Phone, Mail, MapPin, MessageCircle, Navigation } from 'lucide-react';
 import { Link, useRouter } from '@/context/RouterContext';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
@@ -42,7 +42,7 @@ export function Header() {
   return (
     <header className="sticky top-0 z-50 border-b border-ink-100 bg-white/95 backdrop-blur-md">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="flex h-20 items-center justify-between gap-6">
+        <div className="flex h-24 items-center justify-between gap-6">
           <Brand compact />
 
           <nav className="hidden items-center gap-1 md:flex">
@@ -241,10 +241,11 @@ export function Footer() {
           <div>
             <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-accent-300">Contact & Office</h3>
             <div className="mt-4 space-y-3 text-sm text-ink-400">
-              <p className="leading-6">5017-00100<br />Nairobi, Kenya</p>
-              <a href="tel:+254710382989" className="block font-semibold text-white hover:text-accent-300">+254 710 382989</a>
-              <a href="mailto:lawparkconsultltd@gmail.com" className="block hover:text-white">lawparkconsultltd@gmail.com</a>
-              <a href="https://wa.me/254710382989" target="_blank" rel="noreferrer" className="block hover:text-white">WhatsApp · +254 710 382989</a>
+              <a href="tel:+254710382989" className="contact-row"><Phone className="h-4 w-4 text-accent-300" /><span><strong className="block text-white">Phone</strong>+254 710 382989</span></a>
+              <a href="mailto:lawparkconsultltd@gmail.com" className="contact-row"><Mail className="h-4 w-4 text-accent-300" /><span><strong className="block text-white">Email</strong>lawparkconsultltd@gmail.com</span></a>
+              <a href="https://wa.me/254710382989" target="_blank" rel="noreferrer" className="contact-row"><MessageCircle className="h-4 w-4 text-accent-300" /><span><strong className="block text-white">WhatsApp</strong>+254 710 382989</span></a>
+              <div className="contact-row"><MapPin className="h-4 w-4 text-accent-300" /><span><strong className="block text-white">Postal / Office</strong>5017-00100, Nairobi, Kenya</span></div>
+              <div className="contact-row"><Navigation className="h-4 w-4 text-accent-300" /><span><strong className="block text-white">Group</strong>HighPark K Consult LTD GROUP</span></div>
             </div>
           </div>
         </div>
