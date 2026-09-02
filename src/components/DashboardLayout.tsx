@@ -57,11 +57,11 @@ export function DashboardLayout({
     (to !== `/${title.toLowerCase()}` && path.startsWith(to));
 
   return (
-    <div className="min-h-screen bg-ink-50 flex">
+    <div className="app-shell min-h-screen bg-ink-50 flex">
       {/* Desktop sidebar */}
-      <aside className="hidden lg:flex w-64 bg-white border-r border-ink-100 flex-col fixed h-screen z-40">
+      <aside className="hidden lg:flex w-64 bg-white/95 backdrop-blur-xl border-r border-ink-100 flex-col fixed h-screen z-40 shadow-[8px_0_30px_rgba(13,35,66,0.03)]">
         {/* Logo */}
-        <div className="p-4 border-b border-ink-100 flex items-center justify-center">
+        <div className="px-4 py-5 border-b border-ink-100 flex items-center justify-center bg-gradient-to-b from-white to-brand-50/30">
           <Brand compact />
         </div>
 
@@ -90,13 +90,13 @@ export function DashboardLayout({
             <Link
               key={item.to}
               to={item.to}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+              className={`group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
                 isActive(item.to)
-                  ? 'bg-brand-50 text-brand-700'
+                  ? 'bg-brand-50 text-brand-800 shadow-sm ring-1 ring-brand-100'
                   : 'text-ink-600 hover:bg-ink-50 hover:text-ink-900'
               }`}
             >
-              {item.icon}
+              <span className={isActive(item.to) ? 'text-brand-700' : 'text-ink-400 group-hover:text-brand-600'}>{item.icon}</span>
               {item.label}
             </Link>
           ))}
@@ -179,7 +179,7 @@ export function DashboardLayout({
       {/* Main content */}
       <div className="flex-1 lg:ml-64">
         {/* Top bar */}
-        <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-lg border-b border-ink-100">
+        <header className="sticky top-0 z-30 bg-white/85 backdrop-blur-xl border-b border-ink-100 shadow-[0_4px_24px_rgba(13,35,66,0.03)]">
           <div className="flex items-center justify-between px-4 sm:px-6 h-16">
             <div className="flex items-center gap-3">
               <button
@@ -213,7 +213,8 @@ export function DashboardLayout({
           </div>
         </header>
 
-        <main className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
+        <main className="p-4 sm:p-6 lg:p-8 max-w-[1500px] mx-auto">
+          <div className="mb-4 hidden items-center gap-2 text-[11px] font-medium text-ink-400 lg:flex"><span>HighPark Consult</span><span>•</span><span className="capitalize">{profile?.role || 'workspace'}</span><span>•</span><span className="text-brand-700">{title}</span></div>
           {children}
         </main>
       </div>
@@ -301,7 +302,7 @@ export const tenantNav = [
     icon: <Home className="w-5 h-5" />,
   },
   {
-    label: 'Rent & Invoices',
+    label: 'Rent & Payments',
     to: '/tenant/rent',
     icon: <Wallet className="w-5 h-5" />,
   },
@@ -362,6 +363,16 @@ export const adminNav = [
     label: 'Payments',
     to: '/admin/payments',
     icon: <Wallet className="w-5 h-5" />,
+  },
+  {
+    label: 'Expenses',
+    to: '/admin/expenses',
+    icon: <Receipt className="w-5 h-5" />,
+  },
+  {
+    label: 'Maintenance',
+    to: '/admin/maintenance',
+    icon: <Wrench className="w-5 h-5" />,
   },
   {
     label: 'Tax',

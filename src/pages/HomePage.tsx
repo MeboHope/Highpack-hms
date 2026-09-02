@@ -168,46 +168,65 @@ export function HomePage() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      // Prefer the safe public catalog RPC. This remains reliable even when an
-      // existing Supabase project has overlapping/stale public RLS policies.
-      const { data: catalog, error: catalogError } = await supabase.rpc('get_public_property_catalog');
-      if (catalogError) {
-        console.error('Home public catalog load error:', catalogError);
-      }
-      const rows = (catalog || []) as Array<Record<string, any>>;
+      const [{ data: catalog, error: catalogError }, { data: siteStats, error: statsError }] = await Promise.all([
+        supabase.rpc('get_public_property_catalog'),
+        supabase.rpc('get_public_site_stats'),
+      ]);
+
+      if (catalogError) console.error('Home public catalog load error:', catalogError);
+      if (statsError) console.error('Home public statistics load error:', statsError);
+
+      const rows = (catalog || []) as Array<Record<string, unknown>>;
       const byProperty = new Map<string, PropertyWithUnits>();
       for (const row of rows) {
         const id = String(row.property_id);
         if (!byProperty.has(id)) {
           byProperty.set(id, {
-            id, name: row.name, county: row.county, town: row.town, estate: row.estate,
-            property_type: row.property_type, photos: row.photos || [], status: 'verified',
-            created_at: row.created_at, property_units: [],
-          } as PropertyWithUnits);
+            id,
+            name: String(row.name ?? ''),
+            county: String(row.county ?? ''),
+            town: String(row.town ?? ''),
+            estate: row.estate == null ? null : String(row.estate),
+            property_type: String(row.property_type ?? ''),
+            photos: Array.isArray(row.photos) ? row.photos.filter((photo): photo is string => typeof photo === 'string') : [],
+            status: 'verified',
+            property_units: [],
+          });
         }
         if (row.unit_id) {
           byProperty.get(id)!.property_units.push({
-            id: row.unit_id, property_id: id, unit_number: row.unit_number, floor: row.floor,
-            house_type: row.house_type, bedrooms: Number(row.bedrooms || 0),
-            bathrooms: Number(row.bathrooms || 0), monthly_rent: Number(row.monthly_rent || 0),
-            status: row.status, furnishing: row.furnishing, photos: row.unit_photos || [], videos: row.unit_videos || [],
-          } as any);
+            monthly_rent: Number(row.monthly_rent || 0),
+            bedrooms: Number(row.bedrooms || 0),
+            bathrooms: Number(row.bathrooms || 0),
+            status: String(row.status || 'available'),
+          });
         }
       }
+
       const props = Array.from(byProperty.values()).slice(0, 6);
-      const [{ count: verifiedCount }, { count: availableCount }, { data: countyRows }] = await Promise.all([
-        supabase.from('properties').select('id', { count: 'exact', head: true }).eq('status', 'verified'),
-        supabase.from('property_units').select('id', { count: 'exact', head: true }).eq('status', 'available'),
-        supabase.from('properties').select('county').eq('status', 'verified'),
-      ]);
+      const fallbackVerified = byProperty.size;
+      const fallbackAvailable = rows.filter((row) => row.unit_id && row.status === 'available').length;
+      const fallbackCounties = new Set(rows.map((row) => row.county).filter((county) => typeof county === 'string' && county.trim())).size;
+      const statRow = Array.isArray(siteStats) && siteStats.length ? siteStats[0] as Record<string, unknown> : null;
+
+      const verifiedStat = Number(statRow?.verified_properties || 0);
+      const availableStat = Number(statRow?.available_homes || 0);
+      const countyStat = Number(statRow?.counties_covered || 0);
+      const verifiedCount = statRow && (verifiedStat > 0 || fallbackVerified === 0) ? verifiedStat : fallbackVerified;
+      const availableCount = statRow && (availableStat > 0 || fallbackAvailable === 0) ? availableStat : fallbackAvailable;
+      const countyCount = statRow && (countyStat > 0 || fallbackCounties === 0) ? countyStat : fallbackCounties;
+
       setStats([
-        { value: verifiedCount || 0, suffix: '+', label: 'Verified Properties' },
-        { value: availableCount || 0, suffix: '+', label: 'Available Homes' },
-        { value: new Set((countyRows || []).map((r) => r.county).filter(Boolean)).size, suffix: '+', label: 'Counties Covered' },
+        { value: verifiedCount, suffix: '+', label: 'Verified Properties' },
+        { value: availableCount, suffix: '+', label: 'Available Homes' },
+        { value: countyCount, suffix: '+', label: 'Counties Covered' },
         { value: 24, prefix: '< ', suffix: 'h', label: 'Reservation Hold' },
       ]);
-      const result = props as PropertyWithUnits[];
-      if (!cancelled) { setProperties(result); setLoading(false); }
+
+      if (!cancelled) {
+        setProperties(props);
+        setLoading(false);
+      }
     })();
     return () => { cancelled = true; };
   }, []);

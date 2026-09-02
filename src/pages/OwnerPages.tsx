@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Building2, Home, Calendar, Users, Wallet, Receipt, Wrench, TrendingUp, FileText, Plus, MapPin, BedDouble, Bath, Trash2, Eye, CheckCircle, XCircle, Download, Calculator, Layers3, ImagePlus, Video, Music2 } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Building2, Home, Calendar, Users, Wallet, Receipt, Wrench, TrendingUp, FileText, Plus, MapPin, BedDouble, Bath, Trash2, Eye, CheckCircle, XCircle, Download, Calculator, Layers3, Clock, ImagePlus, Video, Music2 } from 'lucide-react';
 import { DashboardLayout, ownerNav } from '@/components/DashboardLayout';
 import { StatCard, Card, Badge, EmptyState, LoadingPage } from '@/components/ui';
 import { Modal, ConfirmDialog } from '@/components/Modal';
@@ -7,9 +7,11 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import { useRouter } from '@/context/RouterContext';
-import { formatKES, formatDate, titleCase, normalizeUnitType, PROPERTY_TYPES, KENYAN_COUNTIES, PROPERTY_AMENITIES, EXPENSE_CATEGORIES } from '@/lib/constants';
+import { formatKES, formatDate, titleCase, PROPERTY_TYPES, KENYAN_COUNTIES, PROPERTY_AMENITIES, EXPENSE_CATEGORIES } from '@/lib/constants';
 import { uploadPropertyMedia, deletePropertyMedia } from '@/lib/media';
 import { getPropertyImages } from '@/lib/images';
+import { downloadPaymentReceiptPdf } from '@/lib/documents';
+import { loadDashboardPropertyPerformance, loadManagedExpenses, loadManagedMaintenance } from '@/lib/operationalData';
 import type { Property, PropertyUnit, Reservation, Lease, Expense, TaxRecord, MaintenanceRequest, Payment } from '@/lib/supabase';
 
 export function OwnerDashboard() {
@@ -25,60 +27,13 @@ export function OwnerDashboard() {
   useEffect(() => {
     if (!profile) return;
     setLoading(true);
-    (async () => {
-      const { data: props } = await supabase.from('properties').select('id,name,property_type').eq('owner_id', profile.id).order('created_at', { ascending: false });
-      const propertyList = (props || []) as { id: string; name: string; property_type: string }[];
-      const ids = propertyList.map((p) => p.id);
-      if (!ids.length) { setSummary([]); setLoading(false); return; }
-
-      const start = `${period}-01`;
-      const next = new Date(`${period}-01T00:00:00`);
-      next.setMonth(next.getMonth() + 1);
-      const end = next.toISOString().slice(0, 10);
-      const [{ data: units }, { data: leases }, { data: payments }, { data: taxRecords }] = await Promise.all([
-        supabase.from('property_units').select('id,property_id,status,monthly_rent,house_type,bedrooms,floor').in('property_id', ids),
-        supabase.from('leases').select('property_id,tenant_id,status').in('property_id', ids).eq('status', 'active'),
-        supabase.from('payments').select('property_id,amount,status,verified,payment_type').in('property_id', ids).eq('status', 'successful').eq('verified', true).gte('created_at', start).lt('created_at', end),
-        supabase.from('tax_records').select('property_id,estimated_tax,period').in('property_id', ids).eq('period', period),
-      ]);
-
-      const unitList = (units || []) as Pick<PropertyUnit, 'id'|'property_id'|'status'|'monthly_rent'|'house_type'|'bedrooms'|'floor'>[];
-      const leaseList = (leases || []) as Pick<Lease, 'property_id'|'tenant_id'|'status'>[];
-      const paymentList = (payments || []) as Pick<Payment, 'property_id'|'amount'|'status'|'verified'|'payment_type'>[];
-      const taxList = (taxRecords || []) as Pick<TaxRecord, 'property_id'|'estimated_tax'>[];
-
-      setSummary(propertyList.map((property) => {
-        const propertyUnits = unitList.filter((u) => u.property_id === property.id);
-        const propertyLeases = leaseList.filter((l) => l.property_id === property.id);
-        const propertyPayments = paymentList.filter((p) => p.property_id === property.id && p.payment_type === 'rent');
-        const propertyTax = taxList.filter((t) => t.property_id === property.id).reduce((sum, t) => sum + Number(t.estimated_tax || 0), 0);
-        const unitTypes = propertyUnits.reduce<Record<string, number>>((types, unit) => { const key = normalizeUnitType(unit.house_type, unit.bedrooms); types[key] = (types[key] || 0) + 1; return types; }, {});
-        return {
-          id: property.id,
-          name: property.name,
-          propertyType: property.property_type,
-          unitTypes,
-          units: propertyUnits.length,
-          available: propertyUnits.filter((u) => u.status === 'available').length,
-          reserved: propertyUnits.filter((u) => u.status === 'reserved').length,
-          occupied: propertyUnits.filter((u) => u.status === 'occupied').length,
-          tenants: propertyLeases.length,
-          expectedRent: propertyUnits.filter((u) => u.status === 'occupied').reduce((sum, u) => sum + Number(u.monthly_rent || 0), 0),
-          collectedRent: propertyPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0),
-          tax: propertyTax,
-          floors: propertyUnits.reduce<Record<string, { total: number; available: number; occupied: number; reserved: number }>>((acc, u) => {
-            const key = u.floor == null ? 'Ground / Unspecified' : `Floor ${u.floor}`;
-            acc[key] ||= { total: 0, available: 0, occupied: 0, reserved: 0 };
-            acc[key].total += 1;
-            if (u.status === 'available') acc[key].available += 1;
-            if (u.status === 'occupied') acc[key].occupied += 1;
-            if (u.status === 'reserved') acc[key].reserved += 1;
-            return acc;
-          }, {}),
-        };
-      }));
-      setLoading(false);
-    })();
+    loadDashboardPropertyPerformance(profile.id, profile.role, period)
+      .then(setSummary)
+      .catch((error) => {
+        console.error('Owner dashboard summary error:', error);
+        setSummary([]);
+      })
+      .finally(() => setLoading(false));
   }, [profile, period]);
 
   if (loading) return <DashboardLayout navItems={ownerNav} title="Dashboard"><LoadingPage /></DashboardLayout>;
@@ -536,18 +491,6 @@ export function OwnerReservations() {
   const [loading, setLoading] = useState(true);
   const [leaseReservation, setLeaseReservation] = useState<(Reservation & { property_units: { unit_number: string; monthly_rent?: number; security_deposit?: number }; properties: { name: string } }) | null>(null);
 
-  useEffect(() => {
-    if (!profile) return;
-    (async () => {
-      const { data: props } = await supabase.from('properties').select('id').eq('owner_id', profile.id);
-      const propIds = (props || []).map((p) => p.id);
-      if (propIds.length === 0) { setLoading(false); return; }
-      const { data } = await supabase.from('reservations').select('*, property_units(unit_number,monthly_rent,security_deposit), properties(name)').in('property_id', propIds).order('created_at', { ascending: false });
-      setReservations((data as typeof reservations) || []);
-      setLoading(false);
-    })();
-  }, [profile]);
-
   const convertToLease = async (r: Reservation & { property_units: { unit_number: string; monthly_rent?: number; security_deposit?: number }; properties: { name: string } }) => {
     const start = new Date().toISOString().slice(0, 10);
     const { error } = await supabase.rpc('create_lease_from_reservation', { p_reservation_id: r.id, p_lease_start: start, p_lease_months: 12 });
@@ -557,12 +500,25 @@ export function OwnerReservations() {
     setReservations(reservations.map((x) => x.id === r.id ? { ...x, status: 'converted' } : x));
   };
 
-  const updateStatus = async (id: string, status: string) => {
-    const reservation = reservations.find((r) => r.id === id);
-    await supabase.from('reservations').update({ status }).eq('id', id);
-    if (status === 'cancelled' && reservation) await supabase.from('property_units').update({ status: 'available' }).eq('id', reservation.unit_id);
+  const loadReservations = useCallback(async () => {
+    if (!profile) return;
+    const { data: props, error: propsError } = await supabase.from('properties').select('id').eq('owner_id', profile.id);
+    if (propsError) { toast(`Could not load properties: ${propsError.message}`, 'error'); setLoading(false); return; }
+    const propIds = (props || []).map((p) => p.id);
+    if (propIds.length === 0) { setReservations([]); setLoading(false); return; }
+    const { data, error } = await supabase.from('reservations').select('*, property_units(unit_number,monthly_rent,security_deposit), properties(name)').in('property_id', propIds).order('created_at', { ascending: false });
+    if (error) { toast(`Could not load reservations: ${error.message}`, 'error'); return; }
+    setReservations((data as typeof reservations) || []);
+    setLoading(false);
+  }, [profile, toast]);
+
+  useEffect(() => { void loadReservations(); }, [loadReservations]);
+
+  const updateStatus = async (id: string, status: 'confirmed' | 'cancelled') => {
+    const { error } = await supabase.rpc('update_reservation_status_by_manager', { p_reservation_id: id, p_status: status });
+    if (error) { toast(`Could not ${status === 'confirmed' ? 'confirm' : 'cancel'} reservation: ${error.message}`, 'error'); return; }
     toast(`Reservation ${status}`, 'success');
-    setReservations(reservations.map((r) => r.id === id ? { ...r, status: status as Reservation['status'] } : r));
+    await loadReservations();
   };
 
   return (
@@ -632,10 +588,12 @@ export function OwnerExpenses() {
 
   const load = async () => {
     if (!profile) return;
-    const { data: props } = await supabase.from('properties').select('*').eq('owner_id', profile.id);
+    const [{ data: props }, expenseResult] = await Promise.all([
+      supabase.from('properties').select('*').eq('owner_id', profile.id).order('name'),
+      loadManagedExpenses(profile.id, profile.role),
+    ]);
     setProperties((props as Property[]) || []);
-    const { data } = await supabase.from('expenses').select('*, properties(name)').eq('owner_id', profile.id).order('expense_date', { ascending: false });
-    setExpenses((data as typeof expenses) || []);
+    setExpenses((expenseResult.data as typeof expenses) || []);
     setLoading(false);
   };
 
@@ -647,20 +605,21 @@ export function OwnerExpenses() {
     <DashboardLayout navItems={ownerNav} title="Expenses">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-xl font-bold text-ink-900">Property Expenses</h2>
-          <p className="text-sm text-ink-500">Total: {formatKES(total)}</p>
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-brand-600">Portfolio operations</p>
+          <h2 className="mt-1 text-2xl font-bold text-ink-900">Property Expenses</h2>
+          <p className="mt-1 text-sm text-ink-500">Record and review operating costs from the same property records used by tax and reports.</p>
         </div>
         <button onClick={() => setShowAdd(true)} className="btn-primary"><Plus className="w-4 h-4" /> Record Expense</button>
       </div>
+      <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-3"><StatCard label="Total Expenses" value={formatKES(total)} icon={<Receipt className="h-5 w-5" />} accent="red" /><StatCard label="Expense Records" value={expenses.length} icon={<FileText className="h-5 w-5" />} /><StatCard label="Properties With Costs" value={new Set(expenses.map((e) => e.property_id)).size} icon={<Building2 className="h-5 w-5" />} accent="accent" /></div>
 
       {loading ? <LoadingPage /> : expenses.length === 0 ? (
         <EmptyState icon={<Receipt className="w-8 h-8" />} title="No expenses recorded" description="Track property expenses for tax deduction purposes." />
       ) : (
         <Card className="overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-ink-50 text-ink-500 text-left">
-                <tr><th className="px-4 py-3 font-medium">Property</th><th className="px-4 py-3 font-medium">Category</th><th className="px-4 py-3 font-medium">Amount</th><th className="px-4 py-3 font-medium">Date</th><th className="px-4 py-3 font-medium">Vendor</th></tr>
+            <table className="premium-table w-full min-w-[820px] text-sm">
+              <thead><tr><th>Property</th><th>Category</th><th>Amount</th><th>Date</th><th>Vendor</th><th>Method</th></tr>
               </thead>
               <tbody className="divide-y divide-ink-100">
                 {expenses.map((e) => (
@@ -670,6 +629,7 @@ export function OwnerExpenses() {
                     <td className="px-4 py-3 font-semibold">{formatKES(e.amount)}</td>
                     <td className="px-4 py-3 text-ink-500">{formatDate(e.expense_date)}</td>
                     <td className="px-4 py-3 text-ink-500">{e.vendor || '—'}</td>
+                    <td className="px-4 py-3 capitalize">{e.payment_method || 'cash'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -678,24 +638,32 @@ export function OwnerExpenses() {
         </Card>
       )}
 
-      {showAdd && <AddExpenseModal properties={properties} ownerId={profile?.id || ''} onClose={() => { setShowAdd(false); load(); }} />}
+      {showAdd && <AddExpenseModal properties={properties} onClose={() => setShowAdd(false)} onSuccess={(expense) => { const property = properties.find((item) => item.id === expense.property_id); setExpenses((current) => [{ ...expense, properties: { name: property?.name || 'Property' } }, ...current]); setShowAdd(false); void load(); }} />}
     </DashboardLayout>
   );
 }
 
-function AddExpenseModal({ properties, ownerId, onClose }: { properties: Property[]; ownerId: string; onClose: () => void }) {
+function AddExpenseModal({ properties, onClose, onSuccess }: { properties: Property[]; onClose: () => void; onSuccess: (expense: Expense) => void }) {
   const { toast } = useToast();
   const [form, setForm] = useState({ property_id: properties[0]?.id || '', category: 'Repairs', amount: '', expense_date: new Date().toISOString().split('T')[0], vendor: '', description: '', payment_method: 'cash' });
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const amount = Number(form.amount);
+    if (!form.property_id || !Number.isFinite(amount) || amount <= 0) { toast('Select a property and enter an expense amount greater than zero.', 'error'); return; }
     setLoading(true);
-    const { error } = await supabase.rpc('create_owner_expense', { p_property_id: form.property_id, p_category: form.category, p_amount: parseFloat(form.amount), p_expense_date: form.expense_date, p_vendor: form.vendor || null, p_description: form.description || null, p_payment_method: form.payment_method });
+    const { data, error } = await supabase.rpc('create_owner_expense', { p_property_id: form.property_id, p_category: form.category, p_amount: amount, p_expense_date: form.expense_date, p_vendor: form.vendor || null, p_description: form.description || null, p_payment_method: form.payment_method });
     setLoading(false);
-    if (error) { toast('Could not record expense.', 'error'); return; }
-    toast('Expense recorded!', 'success');
-    onClose();
+    if (error) { toast(`Could not record expense: ${error.message}`, 'error'); return; }
+    let saved = data as Expense | null;
+    if (!saved) {
+      const fallback = await supabase.from('expenses').select('*').eq('property_id', form.property_id).eq('amount', amount).eq('expense_date', form.expense_date).order('created_at', { ascending: false }).limit(1).maybeSingle();
+      saved = (fallback.data as Expense | null) ?? null;
+    }
+    if (!saved) { toast('The expense could not be confirmed in the ledger. Please refresh and check before submitting it again.', 'error'); return; }
+    toast('Expense recorded and added to the ledger.', 'success');
+    onSuccess(saved);
   };
 
   return (
@@ -709,6 +677,7 @@ function AddExpenseModal({ properties, ownerId, onClose }: { properties: Propert
           <div><label className="label">Vendor/Supplier</label><input className="input" value={form.vendor} onChange={(e) => setForm({ ...form, vendor: e.target.value })} /></div>
         </div>
         <div><label className="label">Description</label><textarea className="input" rows={2} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
+        <div><label className="label">Payment Method</label><select className="input" value={form.payment_method} onChange={(e) => setForm({ ...form, payment_method: e.target.value })}><option value="cash">Cash</option><option value="mpesa">M-Pesa</option><option value="bank_transfer">Bank Transfer</option><option value="card">Card</option><option value="other">Other</option></select></div>
         <button type="submit" className="btn-primary w-full" disabled={loading}>{loading ? 'Saving...' : 'Record Expense'}</button>
       </form>
     </Modal>
@@ -842,27 +811,27 @@ export function OwnerMaintenance() {
   const [requests, setRequests] = useState<(MaintenanceRequest & { property_units: { unit_number: string }; properties: { name: string } })[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const load = useCallback(async () => {
     if (!profile) return;
-    (async () => {
-      const { data: props } = await supabase.from('properties').select('id').eq('owner_id', profile.id);
-      const propIds = (props || []).map((p) => p.id);
-      if (propIds.length === 0) { setLoading(false); return; }
-      const { data } = await supabase.from('maintenance_requests').select('*, property_units(unit_number,monthly_rent,security_deposit), properties(name)').in('property_id', propIds).order('created_at', { ascending: false });
-      setRequests((data as typeof requests) || []);
-      setLoading(false);
-    })();
+    setLoading(true);
+    const result = await loadManagedMaintenance(profile.id, profile.role);
+    setRequests((result.data as typeof requests) || []);
+    setLoading(false);
   }, [profile]);
 
+  useEffect(() => { void load(); }, [load]);
+
   const updateStatus = async (id: string, status: string) => {
-    await supabase.from('maintenance_requests').update({ status }).eq('id', id);
+    const { error } = await supabase.rpc('update_maintenance_status_by_manager', { p_request_id: id, p_status: status });
+    if (error) { toast(error.message, 'error'); return; }
     toast(`Request ${titleCase(status)}`, 'success');
-    setRequests(requests.map((r) => r.id === id ? { ...r, status: status as MaintenanceRequest['status'] } : r));
+    setRequests((current) => current.map((r) => r.id === id ? { ...r, status: status as MaintenanceRequest['status'] } : r));
   };
 
   return (
     <DashboardLayout navItems={ownerNav} title="Maintenance">
-      <h2 className="text-xl font-bold text-ink-900 mb-6">Maintenance Requests</h2>
+      <div className="mb-6 rounded-2xl brand-gradient p-6 text-white shadow-soft-lg"><p className="text-sm font-semibold text-white/75">Property service desk</p><h2 className="mt-1 text-2xl font-bold">Maintenance & service requests</h2><p className="mt-1 max-w-2xl text-sm text-white/80">Every tenant-reported issue is tied to its property and unit. Update the status here and the tenant is notified.</p></div>
+      <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4"><StatCard label="All Requests" value={requests.length} icon={<Wrench className="h-5 w-5" />} /><StatCard label="Open" value={requests.filter((r) => !['completed','closed'].includes(r.status)).length} icon={<Clock className="h-5 w-5" />} accent="accent" /><StatCard label="In Progress" value={requests.filter((r) => ['assigned','in_progress','awaiting_parts'].includes(r.status)).length} icon={<TrendingUp className="h-5 w-5" />} accent="blue" /><StatCard label="Completed" value={requests.filter((r) => ['completed','closed'].includes(r.status)).length} icon={<CheckCircle className="h-5 w-5" />} accent="brand" /></div>
       {loading ? <LoadingPage /> : requests.length === 0 ? (
         <EmptyState icon={<Wrench className="w-8 h-8" />} title="No maintenance requests" description="Tenant maintenance requests will appear here." />
       ) : (
@@ -947,7 +916,7 @@ export function OwnerTenants() {
 
 export function OwnerPayments() {
   const { profile } = useAuth();
-  const [payments, setPayments] = useState<(Payment & { properties: { name: string } })[]>([]);
+  const [payments, setPayments] = useState<(Payment & { properties: { name: string } | null; property_units: { unit_number: string } | null; profiles: { full_name: string | null } | null })[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -956,7 +925,7 @@ export function OwnerPayments() {
       const { data: props } = await supabase.from('properties').select('id').eq('owner_id', profile.id);
       const propIds = (props || []).map((p) => p.id);
       if (propIds.length === 0) { setLoading(false); return; }
-      const { data } = await supabase.from('payments').select('*, properties(name)').in('property_id', propIds).order('created_at', { ascending: false });
+      const { data } = await supabase.from('payments').select('*, properties(name), property_units(unit_number), profiles:user_id(full_name)').in('property_id', propIds).order('created_at', { ascending: false });
       setPayments((data as typeof payments) || []);
       setLoading(false);
     })();
@@ -976,19 +945,19 @@ export function OwnerPayments() {
       ) : (
         <Card className="overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-ink-50 text-ink-500 text-left">
-                <tr><th className="px-4 py-3 font-medium">Property</th><th className="px-4 py-3 font-medium">Type</th><th className="px-4 py-3 font-medium">Amount</th><th className="px-4 py-3 font-medium">Method</th><th className="px-4 py-3 font-medium">Status</th><th className="px-4 py-3 font-medium">Date</th></tr>
+            <table className="premium-table w-full min-w-[980px] text-sm">
+              <thead><tr><th>Tenant</th><th>Property / Unit</th><th className="px-4 py-3 font-medium">Type</th><th className="px-4 py-3 font-medium">Amount</th><th className="px-4 py-3 font-medium">Method</th><th className="px-4 py-3 font-medium">Status</th><th className="px-4 py-3 font-medium">Date</th><th className="px-4 py-3 font-medium">Receipt</th></tr>
               </thead>
               <tbody className="divide-y divide-ink-100">
                 {payments.map((p) => (
                   <tr key={p.id} className="hover:bg-ink-50">
-                    <td className="px-4 py-3 font-medium text-ink-900">{p.properties?.name || '—'}</td>
+                    <td><p className="font-medium text-ink-900">{p.profiles?.full_name || 'Tenant'}</p></td><td><p className="font-medium text-ink-900">{p.properties?.name || '—'}</p><p className="text-xs text-ink-400">Unit {p.property_units?.unit_number || '—'}</p></td>
                     <td className="px-4 py-3 capitalize">{p.payment_type}</td>
                     <td className="px-4 py-3 font-semibold">{formatKES(p.amount)}</td>
                     <td className="px-4 py-3 capitalize">{p.payment_method}</td>
                     <td className="px-4 py-3"><Badge status={p.status} /></td>
                     <td className="px-4 py-3 text-ink-500">{formatDate(p.created_at)}</td>
+                    <td className="px-4 py-3">{p.verified ? <button type="button" onClick={() => downloadPaymentReceiptPdf({ payment: p, propertyName: p.properties?.name || 'Property', unitNumber: p.property_units?.unit_number || null, tenantName: p.profiles?.full_name || 'Tenant' })} className="btn-secondary px-3 py-2 text-xs">Download</button> : <span className="text-xs text-ink-400">Awaiting verification</span>}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1018,10 +987,10 @@ export function OwnerReports() {
       const { data: props } = await supabase.from('properties').select('id,name,property_type').eq('owner_id', profile.id);
       const ids = (props || []).map(p => p.id);
       const [{ data: units }, { data: payments }, { data: expenses }, { data: leases }] = await Promise.all([
-        ids.length ? supabase.from('property_units').select('property_id,status,monthly_rent').in('property_id', ids) : Promise.resolve({ data: [] as any[] }),
-        ids.length ? supabase.from('payments').select('property_id,amount,status,verified,payment_type,created_at').in('property_id', ids) : Promise.resolve({ data: [] as any[] }),
-        ids.length ? supabase.from('expenses').select('property_id,category,amount,expense_date').in('property_id', ids) : Promise.resolve({ data: [] as any[] }),
-        ids.length ? supabase.from('leases').select('property_id,status,tenant_id').in('property_id', ids) : Promise.resolve({ data: [] as any[] }),
+        ids.length ? supabase.from('property_units').select('property_id,status,monthly_rent').in('property_id', ids) : Promise.resolve({ data: [] as Array<{ property_id: string; status: string; monthly_rent: number }> }),
+        ids.length ? supabase.from('payments').select('property_id,amount,status,verified,payment_type,created_at').in('property_id', ids) : Promise.resolve({ data: [] as Array<{ property_id: string; amount: number; status: string; verified: boolean; payment_type: string; created_at: string }> }),
+        ids.length ? supabase.from('expenses').select('property_id,category,amount,expense_date').in('property_id', ids) : Promise.resolve({ data: [] as Array<{ property_id: string; category: string; amount: number; expense_date: string }> }),
+        ids.length ? supabase.from('leases').select('property_id,status,tenant_id').in('property_id', ids) : Promise.resolve({ data: [] as Array<{ property_id: string; status: string; tenant_id: string }> }),
       ]);
       const rows: string[][] = [['Property','Type','Units','Occupied','Vacant','Reserved','Active Tenants','Rent Collected','Expenses']];
       (props || []).forEach(p => { const us=(units||[]).filter(x=>x.property_id===p.id); const ps=(payments||[]).filter(x=>x.property_id===p.id && x.status==='successful' && x.verified); const es=(expenses||[]).filter(x=>x.property_id===p.id); rows.push([p.name,p.property_type,String(us.length),String(us.filter(x=>x.status==='occupied').length),String(us.filter(x=>x.status==='available').length),String(us.filter(x=>x.status==='reserved').length),String((leases||[]).filter(x=>x.property_id===p.id && x.status==='active').length),String(ps.reduce((a,x)=>a+Number(x.amount||0),0)),String(es.reduce((a,x)=>a+Number(x.amount||0),0))]); });

@@ -714,7 +714,10 @@ $$ LANGUAGE plpgsql;
 DO $$
 DECLARE t text;
 BEGIN
-  FOR t IN SELECT unnest(ARRAY['profiles','properties','property_units','reservations','payments','leases','rent_invoices','maintenance_requests','expenses','tax_records','owner_payouts','notifications','viewing_appointments']) LOOP
+  -- Only attach the trigger to tables that actually contain an updated_at column.
+  -- rent_invoices, expenses, tax_records, owner_payouts, notifications and
+  -- viewing_appointments intentionally use created_at only in this schema.
+  FOR t IN SELECT unnest(ARRAY['profiles','properties','property_units','reservations','payments','leases','maintenance_requests']) LOOP
     EXECUTE format('DROP TRIGGER IF EXISTS set_updated_at ON %I;', t);
     EXECUTE format('CREATE TRIGGER set_updated_at BEFORE UPDATE ON %I FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();', t);
   END LOOP;

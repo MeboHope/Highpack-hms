@@ -22,6 +22,8 @@ Deno.serve(async (req) => {
     return json({ error: 'M-Pesa Daraja credentials have not been configured yet', setupRequired: true }, 503)
   }
 
+  void shortcode
+
   // This function is intentionally a production-safe integration shell until
   // HighPark receives live Daraja credentials and the approved callback URL.
   // Do not accept a browser-supplied success result here.

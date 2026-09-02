@@ -35,7 +35,7 @@ export function PropertyDetailsPage({ propertyId }: { propertyId: string }) {
       // listings remain visible regardless of stale client-side RLS state.
       const { data: catalog, error: catalogError } = await supabase.rpc('get_public_property_catalog');
       if (catalogError) console.error('Property detail catalog error:', catalogError);
-      const rows = (catalog || []) as Array<Record<string, any>>;
+      const rows = (catalog || []) as Array<Record<string, unknown>>;
       const matching = rows.filter((row) => String(row.property_id) === propertyId);
       const first = matching[0];
       const data = first ? {

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Home, Wallet, FileText, Wrench, Bell, Calendar, CheckCircle, Plus, MapPin, BedDouble, Bath, ShieldCheck, Search, ArrowRight, Clock, Eye } from 'lucide-react';
+import { Home, Wallet, FileText, Wrench, Bell, Calendar, CheckCircle, Plus, MapPin, BedDouble, Bath, ShieldCheck, Search, ArrowRight, Clock, Eye, Receipt, CreditCard, Download } from 'lucide-react';
 import { DashboardLayout, tenantNav } from '@/components/DashboardLayout';
 import { StatCard, Card, Badge, EmptyState, LoadingPage } from '@/components/ui';
 import { Modal } from '@/components/Modal';
@@ -9,7 +9,8 @@ import { useToast } from '@/context/ToastContext';
 import { useRouter } from '@/context/RouterContext';
 import { formatKES, formatDate, titleCase, MAINTENANCE_CATEGORIES } from '@/lib/constants';
 import { getPropertyImages } from '@/lib/images';
-import type { Lease, RentInvoice, MaintenanceRequest, Reservation, Property, PropertyUnit } from '@/lib/supabase';
+import type { Lease, RentInvoice, MaintenanceRequest, Reservation, Property, PropertyUnit, Payment } from '@/lib/supabase';
+import { downloadInvoicePdf, downloadPaymentReceiptPdf, getInvoiceNumber, getReceiptNumber } from '@/lib/documents';
 
 export function TenantDashboard() {
   const { profile } = useAuth();
@@ -18,37 +19,66 @@ export function TenantDashboard() {
   const [lease, setLease] = useState<(Lease & { properties: Property; property_units: PropertyUnit }) | null>(null);
   const [invoices, setInvoices] = useState<RentInvoice[]>([]);
   const [reservations, setReservations] = useState<(Reservation & { property_units: { unit_number: string }; properties: { name: string; town: string; county: string } })[]>([]);
+  const [payments, setPayments] = useState<(Payment & { properties: { name: string } | null; property_units: { unit_number: string } | null })[]>([]);
+  const [reservationPolicy, setReservationPolicy] = useState('non_refundable');
 
   useEffect(() => {
     if (!profile) return;
     (async () => {
-      const { data: leaseData } = await supabase.from('leases').select('*, properties(*), property_units(*)').eq('tenant_id', profile.id).eq('status', 'active').maybeSingle();
+      const [{ data: leaseData }, { data: resData }, { data: paymentData }, { data: settings }] = await Promise.all([
+        supabase.from('leases').select('*, properties(*), property_units(*)').eq('tenant_id', profile.id).eq('status', 'active').order('created_at', { ascending: false }).maybeSingle(),
+        supabase.from('reservations').select('*, property_units(unit_number), properties(name, town, county)').eq('customer_id', profile.id).order('created_at', { ascending: false }),
+        supabase.from('payments').select('*, properties(name), property_units(unit_number)').eq('user_id', profile.id).order('created_at', { ascending: false }),
+        supabase.from('system_settings').select('reservation_fee_policy').eq('id', 1).maybeSingle(),
+      ]);
       setLease(leaseData as typeof lease | null);
+      setReservations((resData as typeof reservations) || []);
+      setPayments((paymentData as typeof payments) || []);
+      setReservationPolicy(String(settings?.reservation_fee_policy || 'non_refundable'));
 
       if (leaseData) {
         const { data: invData } = await supabase.from('rent_invoices').select('*').eq('lease_id', leaseData.id).order('due_date', { ascending: false }).limit(5);
         setInvoices((invData as RentInvoice[]) || []);
+      } else {
+        setInvoices([]);
       }
-
-      const { data: resData } = await supabase.from('reservations').select('*, property_units(unit_number), properties(name, town, county)').eq('customer_id', profile.id).order('created_at', { ascending: false });
-      setReservations((resData as typeof reservations) || []);
-
       setLoading(false);
     })();
   }, [profile]);
 
   if (loading) return <DashboardLayout navItems={tenantNav} title="Dashboard"><LoadingPage /></DashboardLayout>;
 
-  const outstandingBalance = invoices.filter((i) => i.status !== 'paid').reduce((s, i) => s + i.balance, 0);
+  const outstandingBalance = invoices.filter((i) => i.status !== 'paid').reduce((sum, i) => sum + Number(i.balance || 0), 0);
+  const verifiedDepositPaid = payments.filter((p) => p.payment_type === 'deposit' && p.status === 'successful' && p.verified && p.lease_id === lease?.id).reduce((sum, p) => sum + Number(p.amount || 0), 0);
+  const reservationCredit = reservationPolicy === 'deductible_deposit' || reservationPolicy === 'deductible_rent'
+    ? payments.filter((p) => p.payment_type === 'reservation' && p.status === 'successful' && p.verified && p.reservation_id === lease?.reservation_id).reduce((sum, p) => sum + Number(p.amount || 0), 0)
+    : 0;
+  const depositBalance = lease ? Math.max(0, Number(lease.deposit || 0) - verifiedDepositPaid - (reservationPolicy === 'deductible_deposit' ? reservationCredit : 0)) : 0;
+  const moveInTotal = lease ? Math.max(0, Number(lease.monthly_rent || 0) + Number(lease.service_charge || 0) + depositBalance) : 0;
+  const leaseTermMonths = lease ? Math.max(1, Math.round((new Date(lease.lease_end).getTime() - new Date(lease.lease_start).getTime()) / (1000 * 60 * 60 * 24 * 30.4375))) : 0;
+  const leaseValue = lease ? Number(lease.monthly_rent || 0) * leaseTermMonths + Number(lease.service_charge || 0) * leaseTermMonths + Number(lease.deposit || 0) : 0;
 
   return (
     <DashboardLayout navItems={tenantNav} title="Dashboard">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6 mb-6">
         <StatCard label="Monthly Rent" value={lease ? formatKES(lease.monthly_rent) : '—'} icon={<Wallet className="w-5 h-5" />} onClick={() => navigate(lease ? '/tenant/rent' : '/properties')} />
-        <StatCard label="Outstanding" value={formatKES(outstandingBalance)} icon={<FileText className="w-5 h-5" />} accent="red" onClick={() => navigate('/tenant/rent')} />
+        <StatCard label="Move-in Amount" value={lease ? formatKES(moveInTotal) : '—'} icon={<CreditCard className="w-5 h-5" />} accent="accent" onClick={() => navigate('/tenant/rent')} />
+        <StatCard label="Outstanding" value={formatKES(outstandingBalance + depositBalance)} icon={<FileText className="w-5 h-5" />} accent="red" onClick={() => navigate('/tenant/rent')} />
         <StatCard label="Reservations" value={reservations.length} icon={<Calendar className="w-5 h-5" />} accent="accent" onClick={() => navigate('/tenant/reservations')} />
+        <StatCard label="Verified Paid" value={formatKES(payments.filter((p) => p.status === 'successful' && p.verified).reduce((sum, p) => sum + Number(p.amount || 0), 0))} icon={<CheckCircle className="w-5 h-5" />} accent="blue" onClick={() => navigate('/tenant/rent')} />
         <StatCard label="Lease Status" value={lease ? titleCase(lease.status) : 'No lease'} icon={<FileText className="w-5 h-5" />} accent="blue" onClick={() => navigate(lease ? '/tenant/lease' : '/properties')} />
       </div>
+
+      {lease && <Card className="mb-6 overflow-hidden border-brand-100">
+        <div className="brand-gradient p-5 text-white"><div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-white/70">Payment centre</p><h3 className="mt-1 text-xl font-bold">Your current tenancy balance</h3><p className="mt-1 text-sm text-white/75">Your first rent/service invoice and security-deposit balance are shown from the live lease and payment records.</p></div><button onClick={() => navigate('/tenant/rent')} className="btn-accent shrink-0"><Wallet className="h-4 w-4" /> Open payments</button></div></div>
+        <div className="grid grid-cols-2 gap-px bg-ink-100 sm:grid-cols-4">
+          <div className="bg-white p-4"><p className="text-xs text-ink-400">Move-in amount</p><p className="mt-1 text-lg font-bold text-ink-900">{formatKES(moveInTotal)}</p></div>
+          <div className="bg-white p-4"><p className="text-xs text-ink-400">Rent + service due</p><p className="mt-1 text-lg font-bold text-ink-900">{formatKES(outstandingBalance)}</p></div>
+          <div className="bg-white p-4"><p className="text-xs text-ink-400">Deposit balance</p><p className="mt-1 text-lg font-bold text-ink-900">{formatKES(depositBalance)}</p></div>
+          <div className="bg-white p-4"><p className="text-xs text-ink-400">12-month lease value*</p><p className="mt-1 text-lg font-bold text-brand-700">{formatKES(leaseValue)}</p></div>
+        </div>
+        <p className="px-4 py-3 text-[11px] text-ink-400">*Calculated from the signed lease term, monthly rent, service charge and security deposit; it is a contract value, not an amount already paid.</p>
+      </Card>}
 
       <Card className="mb-6 overflow-hidden border-brand-100">
         <div className="brand-gradient p-6 text-white">
@@ -166,62 +196,82 @@ export function TenantViewings() {
 
 export function TenantRent() {
   const { profile } = useAuth();
-  const [invoices, setInvoices] = useState<(RentInvoice & { properties: { name: string }; property_units: { unit_number: string } })[]>([]);
+  const [invoices, setInvoices] = useState<(RentInvoice & { properties: { name: string } | null; property_units: { unit_number: string } | null })[]>([]);
+  const [lease, setLease] = useState<Lease | null>(null);
+  const [payments, setPayments] = useState<(Payment & { properties: { name: string } | null; property_units: { unit_number: string } | null })[]>([]);
+  const [reservationPolicy, setReservationPolicy] = useState('non_refundable');
   const [loading, setLoading] = useState(true);
   const [payInvoice, setPayInvoice] = useState<RentInvoice | null>(null);
+  const [payDeposit, setPayDeposit] = useState(false);
 
   const load = async () => {
     if (!profile) return;
-    const { data } = await supabase.from('rent_invoices').select('*, properties(name), property_units(unit_number)').eq('tenant_id', profile.id).order('due_date', { ascending: false });
-    setInvoices((data as typeof invoices) || []);
+    setLoading(true);
+    const [{ data: leaseData }, { data: invoiceData }, { data: paymentData }, { data: settings }] = await Promise.all([
+      supabase.from('leases').select('*').eq('tenant_id', profile.id).eq('status', 'active').order('created_at', { ascending: false }).maybeSingle(),
+      supabase.from('rent_invoices').select('*, properties(name), property_units(unit_number)').eq('tenant_id', profile.id).order('due_date', { ascending: false }),
+      supabase.from('payments').select('*').eq('user_id', profile.id).order('created_at', { ascending: false }),
+      supabase.from('system_settings').select('reservation_fee_policy').eq('id', 1).maybeSingle(),
+    ]);
+    setLease((leaseData as Lease | null));
+    setInvoices((invoiceData as typeof invoices) || []);
+    setPayments((paymentData as typeof payments) || []);
+    setReservationPolicy(String(settings?.reservation_fee_policy || 'non_refundable'));
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, [profile]);
+  useEffect(() => { void load(); }, [profile]);
 
-  const totalOutstanding = invoices.filter((i) => i.status !== 'paid').reduce((s, i) => s + i.balance, 0);
+  const outstandingRent = invoices.filter((i) => i.status !== 'paid').reduce((sum, i) => sum + Number(i.balance || 0), 0);
+  const verifiedDepositPaid = payments.filter((p) => p.lease_id === lease?.id && p.payment_type === 'deposit' && p.status === 'successful' && p.verified).reduce((sum, p) => sum + Number(p.amount || 0), 0);
+  const reservationCredit = (reservationPolicy === 'deductible_deposit' || reservationPolicy === 'deductible_rent')
+    ? payments.filter((p) => p.reservation_id === lease?.reservation_id && p.payment_type === 'reservation' && p.status === 'successful' && p.verified).reduce((sum, p) => sum + Number(p.amount || 0), 0)
+    : 0;
+  const depositBalance = lease ? Math.max(0, Number(lease.deposit || 0) - verifiedDepositPaid - (reservationPolicy === 'deductible_deposit' ? reservationCredit : 0)) : 0;
+  const moveInTotal = lease ? Math.max(0, Number(lease.monthly_rent || 0) + Number(lease.service_charge || 0) + depositBalance) : 0;
+  const verifiedTotal = payments.filter((p) => p.status === 'successful' && p.verified).reduce((sum, p) => sum + Number(p.amount || 0), 0);
 
   return (
-    <DashboardLayout navItems={tenantNav} title="Rent & Invoices">
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-        <StatCard label="Total Outstanding" value={formatKES(totalOutstanding)} icon={<Wallet className="w-5 h-5" />} accent="red" />
-        <StatCard label="Total Invoices" value={invoices.length} icon={<FileText className="w-5 h-5" />} />
-        <StatCard label="Paid" value={invoices.filter((i) => i.status === 'paid').length} icon={<CheckCircle className="w-5 h-5" />} accent="brand" />
+    <DashboardLayout navItems={tenantNav} title="Rent & Payments">
+      <div className="mb-6 rounded-2xl brand-gold-gradient p-6 text-white shadow-soft-lg">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div><p className="text-sm font-semibold text-white/75">Tenant payment centre</p><h2 className="mt-1 text-2xl font-bold">Know exactly what is due</h2><p className="mt-1 max-w-2xl text-sm text-white/80">Your lease, invoices, security deposit and verified payments are calculated from the live account records.</p></div>
+          {lease && <div className="rounded-xl bg-white/10 px-5 py-3 text-right backdrop-blur"><p className="text-xs text-white/70">Move-in amount</p><p className="text-2xl font-bold">{formatKES(moveInTotal)}</p></div>}
+        </div>
       </div>
 
-      {loading ? <LoadingPage /> : invoices.length === 0 ? (
-        <EmptyState icon={<Wallet className="w-8 h-8" />} title="No invoices yet" description="Your monthly rent invoices will appear here once your tenancy begins." />
-      ) : (
-        <Card className="overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-ink-50 text-ink-500 text-left">
-                <tr><th className="px-4 py-3 font-medium">Period</th><th className="px-4 py-3 font-medium">Property</th><th className="px-4 py-3 font-medium">Unit</th><th className="px-4 py-3 font-medium">Amount</th><th className="px-4 py-3 font-medium">Balance</th><th className="px-4 py-3 font-medium">Due Date</th><th className="px-4 py-3 font-medium">Status</th><th className="px-4 py-3 font-medium">Action</th></tr>
-              </thead>
-              <tbody className="divide-y divide-ink-100">
-                {invoices.map((inv) => (
-                  <tr key={inv.id} className="hover:bg-ink-50">
-                    <td className="px-4 py-3 font-medium text-ink-900">{inv.period}</td>
-                    <td className="px-4 py-3">{inv.properties?.name}</td>
-                    <td className="px-4 py-3">{inv.property_units?.unit_number}</td>
-                    <td className="px-4 py-3">{formatKES(inv.amount)}</td>
-                    <td className="px-4 py-3 font-semibold">{formatKES(inv.balance)}</td>
-                    <td className="px-4 py-3 text-ink-500">{formatDate(inv.due_date)}</td>
-                    <td className="px-4 py-3"><Badge status={inv.status} /></td>
-                    <td className="px-4 py-3">
-                      {inv.status !== 'paid' && (
-                        <button onClick={() => setPayInvoice(inv)} className="btn-primary text-xs">Pay Rent</button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4 mb-6">
+        <StatCard label="Move-in Amount" value={lease ? formatKES(moveInTotal) : '—'} icon={<CreditCard className="w-5 h-5" />} accent="accent" />
+        <StatCard label="Rent / Service Due" value={formatKES(outstandingRent)} icon={<Wallet className="w-5 h-5" />} accent="red" />
+        <StatCard label="Deposit Balance" value={formatKES(depositBalance)} icon={<Receipt className="w-5 h-5" />} />
+        <StatCard label="Verified Paid" value={formatKES(verifiedTotal)} icon={<CheckCircle className="w-5 h-5" />} accent="blue" />
+      </div>
+
+      {loading ? <LoadingPage /> : (
+        <>
+          {lease && <Card className="mb-6 p-5">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div><h3 className="font-semibold text-ink-900">Current lease balance</h3><p className="mt-1 text-sm text-ink-500">Monthly rent {formatKES(lease.monthly_rent)} · Service charge {formatKES(lease.service_charge || 0)} · Security deposit {formatKES(lease.deposit)}</p></div><div className="flex gap-2">{outstandingRent > 0 && <button onClick={() => setPayInvoice(invoices.find((i) => i.status !== 'paid') || null)} className="btn-primary"><Wallet className="h-4 w-4" /> Pay rent</button>}{depositBalance > 0 && <button onClick={() => setPayDeposit(true)} className="btn-secondary"><Receipt className="h-4 w-4" /> Pay deposit</button>}</div></div>
+            <div className="mt-4 grid grid-cols-3 gap-3 text-sm"><div className="rounded-xl bg-ink-50 p-3"><p className="text-xs text-ink-400">Rent/service outstanding</p><p className="mt-1 font-bold text-ink-900">{formatKES(outstandingRent)}</p></div><div className="rounded-xl bg-ink-50 p-3"><p className="text-xs text-ink-400">Deposit outstanding</p><p className="mt-1 font-bold text-ink-900">{formatKES(depositBalance)}</p></div><div className="rounded-xl bg-brand-50 p-3"><p className="text-xs text-brand-600">Total current balance</p><p className="mt-1 font-bold text-brand-900">{formatKES(outstandingRent + depositBalance)}</p></div></div>
+          </Card>}
+
+          {invoices.length === 0 ? (
+            <EmptyState icon={<Wallet className="w-8 h-8" />} title={lease ? 'No rent invoice yet' : 'No invoices yet'} description={lease ? 'Your lease is active; the first invoice will be prepared from the signed lease terms.' : 'Your monthly rent invoices will appear here once your tenancy begins.'} />
+          ) : (
+            <Card className="overflow-hidden">
+              <div className="border-b border-ink-100 p-5"><h3 className="font-semibold text-ink-900">Rent & service invoices</h3><p className="mt-1 text-sm text-ink-500">Each invoice is tied to your lease and can only be marked paid after verified payment.</p></div>
+              <div className="overflow-x-auto"><table className="premium-table w-full min-w-[980px] text-sm"><thead><tr><th>Invoice</th><th>Period</th><th>Property / Unit</th><th>Amount</th><th>Balance</th><th>Due Date</th><th>Status</th><th>Actions</th></tr></thead><tbody>{invoices.map((inv) => <tr key={inv.id}><td><p className="font-mono text-xs font-semibold text-brand-700">{getInvoiceNumber(inv)}</p></td><td className="font-medium text-ink-900">{inv.period}</td><td><p className="font-medium text-ink-900">{inv.properties?.name || '—'}</p><p className="text-xs text-ink-400">Unit {inv.property_units?.unit_number || '—'}</p></td><td>{formatKES(inv.amount)}</td><td className="font-semibold">{formatKES(inv.balance)}</td><td className="text-ink-500">{formatDate(inv.due_date)}</td><td><Badge status={inv.status} /></td><td><div className="flex gap-2"><button type="button" onClick={() => downloadInvoicePdf({ invoice: inv, propertyName: inv.properties?.name || 'Property', unitNumber: inv.property_units?.unit_number || null, tenantName: profile?.full_name || 'Tenant' })} className="btn-secondary px-3 py-2 text-xs"><Download className="h-3.5 w-3.5" /> Invoice</button>{inv.status !== 'paid' && <button type="button" onClick={() => setPayInvoice(inv)} className="btn-primary px-3 py-2 text-xs">Pay</button>}</div></td></tr>)}</tbody></table></div>
+            </Card>
+          )}
+
+          <Card className="mt-6 overflow-hidden">
+            <div className="border-b border-ink-100 bg-gradient-to-r from-white to-brand-50/30 p-5"><h3 className="font-semibold text-ink-900">Payment receipts</h3><p className="mt-1 text-sm text-ink-500">Verified payments are official receipts. Pending transactions remain clearly marked until reviewed.</p></div>
+            {payments.length === 0 ? <div className="p-5 text-sm text-ink-500">No payment transactions yet.</div> : <div className="overflow-x-auto"><table className="premium-table w-full min-w-[900px] text-sm"><thead><tr><th>Receipt</th><th>Type</th><th>Property / Unit</th><th>Amount</th><th>Method</th><th>Status</th><th>Date</th><th>Action</th></tr></thead><tbody>{payments.map((payment) => <tr key={payment.id}><td><p className="font-mono text-xs font-semibold text-brand-700">{payment.verified ? getReceiptNumber(payment) : 'Pending verification'}</p></td><td className="capitalize">{payment.payment_type.replace('_', ' ')}</td><td><p className="font-medium text-ink-900">{payment.properties?.name || '—'}</p><p className="text-xs text-ink-400">Unit {payment.property_units?.unit_number || '—'}</p></td><td className="font-bold">{formatKES(payment.amount)}</td><td className="capitalize">{payment.payment_method.replace('_', ' ')}</td><td><Badge status={payment.status} />{payment.verified && <span className="ml-2 badge bg-brand-50 text-brand-700">Verified</span>}</td><td className="text-ink-500">{formatDate(payment.created_at)}</td><td>{payment.verified ? <button type="button" onClick={() => downloadPaymentReceiptPdf({ payment, propertyName: payment.properties?.name || 'Property', unitNumber: payment.property_units?.unit_number || null, tenantName: profile?.full_name || 'Tenant' })} className="btn-secondary px-3 py-2 text-xs"><Download className="h-3.5 w-3.5" /> Receipt</button> : <span className="text-xs text-ink-400">Awaiting verification</span>}</td></tr>)}</tbody></table></div>}
+          </Card>
+        </>
       )}
 
-      {payInvoice && <PayRentModal invoice={payInvoice} onClose={() => { setPayInvoice(null); load(); }} />}
+      {payInvoice && <PayRentModal invoice={payInvoice} onClose={() => { setPayInvoice(null); void load(); }} />}
+      {payDeposit && lease && <PayDepositModal lease={lease} amount={depositBalance} onClose={() => { setPayDeposit(false); void load(); }} />}
     </DashboardLayout>
   );
 }
@@ -284,6 +334,21 @@ function PayRentModal({ invoice, onClose }: { invoice: RentInvoice; onClose: () 
   );
 }
 
+function PayDepositModal({ lease, amount, onClose }: { lease: Lease; amount: number; onClose: () => void }) {
+  const { toast } = useToast();
+  const [method, setMethod] = useState<'mpesa' | 'card' | 'bank_transfer'>('mpesa');
+  const [loading, setLoading] = useState(false);
+  const handlePay = async () => {
+    setLoading(true);
+    const { error } = await supabase.rpc('create_deposit_payment', { p_lease_id: lease.id, p_payment_method: method });
+    setLoading(false);
+    if (error) { toast(error.message || 'Could not initiate deposit payment.', 'error'); return; }
+    toast('Security deposit payment request recorded as pending.', 'success');
+    onClose();
+  };
+  return <Modal open onClose={onClose} title="Pay Security Deposit" size="md"><div className="space-y-4"><div className="rounded-xl bg-brand-50 p-4"><p className="text-sm text-ink-500">The system calculates the outstanding deposit server-side.</p><p className="mt-1 text-xl font-bold text-brand-900">{formatKES(amount)}</p></div><div><label className="label">Payment Method</label><div className="grid grid-cols-3 gap-2">{[{ v: 'mpesa', l: 'M-Pesa' }, { v: 'card', l: 'Card' }, { v: 'bank_transfer', l: 'Bank' }].map((m) => <button key={m.v} type="button" onClick={() => setMethod(m.v as typeof method)} className={`rounded-xl border p-3 text-sm font-medium ${method === m.v ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-ink-200 text-ink-600'}`}>{m.l}</button>)}</div></div><button onClick={handlePay} className="btn-primary w-full" disabled={loading}>{loading ? 'Processing…' : 'Create Deposit Payment'}</button></div></Modal>;
+}
+
 export function TenantMaintenance() {
   const { profile } = useAuth();
   const [requests, setRequests] = useState<(MaintenanceRequest & { property_units: { unit_number: string }; properties: { name: string } })[]>([]);
@@ -322,36 +387,23 @@ export function TenantMaintenance() {
           ))}
         </div>
       )}
-      {showAdd && <AddMaintenanceModal tenantId={profile?.id || ''} onClose={() => { setShowAdd(false); load(); }} />}
+      {showAdd && <AddMaintenanceModal onClose={() => { setShowAdd(false); load(); }} />}
     </DashboardLayout>
   );
 }
 
-function AddMaintenanceModal({ tenantId, onClose }: { tenantId: string; onClose: () => void }) {
+function AddMaintenanceModal({ onClose }: { onClose: () => void }) {
   const { toast } = useToast();
   const [form, setForm] = useState({ category: 'Plumbing', priority: 'medium', description: '' });
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    (async () => {
-      const { data: lease } = await supabase.from('leases').select('property_id, unit_id').eq('tenant_id', tenantId).eq('status', 'active').maybeSingle();
-      if (lease) { setForm((f) => ({ ...f, ...({ property_id: lease.property_id, unit_id: lease.unit_id } as Record<string, unknown>) as typeof f })) }
-    })();
-  }, [tenantId]);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { data: lease } = await supabase.from('leases').select('property_id, unit_id').eq('tenant_id', tenantId).eq('status', 'active').maybeSingle();
-    let target = lease;
-    if (!target) {
-      const { data: reservation } = await supabase.from('reservations').select('property_id, unit_id').eq('customer_id', tenantId).in('status', ['pending','confirmed']).order('created_at', { ascending: false }).limit(1).maybeSingle();
-      target = reservation;
-    }
-    if (!target) { toast('Reserve a home first so we know which property and unit the request belongs to.', 'info'); setLoading(false); return; }
-    const { error } = await supabase.from('maintenance_requests').insert({
-      tenant_id: tenantId, property_id: target.property_id, unit_id: target.unit_id,
-      category: form.category.toLowerCase(), priority: form.priority, description: form.description, status: 'submitted',
+    const { error } = await supabase.rpc('create_tenant_maintenance_request', {
+      p_category: form.category.toLowerCase(),
+      p_priority: form.priority,
+      p_description: form.description,
     });
     setLoading(false);
     if (error) { toast('Could not submit request.', 'error'); return; }
@@ -390,9 +442,10 @@ export function TenantLease() {
 
   const handleSign = async () => {
     if (!lease || !profile) return;
-    await supabase.from('leases').update({ signed_by_tenant: true, status: 'active' }).eq('id', lease.id);
-    toast('Lease signed successfully!', 'success');
-    setLease({ ...lease, signed_by_tenant: true, status: 'active' });
+    const { data, error } = await supabase.rpc('sign_lease_and_prepare_payment', { p_lease_id: lease.id });
+    if (error) { toast(error.message || 'Could not sign the lease.', 'error'); return; }
+    toast('Lease signed successfully. Your payment balance is now ready.', 'success');
+    setLease((data as typeof lease) || { ...lease, signed_by_tenant: true, status: 'active' });
   };
 
   if (loading) return <DashboardLayout navItems={tenantNav} title="Lease"><LoadingPage /></DashboardLayout>;

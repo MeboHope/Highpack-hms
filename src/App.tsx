@@ -18,7 +18,7 @@ import {
   TenantMessages, TenantSettings, TenantReservations, TenantViewings,
 } from '@/pages/TenantPages';
 import {
-  AdminDashboard, AdminProperties, AdminUsers, AdminReservations, AdminPayments, AdminSettings, AdminUnits, AdminTax,
+  AdminDashboard, AdminProperties, AdminUsers, AdminReservations, AdminPayments, AdminSettings, AdminUnits, AdminTax, AdminExpenses, AdminMaintenance,
 } from '@/pages/AdminPages';
 import type { JSX } from 'react';
 import highparkLogo from '@/assets/highpark-logo-clean.png';
@@ -105,6 +105,8 @@ function Routes() {
   if (path === '/admin/users' || path.startsWith('/admin/users?')) return isAdmin ? <AdminUsers /> : <AccessDenied />;
   if (path === '/admin/reservations') return isAdmin ? <AdminReservations /> : <AccessDenied />;
   if (path === '/admin/payments') return isAdmin ? <AdminPayments /> : <AccessDenied />;
+  if (path === '/admin/expenses') return isAdmin ? <AdminExpenses /> : <AccessDenied />;
+  if (path === '/admin/maintenance') return isAdmin ? <AdminMaintenance /> : <AccessDenied />;
   if (path === '/admin/tax' || path.startsWith('/admin/tax?')) return isAdmin ? <AdminTax /> : <AccessDenied />;
   if (path === '/admin/settings') return isAdmin ? <AdminSettings /> : <AccessDenied />;
 

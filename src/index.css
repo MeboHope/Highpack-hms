@@ -84,7 +84,7 @@ h6 {
 
 @layer components {
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg font-semibold
+    @apply inline-flex items-center justify-center gap-2 rounded-xl font-semibold
       transition-all duration-200 focus:outline-none focus:ring-2
       focus:ring-brand-500/30 disabled:cursor-not-allowed disabled:opacity-50;
   }
@@ -123,7 +123,7 @@ h6 {
 
 @layer components {
   .input {
-    @apply w-full rounded-lg border border-ink-200 bg-white
+    @apply w-full rounded-xl border border-ink-200 bg-white
       px-4 py-2.5 text-ink-900
       placeholder:text-ink-400
       focus:border-brand-500 focus:outline-none
@@ -150,7 +150,7 @@ h6 {
 
 @layer components {
   .card {
-    @apply rounded-xl border border-ink-100 bg-white shadow-sm;
+    @apply rounded-2xl border border-ink-100 bg-white shadow-sm;
   }
 
   .card-hover {
@@ -234,8 +234,32 @@ h6 {
 .hero-premium .text-brand-100 { color: #dbe8f8 !important; }
 .hero-premium .text-accent-100 { color: #fff1bd !important; }
 .dashboard-stat-clickable { position: relative; overflow: hidden; }
+.dashboard-stat-clickable::before { content: ''; position:absolute; inset:0 auto 0 0; width:3px; background:linear-gradient(180deg,#c9972e,#315b91); opacity:.8; }
 .dashboard-stat-clickable::after { content: 'View details →'; position: absolute; right: 14px; bottom: 10px; font-size: 10px; font-weight: 700; color: #315b91; opacity: .72; }
+.dashboard-stat-clickable:hover::after { opacity:1; color:#956b19; }
 /* High-contrast typography for navy/gold dashboard banners. */
 .brand-gold-gradient h1, .brand-gold-gradient h2, .brand-gold-gradient h3, .brand-gold-gradient h4 { color:#fff !important; }
 .brand-gold-gradient p { color:rgba(255,255,255,.92) !important; }
 .brand-gold-gradient .text-white\/75, .brand-gold-gradient .text-white\/80, .brand-gold-gradient .text-white\/70 { color:rgba(255,255,255,.92) !important; }
+
+/* =========================================================
+   PREMIUM DATA TABLES + ACTIONS
+   ========================================================= */
+@layer components {
+  .premium-table thead {
+    @apply bg-ink-50/90 text-left text-[11px] font-bold uppercase tracking-[0.08em] text-ink-500;
+  }
+  .premium-table th { @apply px-5 py-3.5 whitespace-nowrap; }
+  .premium-table td { @apply px-5 py-4 border-t border-ink-100 align-middle; }
+  .premium-table tbody tr { @apply transition-colors; }
+  .premium-table tbody tr:hover { @apply bg-brand-50/35; }
+  .icon-action {
+    @apply inline-flex h-9 w-9 items-center justify-center rounded-lg border border-ink-100 bg-white text-ink-500 transition-all hover:-translate-y-0.5 hover:border-brand-200 hover:bg-brand-50 hover:text-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 disabled:opacity-50;
+  }
+}
+
+.premium-page-bg {
+  background: radial-gradient(circle at 100% 0%, rgba(201,151,46,.06), transparent 28%),
+              radial-gradient(circle at 0% 35%, rgba(49,91,145,.05), transparent 26%),
+              #f7f9fc;
+}

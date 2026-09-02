@@ -130,6 +130,8 @@ export interface Payment {
   status: PaymentStatus;
   verified: boolean;
   refund_status: string | null;
+  receipt_number?: string | null;
+  verified_at?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -166,6 +168,7 @@ export interface RentInvoice {
   balance: number;
   status: 'unpaid' | 'partially_paid' | 'paid' | 'overdue';
   due_date: string;
+  invoice_number?: string | null;
   created_at: string;
 }
 

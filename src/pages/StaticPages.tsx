@@ -31,22 +31,33 @@ export function AboutPage() {
     { value: 0, prefix: 'KSh ', suffix: '+', label: 'Verified Rent Processed' },
   ]);
   useEffect(() => {
+    let cancelled = false;
     (async () => {
-      const [{ count: propertyCount }, { count: customerCount }, { data: countyRows }, { data: paymentRows }] = await Promise.all([
-        supabase.from('properties').select('id', { count: 'exact', head: true }).eq('status', 'verified'),
-        supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'customer'),
-        supabase.from('properties').select('county').eq('status', 'verified'),
-        supabase.from('payments').select('amount').eq('payment_type', 'rent').eq('status', 'successful').eq('verified', true),
+      const [{ data: catalog, error: catalogError }, { data: siteStats, error: statsError }] = await Promise.all([
+        supabase.rpc('get_public_property_catalog'),
+        supabase.rpc('get_public_site_stats'),
       ]);
-      const counties = new Set((countyRows || []).map((row) => row.county).filter(Boolean)).size;
-      const rent = Math.round((paymentRows || []).reduce((sum, row) => sum + Number(row.amount || 0), 0));
-      setStats([
-        { value: propertyCount || 0, suffix: '+', label: 'Verified Properties' },
-        { value: customerCount || 0, suffix: '+', label: 'Customer Accounts' },
-        { value: counties, suffix: '+', label: 'Counties Represented' },
-        { value: rent, prefix: 'KSh ', suffix: '+', label: 'Verified Rent Processed' },
-      ]);
+
+      if (catalogError) console.error('About public catalog error:', catalogError);
+      if (statsError) console.error('About public statistics error:', statsError);
+
+      const rows = (catalog || []) as Array<Record<string, unknown>>;
+      const verifiedProperties = new Set(rows.map((row) => String(row.property_id))).size;
+      const counties = new Set(rows.map((row) => row.county).filter(Boolean)).size;
+      const aggregate = (siteStats?.[0] || {}) as Record<string, unknown>;
+      const customerCount = Number(aggregate.customer_accounts || 0);
+      const rent = Math.round(Number(aggregate.verified_rent_processed || 0));
+
+      if (!cancelled) {
+        setStats([
+          { value: verifiedProperties, suffix: '+', label: 'Verified Properties' },
+          { value: customerCount, suffix: '+', label: 'Customer Accounts' },
+          { value: counties, suffix: '+', label: 'Counties Represented' },
+          { value: rent, prefix: 'KSh ', suffix: '+', label: 'Verified Rent Processed' },
+        ]);
+      }
     })();
+    return () => { cancelled = true; };
   }, []);
 
   return (
