@@ -168,9 +168,33 @@ export function HomePage() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const { data: props, error } = await supabase.from('properties').select('id,name,county,town,estate,property_type,photos,status,created_at').eq('status','verified').order('created_at',{ascending:false}).limit(6);
-      if (error) console.error('Home property load error:', error);
-      const ids = (props || []).map((p) => p.id);
+      // Prefer the safe public catalog RPC. This remains reliable even when an
+      // existing Supabase project has overlapping/stale public RLS policies.
+      const { data: catalog, error: catalogError } = await supabase.rpc('get_public_property_catalog');
+      if (catalogError) {
+        console.error('Home public catalog load error:', catalogError);
+      }
+      const rows = (catalog || []) as Array<Record<string, any>>;
+      const byProperty = new Map<string, PropertyWithUnits>();
+      for (const row of rows) {
+        const id = String(row.property_id);
+        if (!byProperty.has(id)) {
+          byProperty.set(id, {
+            id, name: row.name, county: row.county, town: row.town, estate: row.estate,
+            property_type: row.property_type, photos: row.photos || [], status: 'verified',
+            created_at: row.created_at, property_units: [],
+          } as PropertyWithUnits);
+        }
+        if (row.unit_id) {
+          byProperty.get(id)!.property_units.push({
+            id: row.unit_id, property_id: id, unit_number: row.unit_number, floor: row.floor,
+            house_type: row.house_type, bedrooms: Number(row.bedrooms || 0),
+            bathrooms: Number(row.bathrooms || 0), monthly_rent: Number(row.monthly_rent || 0),
+            status: row.status, furnishing: row.furnishing, photos: row.unit_photos || [], videos: row.unit_videos || [],
+          } as any);
+        }
+      }
+      const props = Array.from(byProperty.values()).slice(0, 6);
       const [{ count: verifiedCount }, { count: availableCount }, { data: countyRows }] = await Promise.all([
         supabase.from('properties').select('id', { count: 'exact', head: true }).eq('status', 'verified'),
         supabase.from('property_units').select('id', { count: 'exact', head: true }).eq('status', 'available'),
@@ -182,10 +206,7 @@ export function HomePage() {
         { value: new Set((countyRows || []).map((r) => r.county).filter(Boolean)).size, suffix: '+', label: 'Counties Covered' },
         { value: 24, prefix: '< ', suffix: 'h', label: 'Reservation Hold' },
       ]);
-      const { data: units } = ids.length ? await supabase.from('property_units').select('property_id,monthly_rent,bedrooms,bathrooms,status').in('property_id', ids) : { data: [] as never[] };
-      const grouped = new Map<string, PropertyWithUnits['property_units']>();
-      for (const u of (units || []) as { property_id: string; monthly_rent: number; bedrooms: number; bathrooms: number; status: string }[]) { const arr = grouped.get(u.property_id) || []; arr.push(u); grouped.set(u.property_id, arr); }
-      const result = (props || []).map((p) => ({ ...p, property_units: grouped.get(p.id) || [] })) as PropertyWithUnits[];
+      const result = props as PropertyWithUnits[];
       if (!cancelled) { setProperties(result); setLoading(false); }
     })();
     return () => { cancelled = true; };

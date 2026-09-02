@@ -37,20 +37,61 @@ export function PropertiesPage() {
     let cancelled = false;
     (async () => {
       setLoading(true);
-      let query = supabase.from('properties').select('*').eq('status', 'verified').order('created_at', { ascending: false });
-      if (filters.location) query = query.eq('county', filters.location);
-      if (filters.type) query = query.eq('property_type', filters.type);
-      const { data: propertyData, error: propertyError } = await query;
-      if (propertyError) { console.error('Property marketplace load error:', propertyError); if (!cancelled) { setProperties([]); setLoading(false); } return; }
-      const props = (propertyData || []) as Property[];
-      const ids = props.map((p) => p.id);
-      const unitMap = new Map<string, PropertyUnit[]>();
-      if (ids.length) {
-        const { data: unitData, error: unitError } = await supabase.from('property_units').select('*').in('property_id', ids).order('unit_number');
-        if (unitError) console.error('Unit marketplace load error:', unitError);
-        for (const unit of (unitData || []) as PropertyUnit[]) { const arr = unitMap.get(unit.property_id) || []; arr.push(unit); unitMap.set(unit.property_id, arr); }
+
+      // Use the same controlled public catalogue as the Home page.
+      // Direct table reads can be affected by existing/stale RLS policies in
+      // an already-deployed Supabase project, while this RPC deliberately
+      // exposes only verified public properties and their units.
+      const { data: catalog, error: catalogError } = await supabase.rpc('get_public_property_catalog');
+      if (catalogError) {
+        console.error('Property marketplace catalog load error:', catalogError);
+        if (!cancelled) { setProperties([]); setLoading(false); }
+        return;
       }
-      let results = props.map((p) => ({ ...p, property_units: unitMap.get(p.id) || [] }));
+
+      type CatalogRow = {
+        property_id: string; name: string; description: string | null; property_type: string;
+        county: string; sub_county: string | null; town: string; estate: string | null;
+        address: string | null; number_of_units: number; number_of_floors: number;
+        amenities: string[]; parking: boolean; water_availability: boolean; electricity: boolean;
+        photos: string[]; created_at: string; unit_id: string | null; unit_number: string | null;
+        floor: number | null; house_type: string | null; bedrooms: number | null;
+        bathrooms: number | null; monthly_rent: number | null; reservation_fee: number | null;
+        status: string | null; furnishing: string | null;
+        unit_photos: string[] | null; unit_videos: string[] | null;
+      };
+
+      const byProperty = new Map<string, PropertyRow>();
+      for (const row of (catalog || []) as CatalogRow[]) {
+        if (!byProperty.has(row.property_id)) {
+          byProperty.set(row.property_id, {
+            id: row.property_id, owner_id: null, name: row.name, description: row.description,
+            property_type: row.property_type, county: row.county, sub_county: row.sub_county,
+            town: row.town, estate: row.estate, street: null, address: row.address,
+            latitude: null, longitude: null, map_url: null, number_of_units: row.number_of_units || 0,
+            number_of_floors: row.number_of_floors || 0, amenities: row.amenities || [],
+            parking: !!row.parking, security_info: null, water_availability: !!row.water_availability,
+            electricity: !!row.electricity, internet: false, pets_allowed: false,
+            photos: row.photos || [], videos: [], audio: [], status: 'verified',
+            created_at: row.created_at, updated_at: row.created_at, property_units: [],
+          });
+        }
+        if (row.unit_id) {
+          byProperty.get(row.property_id)!.property_units.push({
+            id: row.unit_id, property_id: row.property_id, unit_number: row.unit_number || '',
+            floor: row.floor, house_type: row.house_type, bedrooms: Number(row.bedrooms || 0),
+            bathrooms: Number(row.bathrooms || 0), monthly_rent: Number(row.monthly_rent || 0),
+            security_deposit: 0, reservation_fee: Number(row.reservation_fee || 0),
+            service_charge: 0, water_charge: 0, parking_fee: 0, other_charges: 0,
+            status: (row.status || 'unavailable') as PropertyUnit['status'],
+            furnishing: (row.furnishing || 'unfurnished') as PropertyUnit['furnishing'],
+            amenities: [], photos: row.unit_photos || [], videos: row.unit_videos || [],
+            description: null, created_at: row.created_at, updated_at: row.created_at,
+          });
+        }
+      }
+
+      let results = Array.from(byProperty.values());
       const hasUnitFilters = filters.bedrooms !== '' || filters.minRent !== '' || filters.maxRent !== '' || filters.furnishing !== '';
       if (hasUnitFilters) results = results.filter((p) => p.property_units.some((u) => (filters.bedrooms === '' || u.bedrooms >= parseInt(filters.bedrooms)) && (!filters.minRent || u.monthly_rent >= parseInt(filters.minRent)) && (!filters.maxRent || u.monthly_rent <= parseInt(filters.maxRent)) && (!filters.furnishing || u.furnishing === filters.furnishing)));
       if (filters.parking) results = results.filter((p) => p.parking);

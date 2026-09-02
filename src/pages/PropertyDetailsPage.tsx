@@ -31,19 +31,31 @@ export function PropertyDetailsPage({ propertyId }: { propertyId: string }) {
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase
-        .from('properties')
-        .select('*, profiles!properties_owner_id_fkey(full_name, phone)')
-        .eq('id', propertyId)
-        .maybeSingle();
+      // Load the public catalog through the SECURITY DEFINER RPC so verified
+      // listings remain visible regardless of stale client-side RLS state.
+      const { data: catalog, error: catalogError } = await supabase.rpc('get_public_property_catalog');
+      if (catalogError) console.error('Property detail catalog error:', catalogError);
+      const rows = (catalog || []) as Array<Record<string, any>>;
+      const matching = rows.filter((row) => String(row.property_id) === propertyId);
+      const first = matching[0];
+      const data = first ? {
+        id: first.property_id, name: first.name, description: first.description,
+        property_type: first.property_type, county: first.county, sub_county: first.sub_county,
+        town: first.town, estate: first.estate, address: first.address,
+        number_of_units: first.number_of_units, number_of_floors: first.number_of_floors,
+        amenities: first.amenities || [], parking: first.parking,
+        water_availability: first.water_availability, electricity: first.electricity,
+        photos: first.photos || [], audio: first.audio || [], created_at: first.created_at,
+      } : null;
       setProperty(data as PropertyWithOwner | null);
 
-      const { data: unitData } = await supabase
-        .from('property_units')
-        .select('*')
-        .eq('property_id', propertyId)
-        .order('unit_number', { ascending: true });
-      setUnits((unitData as PropertyUnit[]) || []);
+      const mappedUnits = matching.filter((row) => row.unit_id).map((row) => ({
+        id: row.unit_id, property_id: row.property_id, unit_number: row.unit_number, floor: row.floor,
+        house_type: row.house_type, bedrooms: Number(row.bedrooms || 0), bathrooms: Number(row.bathrooms || 0),
+        monthly_rent: Number(row.monthly_rent || 0), reservation_fee: Number(row.reservation_fee || 0),
+        status: row.status, furnishing: row.furnishing, photos: row.unit_photos || [], videos: row.unit_videos || [],
+      }));
+      setUnits(mappedUnits as PropertyUnit[]);
 
       // Build gallery
       const prop = data as PropertyWithOwner | null;
