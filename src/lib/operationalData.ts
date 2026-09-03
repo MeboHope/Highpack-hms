@@ -130,6 +130,23 @@ export async function loadDashboardPropertyPerformance(userId: string, role: str
 }
 
 export async function loadManagedExpenses(userId: string, role: string): Promise<{ data: ManagedExpenseRow[]; error: unknown }> {
+  // Admins use a dedicated SECURITY DEFINER ledger function. This avoids
+  // depending on the browser-side expenses RLS policy or the generic manager
+  // helper, both of which can be affected by an older Supabase schema/policy
+  // cache even when the expense is already persisted.
+  if (role === 'admin') {
+    const adminRpc = await supabase.rpc('get_admin_expense_ledger');
+    if (!adminRpc.error && Array.isArray(adminRpc.data)) {
+      const data = (adminRpc.data as Array<Record<string, unknown>>).map((row) => ({
+        ...row,
+        properties: row.property_name ? { name: String(row.property_name) } : null,
+      })) as unknown as ManagedExpenseRow[];
+      return { data, error: null };
+    }
+    // Fall through to the generic helper so an already-running database that
+    // has not received the new admin function can still display its records.
+  }
+
   const rpc = await supabase.rpc('get_managed_expenses');
   if (!rpc.error && Array.isArray(rpc.data)) {
     const data = (rpc.data as Array<Record<string, unknown>>).map((row) => ({
@@ -143,14 +160,58 @@ export async function loadManagedExpenses(userId: string, role: string): Promise
   }
 
   if (role === 'admin') {
-    const { data, error } = await supabase.from('expenses').select('*, properties(name)').order('expense_date', { ascending: false });
-    return { data: (data || []) as ManagedExpenseRow[], error };
+    // Do not depend on PostgREST's nested `properties(name)` relationship here.
+    // The expense row is authoritative; property names are hydrated separately.
+    const { data: expenseRows, error: expenseError } = await supabase
+      .from('expenses')
+      .select('*')
+      .order('expense_date', { ascending: false })
+      .order('created_at', { ascending: false });
+
+    if (expenseError) return { data: [], error: expenseError };
+    if (!expenseRows?.length) return { data: [], error: null };
+
+    const propertyIds = [...new Set(expenseRows.map((row) => row.property_id).filter(Boolean))];
+    const { data: properties, error: propertyError } = propertyIds.length
+      ? await supabase.from('properties').select('id,name').in('id', propertyIds)
+      : { data: [], error: null };
+
+    if (propertyError) return { data: [], error: propertyError };
+
+    const propertyNames = new Map((properties || []).map((p) => [p.id, p.name]));
+    const data = expenseRows.map((row) => ({
+      ...row,
+      properties: { name: propertyNames.get(row.property_id) || 'Property' },
+    })) as ManagedExpenseRow[];
+
+    return { data, error: null };
   }
-  const { data: properties, error: propertyError } = await supabase.from('properties').select('id').eq('owner_id', userId);
-  if (propertyError || !properties?.length) return { data: [], error: propertyError };
+  // Owner/agent reads are deliberately based on property ownership first, then
+  // fetch the expense rows without relying on a nested PostgREST relationship.
+  // This makes the ledger resilient to relationship/schema-cache differences
+  // while still enforcing the owner's property scope through RLS.
+  const { data: properties, error: propertyError } = await supabase
+    .from('properties')
+    .select('id,name')
+    .eq('owner_id', userId);
+  if (propertyError) return { data: [], error: propertyError };
+  if (!properties?.length) return { data: [], error: null };
+
   const ids = properties.map((p) => p.id);
-  const { data, error } = await supabase.from('expenses').select('*, properties(name)').in('property_id', ids).order('expense_date', { ascending: false });
-  return { data: (data || []) as ManagedExpenseRow[], error };
+  const { data: expenseRows, error } = await supabase
+    .from('expenses')
+    .select('*')
+    .in('property_id', ids)
+    .order('expense_date', { ascending: false })
+    .order('created_at', { ascending: false });
+
+  const propertyNames = new Map(properties.map((p) => [p.id, p.name]));
+  const data = (expenseRows || []).map((row) => ({
+    ...row,
+    properties: { name: propertyNames.get(row.property_id) || 'Property' },
+  })) as ManagedExpenseRow[];
+
+  return { data, error };
 }
 
 export async function loadManagedMaintenance(userId: string, role: string): Promise<{ data: ManagedMaintenanceRow[]; error: unknown }> {

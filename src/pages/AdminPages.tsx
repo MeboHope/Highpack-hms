@@ -285,7 +285,14 @@ function OperationalPreview({ title, description, href, icon }: { title: string;
 export function AdminExpenses() {
   const [rows, setRows] = useState<import('@/lib/operationalData').ManagedExpenseRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const load = async () => { setLoading(true); const result = await loadManagedExpenses('__admin__', 'admin'); setRows(result.data); setLoading(false); };
+  const { toast } = useToast();
+  const load = async () => {
+    setLoading(true);
+    const result = await loadManagedExpenses('__admin__', 'admin');
+    setRows(result.data);
+    if (result.error) toast(`Could not load expenses: ${result.error instanceof Error ? result.error.message : 'Please refresh and try again.'}`, 'error');
+    setLoading(false);
+  };
   useEffect(() => { load(); }, []);
   return <DashboardLayout navItems={adminNav} title="Expenses">
     <AdminPageHeader eyebrow="Portfolio finance" title="Expense ledger" description="A live ledger of operating costs recorded against every property. Owner-submitted expenses are retained against the correct property owner." action={<button onClick={() => void load()} className="btn-secondary"><RefreshCw className="h-4 w-4" /> Refresh</button>} />

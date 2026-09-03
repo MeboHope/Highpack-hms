@@ -585,6 +585,7 @@ export function OwnerExpenses() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
+  const { toast } = useToast();
 
   const load = async () => {
     if (!profile) return;
@@ -593,7 +594,12 @@ export function OwnerExpenses() {
       loadManagedExpenses(profile.id, profile.role),
     ]);
     setProperties((props as Property[]) || []);
-    setExpenses((expenseResult.data as typeof expenses) || []);
+    if (expenseResult.error) {
+      setExpenses([]);
+      toast('Unable to load the expense ledger. Please refresh and try again.', 'error');
+    } else {
+      setExpenses((expenseResult.data as typeof expenses) || []);
+    }
     setLoading(false);
   };
 
@@ -638,7 +644,17 @@ export function OwnerExpenses() {
         </Card>
       )}
 
-      {showAdd && <AddExpenseModal properties={properties} onClose={() => setShowAdd(false)} onSuccess={(expense) => { const property = properties.find((item) => item.id === expense.property_id); setExpenses((current) => [{ ...expense, properties: { name: property?.name || 'Property' } }, ...current]); setShowAdd(false); void load(); }} />}
+      {showAdd && <AddExpenseModal properties={properties} onClose={() => setShowAdd(false)} onSuccess={(expense) => {
+        const property = properties.find((item) => item.id === expense.property_id);
+        // The RPC has already committed the row. Do not immediately reload the
+        // ledger here: a slower/empty read can overwrite the freshly saved row
+        // and make a successful expense appear to have disappeared.
+        setExpenses((current) => [
+          { ...expense, properties: { name: property?.name || 'Property' } },
+          ...current.filter((item) => item.id !== expense.id),
+        ]);
+        setShowAdd(false);
+      }} />}
     </DashboardLayout>
   );
 }
