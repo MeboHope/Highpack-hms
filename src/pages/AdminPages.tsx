@@ -1,5 +1,5 @@
 import { useState, useEffect, type ReactNode } from 'react';
-import { Building2, Users, Calendar, Wallet, Home, CheckCircle, XCircle, ShieldCheck, Receipt, UserCheck, Wrench, Search, Filter, Download, Eye, RefreshCw } from 'lucide-react';
+import { Building2, Users, Calendar, Wallet, Home, CheckCircle, XCircle, ShieldCheck, Receipt, UserCheck, Wrench, Search, Download, Eye, RefreshCw, TrendingUp, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { DashboardLayout, adminNav } from '@/components/DashboardLayout';
 import { StatCard, Card, Badge, EmptyState, LoadingPage, Pagination } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
@@ -18,13 +18,20 @@ export function AdminDashboard() {
   const [summary, setSummary] = useState<Array<{ id: string; name: string; type: string; units: number; occupied: number; available: number; reserved: number; tenants: number; rent: number; tax: number }>>([]);
   const [customerCount, setCustomerCount] = useState(0);
   const [unitMix, setUnitMix] = useState<Record<string, { total: number; occupied: number; available: number }>>({});
+  const [attention, setAttention] = useState({ reservations: 0, payments: 0, maintenance: 0, expiringLeases: 0 });
+  const [financial, setFinancial] = useState<AdminFinancialData | null>(null);
 
   useEffect(() => {
     (async () => {
       setLoading(true);
-      const [performance, customerResult] = await Promise.all([
+      const [performance, customerResult, pendingReservations, pendingPayments, openMaintenance, expiringLeases, financialResult] = await Promise.all([
         loadDashboardPropertyPerformance('__admin__', 'admin', period),
         supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'customer'),
+        supabase.from('reservations').select('id', { count: 'exact', head: true }).in('status', ['requested', 'confirmed', 'rescheduled']),
+        supabase.from('payments').select('id', { count: 'exact', head: true }).in('status', ['pending', 'submitted', 'under_review']),
+        supabase.from('maintenance_requests').select('id', { count: 'exact', head: true }).not('status', 'in', '(completed,closed,cancelled)'),
+        supabase.from('leases').select('id', { count: 'exact', head: true }).eq('status', 'active').gte('end_date', new Date().toISOString().slice(0, 10)).lte('end_date', new Date(Date.now() + 45 * 86400000).toISOString().slice(0, 10)),
+        supabase.rpc('get_admin_financial_command_center', { p_period: period }),
       ]);
       setSummary(performance.map((row) => ({
         id: row.id, name: row.name, type: row.propertyType, units: row.units, occupied: row.occupied,
@@ -37,6 +44,8 @@ export function AdminDashboard() {
       }));
       setUnitMix(mix);
       setCustomerCount(customerResult.count || 0);
+      setAttention({ reservations: pendingReservations.count || 0, payments: pendingPayments.count || 0, maintenance: openMaintenance.count || 0, expiringLeases: expiringLeases.count || 0 });
+      setFinancial((financialResult.data as AdminFinancialData | null) || null);
       setLoading(false);
     })();
   }, [period]);
@@ -58,6 +67,16 @@ export function AdminDashboard() {
         <StatCard label={`Verified Rent · ${period}`} value={formatKES(totals.rent)} icon={<Wallet className="w-5 h-5" />} accent="blue" onClick={() => navigate('/admin/payments')} />
         <StatCard label={`Estimated Tax · ${period}`} value={formatKES(totals.tax)} icon={<Receipt className="w-5 h-5" />} accent="red" onClick={() => navigate(`/admin/tax?period=${period}`)} />
       </div>
+      <Card className="mb-7 overflow-hidden">
+        <div className="border-b border-ink-100 bg-gradient-to-r from-white to-brand-50/30 px-5 py-4"><div className="flex items-center justify-between gap-3"><div><h3 className="font-semibold text-ink-900">Needs attention</h3><p className="text-xs text-ink-500">Live operational items that may require an administrator's action.</p></div><span className="badge bg-accent-50 text-accent-700">Action queue</span></div></div>
+        <div className="grid grid-cols-2 gap-px bg-ink-100 sm:grid-cols-4">
+          <button type="button" onClick={() => navigate('/admin/reservations')} className="bg-white p-4 text-left hover:bg-brand-50"><p className="text-2xl font-bold text-ink-900">{attention.reservations}</p><p className="mt-1 text-xs font-medium text-ink-500">Reservations to review</p></button>
+          <button type="button" onClick={() => navigate('/admin/payments')} className="bg-white p-4 text-left hover:bg-brand-50"><p className="text-2xl font-bold text-ink-900">{attention.payments}</p><p className="mt-1 text-xs font-medium text-ink-500">Payments to review</p></button>
+          <button type="button" onClick={() => navigate('/admin/maintenance')} className="bg-white p-4 text-left hover:bg-brand-50"><p className="text-2xl font-bold text-ink-900">{attention.maintenance}</p><p className="mt-1 text-xs font-medium text-ink-500">Open maintenance</p></button>
+          <button type="button" onClick={() => navigate('/admin/users?lease_expiring=45')} className="bg-white p-4 text-left hover:bg-brand-50"><p className="text-2xl font-bold text-ink-900">{attention.expiringLeases}</p><p className="mt-1 text-xs font-medium text-ink-500">Leases expiring in 45 days</p></button>
+        </div>
+      </Card>
+      {financial && <AdminFinancialCommandCenter data={financial} />}
       <div className="mb-7 grid grid-cols-1 gap-4 md:grid-cols-2">
         <OperationalPreview title="Maintenance & service requests" description="Tenant issues requiring attention across the portfolio." href="/admin/maintenance" icon={<Wrench className="h-5 w-5" />} />
         <OperationalPreview title="Property expenses" description="Recorded operating costs across all managed properties." href="/admin/expenses" icon={<Receipt className="h-5 w-5" />} />
@@ -83,17 +102,44 @@ export function AdminProperties() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [totalProperties, setTotalProperties] = useState(0);
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('all');
+  const [sort, setSort] = useState('newest');
 
   const load = async () => {
     setLoading(true);
-    const from = (page - 1) * 20; const to = from + 19;
-    let q = supabase.from('properties').select('*, profiles!properties_owner_id_fkey(full_name)', { count: 'exact' }).order('created_at', { ascending: false }); if (status !== 'all') q = q.eq('status', status); const { data, count } = await q.range(from, to);
-    setProperties((data as typeof properties) || []); setTotalPages(Math.max(1, Math.ceil((count || 0) / 20)));
+    let ownerIds: string[] = [];
+    if (query.trim()) {
+      const q = query.trim();
+      const { data: owners } = await supabase.from('profiles').select('id').or(`full_name.ilike.%${q}%,phone.ilike.%${q}%`).limit(100);
+      ownerIds = (owners || []).map((owner) => owner.id);
+    }
+    const from = (page - 1) * 20;
+    const to = from + 19;
+    let dbQuery = supabase.from('properties').select('*, profiles!properties_owner_id_fkey(full_name)', { count: 'exact' });
+    if (status !== 'all') dbQuery = dbQuery.eq('status', status);
+    if (query.trim()) {
+      const q = query.trim();
+      const clauses = [`name.ilike.%${q}%`, `town.ilike.%${q}%`, `county.ilike.%${q}%`, `property_type.ilike.%${q}%`];
+      if (ownerIds.length) clauses.push(`owner_id.in.(${ownerIds.join(',')})`);
+      dbQuery = dbQuery.or(clauses.join(','));
+    }
+    dbQuery = sort === 'oldest'
+      ? dbQuery.order('created_at', { ascending: true }).order('id', { ascending: true })
+      : sort === 'name'
+        ? dbQuery.order('name', { ascending: true }).order('id', { ascending: true })
+        : dbQuery.order('created_at', { ascending: false }).order('id', { ascending: false });
+    const { data, count, error } = await dbQuery.range(from, to);
+    if (error) toast(`Could not load properties: ${error.message}`, 'error');
+    setProperties((data as typeof properties) || []);
+    setTotalProperties(count || 0);
+    setTotalPages(Math.max(1, Math.ceil((count || 0) / 20)));
     setLoading(false);
   };
-  useEffect(() => { void load(); }, [page, status]);
+
+  useEffect(() => { setPage(1); }, [query, status, sort]);
+  useEffect(() => { const timer = window.setTimeout(() => void load(), 250); return () => window.clearTimeout(timer); }, [page, query, status, sort]);
 
   const updateStatus = async (id: string, nextStatus: Property['status']) => {
     const { error } = await supabase.from('properties').update({ status: nextStatus }).eq('id', id);
@@ -102,32 +148,28 @@ export function AdminProperties() {
     toast(`Property ${titleCase(nextStatus)}`, 'success');
   };
 
-  const filtered = properties.filter((p) => {
-    const haystack = `${p.name} ${p.town} ${p.county} ${p.property_type} ${p.profiles?.full_name || ''}`.toLowerCase();
-    return haystack.includes(query.toLowerCase()) && (status === 'all' || p.status === status);
-  });
   const pending = properties.filter((p) => p.status === 'pending_verification').length;
   const verified = properties.filter((p) => p.status === 'verified').length;
   const suspended = properties.filter((p) => p.status === 'suspended').length;
 
   return (
     <DashboardLayout navItems={adminNav} title="Properties">
-      <AdminPageHeader eyebrow="Portfolio management" title="Property registry" description="Review every property, confirm verification status and open the exact record behind each listing." action={<button onClick={() => void load()} className="btn-secondary"><RefreshCw className="h-4 w-4" /> Refresh</button>} />
+      <AdminPageHeader eyebrow="Portfolio management" title="Property registry" description="Search, filter and sort the property registry directly in the database. Large portfolios load page-by-page without downloading the entire dataset." action={<button onClick={() => void load()} className="btn-secondary"><RefreshCw className="h-4 w-4" /> Refresh</button>} />
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="All properties" value={properties.length} icon={<Building2 className="h-5 w-5" />} />
-        <StatCard label="Verified" value={verified} icon={<CheckCircle className="h-5 w-5" />} accent="blue" />
-        <StatCard label="Awaiting review" value={pending} icon={<ShieldCheck className="h-5 w-5" />} accent="accent" />
-        <StatCard label="Suspended" value={suspended} icon={<XCircle className="h-5 w-5" />} accent="red" />
+        <StatCard label="Records found" value={totalProperties} icon={<Building2 className="h-5 w-5" />} />
+        <StatCard label="Verified · page" value={verified} icon={<CheckCircle className="h-5 w-5" />} accent="blue" />
+        <StatCard label="Awaiting review · page" value={pending} icon={<ShieldCheck className="h-5 w-5" />} accent="accent" />
+        <StatCard label="Suspended · page" value={suspended} icon={<XCircle className="h-5 w-5" />} accent="red" />
       </div>
-      <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-ink-100 bg-white p-4 shadow-sm lg:flex-row lg:items-center">
+      <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-ink-100 bg-white p-4 lg:flex-row lg:items-center">
         <div className="relative flex-1"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" /><input className="input pl-10" placeholder="Search property, owner, town or county…" value={query} onChange={(e) => setQuery(e.target.value)} /></div>
-        <div className="flex items-center gap-2"><Filter className="h-4 w-4 text-ink-400" /><select className="input min-w-48" value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }}><option value="all">All statuses</option><option value="pending_verification">Pending verification</option><option value="verified">Verified</option><option value="rejected">Rejected</option><option value="suspended">Suspended</option></select></div>
+        <div className="flex flex-col gap-3 sm:flex-row"><select className="input min-w-48" value={status} onChange={(e) => setStatus(e.target.value)}><option value="all">All statuses</option><option value="pending_verification">Pending verification</option><option value="verified">Verified</option><option value="rejected">Rejected</option><option value="suspended">Suspended</option></select><select className="input min-w-40" value={sort} onChange={(e) => setSort(e.target.value)}><option value="newest">Newest first</option><option value="oldest">Oldest first</option><option value="name">Name A–Z</option></select></div>
       </div>
-      {loading ? <LoadingPage /> : filtered.length === 0 ? <EmptyState icon={<Building2 className="h-8 w-8" />} title="No matching properties" description="Try a different search or status filter." /> : (
+      {loading ? <LoadingPage /> : properties.length === 0 ? <EmptyState icon={<Building2 className="h-8 w-8" />} title="No matching properties" description="Try a different search, status or sort option." /> : (
         <Card className="overflow-hidden">
-          <div className="border-b border-ink-100 bg-gradient-to-r from-white to-brand-50/30 px-5 py-4"><div className="flex items-center justify-between gap-3"><div><h3 className="font-semibold text-ink-900">All properties</h3><p className="text-xs text-ink-500">{filtered.length} record{filtered.length === 1 ? '' : 's'} shown</p></div><span className="badge bg-brand-50 text-brand-700">Live registry</span></div></div>
+          <div className="border-b border-ink-100 bg-gradient-to-r from-white to-brand-50/30 px-5 py-4"><div className="flex items-center justify-between gap-3"><div><h3 className="font-semibold text-ink-900">Property registry</h3><p className="text-xs text-ink-500">Server-side results · {totalProperties} matching record{totalProperties === 1 ? '' : 's'}</p></div><span className="badge bg-brand-50 text-brand-700">Live registry</span></div></div>
           <div className="overflow-x-auto"><table className="premium-table w-full min-w-[980px] text-sm"><thead><tr><th>Property</th><th>Owner</th><th>Location</th><th>Type</th><th>Status</th><th>Actions</th></tr></thead><tbody>
-            {filtered.map((p) => <tr key={p.id} className={selectedProperty === p.id ? 'bg-brand-50/70' : ''}>
+            {properties.map((p) => <tr key={p.id} className={selectedProperty === p.id ? 'bg-brand-50/70' : ''}>
               <td><button type="button" className="text-left" onClick={() => navigate(`/property/${p.id}`)}><p className="font-semibold text-ink-900 hover:text-brand-700">{p.name}</p><p className="mt-0.5 text-xs text-ink-400">{p.number_of_units || 0} listed units · {p.number_of_floors || 0} floors</p></button></td>
               <td><div className="flex items-center gap-2"><span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-50 text-xs font-bold text-brand-700">{(p.profiles?.full_name || 'U').slice(0,1).toUpperCase()}</span><span>{p.profiles?.full_name || 'Unassigned'}</span></div></td>
               <td><p>{p.town}, {p.county}</p><p className="text-xs text-ink-400">{p.estate || p.address || 'Address not supplied'}</p></td>
@@ -142,8 +184,8 @@ export function AdminProperties() {
           </tbody></table></div>
         </Card>
       )}
-          <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
-</DashboardLayout>
+      <Pagination page={page} totalPages={totalPages} totalItems={totalProperties} pageSize={20} onPageChange={setPage} />
+    </DashboardLayout>
   );
 }
 
@@ -154,21 +196,42 @@ export function AdminUsers() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [totalUsers, setTotalUsers] = useState(0);
   const [query, setQuery] = useState('');
   const [role, setRole] = useState(params.get('role') || 'all');
+  const [sort, setSort] = useState('newest');
 
-  const load = async () => { setLoading(true); let q = supabase.from('profiles').select('*', { count: 'exact' }).order('created_at', { ascending: false }); if (role !== 'all') q = q.eq('role', role); const from = (page - 1) * 20; const to = from + 19; q = q.range(from, to); const { data, count } = await q; setUsers((data as Profile[]) || []); setTotalPages(Math.max(1, Math.ceil((count || 0) / 20))); setLoading(false); };
-  useEffect(() => { setPage(1); }, [role]);
-  useEffect(() => { void load(); }, [role, page]);
-  const filtered = users.filter((u) => `${u.full_name || ''} ${u.phone || ''} ${u.kra_pin || ''}`.toLowerCase().includes(query.toLowerCase()));
+  const load = async () => {
+    setLoading(true);
+    const from = (page - 1) * 20;
+    const to = from + 19;
+    let dbQuery = supabase.from('profiles').select('*', { count: 'exact' });
+    if (role !== 'all') dbQuery = dbQuery.eq('role', role);
+    if (query.trim()) {
+      const q = query.trim();
+      dbQuery = dbQuery.or(`full_name.ilike.%${q}%,phone.ilike.%${q}%,kra_pin.ilike.%${q}%`);
+    }
+    dbQuery = sort === 'oldest'
+      ? dbQuery.order('created_at', { ascending: true }).order('id', { ascending: true })
+      : sort === 'name'
+        ? dbQuery.order('full_name', { ascending: true, nullsFirst: false }).order('id', { ascending: true })
+        : dbQuery.order('created_at', { ascending: false }).order('id', { ascending: false });
+    const { data, count } = await dbQuery.range(from, to);
+    setUsers((data as Profile[]) || []);
+    setTotalUsers(count || 0);
+    setTotalPages(Math.max(1, Math.ceil((count || 0) / 20)));
+    setLoading(false);
+  };
+  useEffect(() => { setPage(1); }, [query, role, sort]);
+  useEffect(() => { const timer = window.setTimeout(() => void load(), 250); return () => window.clearTimeout(timer); }, [role, page, query, sort]);
   const count = (r: string) => users.filter((u) => u.role === r).length;
   return <DashboardLayout navItems={adminNav} title="Users">
-    <AdminPageHeader eyebrow="Account management" title="Users & access" description="A cleaner view of customers, owners and administrators registered on the platform." action={<button onClick={() => void load()} className="btn-secondary"><RefreshCw className="h-4 w-4" /> Refresh</button>} />
-    <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4"><StatCard label="All accounts" value={users.length} icon={<Users className="h-5 w-5" />} /><StatCard label="Customers" value={count('customer')} icon={<Users className="h-5 w-5" />} accent="blue" /><StatCard label="Owners" value={count('owner')} icon={<Building2 className="h-5 w-5" />} accent="accent" /><StatCard label="Admins" value={count('admin')} icon={<ShieldCheck className="h-5 w-5" />} accent="red" /></div>
-    <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-ink-100 bg-white p-4 sm:flex-row"><div className="relative flex-1"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" /><input className="input pl-10" placeholder="Search name, phone or KRA PIN…" value={query} onChange={(e) => { setQuery(e.target.value); setPage(1); }} /></div><select className="input sm:w-52" value={role} onChange={(e) => { setRole(e.target.value); setPage(1); }}><option value="all">All roles</option><option value="customer">Customer</option><option value="owner">Owner</option><option value="admin">Admin</option><option value="agent">Agent</option></select></div>
-    {loading ? <LoadingPage /> : filtered.length === 0 ? <EmptyState icon={<Users className="h-8 w-8" />} title="No matching users" description="Try another search or role." /> : <Card className="overflow-hidden"><div className="overflow-x-auto"><table className="premium-table w-full min-w-[820px] text-sm"><thead><tr><th>User</th><th>Role</th><th>Phone</th><th>KRA PIN</th><th>Joined</th></tr></thead><tbody>{filtered.map((u) => <tr key={u.id}><td><div className="flex items-center gap-3"><span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-50 font-bold text-brand-700">{(u.full_name || 'U').slice(0,1).toUpperCase()}</span><div><p className="font-semibold text-ink-900">{u.full_name || 'Unnamed user'}</p><p className="text-xs text-ink-400">Account ID · {u.id.slice(0, 8)}…</p></div></div></td><td><Badge>{titleCase(u.role)}</Badge></td><td>{u.phone || '—'}</td><td>{u.kra_pin || '—'}</td><td className="text-ink-500">{formatDate(u.created_at)}</td></tr>)}</tbody></table></div></Card>}
-        <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
-</DashboardLayout>;
+    <AdminPageHeader eyebrow="Account management" title="Users & access" description="Search and filter customer, owner and administrator accounts directly on the server, with stable pagination for large user bases." action={<button onClick={() => void load()} className="btn-secondary"><RefreshCw className="h-4 w-4" /> Refresh</button>} />
+    <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4"><StatCard label="Matching accounts" value={totalUsers} icon={<Users className="h-5 w-5" />} /><StatCard label="Customers · page" value={count('customer')} icon={<Users className="h-5 w-5" />} accent="blue" /><StatCard label="Owners · page" value={count('owner')} icon={<Building2 className="h-5 w-5" />} accent="accent" /><StatCard label="Admins · page" value={count('admin')} icon={<ShieldCheck className="h-5 w-5" />} accent="red" /></div>
+    <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-ink-100 bg-white p-4 lg:flex-row"><div className="relative flex-1"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" /><input className="input pl-10" placeholder="Search name, phone or KRA PIN…" value={query} onChange={(e) => setQuery(e.target.value)} /></div><div className="flex flex-col gap-3 sm:flex-row"><select className="input sm:w-52" value={role} onChange={(e) => setRole(e.target.value)}><option value="all">All roles</option><option value="customer">Customer</option><option value="owner">Owner</option><option value="admin">Admin</option><option value="agent">Agent</option></select><select className="input sm:w-40" value={sort} onChange={(e) => setSort(e.target.value)}><option value="newest">Newest first</option><option value="oldest">Oldest first</option><option value="name">Name A–Z</option></select></div></div>
+    {loading ? <LoadingPage /> : users.length === 0 ? <EmptyState icon={<Users className="h-8 w-8" />} title="No matching users" description="Try another search or role." /> : <Card className="overflow-hidden"><div className="overflow-x-auto"><table className="premium-table w-full min-w-[820px] text-sm"><thead><tr><th>User</th><th>Role</th><th>Phone</th><th>KRA PIN</th><th>Joined</th></tr></thead><tbody>{users.map((u) => <tr key={u.id}><td><div className="flex items-center gap-3"><span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-50 font-bold text-brand-700">{(u.full_name || 'U').slice(0,1).toUpperCase()}</span><div><p className="font-semibold text-ink-900">{u.full_name || 'Unnamed user'}</p><p className="text-xs text-ink-400">Account ID · {u.id.slice(0, 8)}…</p></div></div></td><td><Badge>{titleCase(u.role)}</Badge></td><td>{u.phone || '—'}</td><td>{u.kra_pin || '—'}</td><td className="text-ink-500">{formatDate(u.created_at)}</td></tr>)}</tbody></table></div></Card>}
+    <Pagination page={page} totalPages={totalPages} totalItems={totalUsers} pageSize={20} onPageChange={setPage} />
+  </DashboardLayout>;
 }
 
 export function AdminReservations() {
@@ -177,17 +240,52 @@ export function AdminReservations() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const load = async () => { setLoading(true); const from = (page - 1) * 20; const to = from + 19; const { data, count } = await supabase.from('reservations').select('*, property_units(unit_number), properties(name)', { count: 'exact' }).order('created_at', { ascending: false }).range(from, to); setReservations((data as typeof reservations) || []); setTotalPages(Math.max(1, Math.ceil((count || 0) / 20))); setLoading(false); };
-  useEffect(() => { void load(); }, [page]);
+  const [totalReservations, setTotalReservations] = useState(0);
+  const [query, setQuery] = useState('');
+  const [filter, setFilter] = useState('all');
+  const [sort, setSort] = useState('newest');
+  const load = async () => {
+    setLoading(true);
+    let propertyIds: string[] = [];
+    let unitIds: string[] = [];
+    if (query.trim()) {
+      const q = query.trim();
+      const [{ data: properties }, { data: units }] = await Promise.all([
+        supabase.from('properties').select('id').ilike('name', `%${q}%`).limit(100),
+        supabase.from('property_units').select('id').ilike('unit_number', `%${q}%`).limit(100),
+      ]);
+      propertyIds = (properties || []).map((row) => row.id);
+      unitIds = (units || []).map((row) => row.id);
+    }
+    const from = (page - 1) * 20; const to = from + 19;
+    let dbQuery = supabase.from('reservations').select('*, property_units(unit_number), properties(name)', { count: 'exact' });
+    if (filter !== 'all') dbQuery = dbQuery.eq('status', filter);
+    if (query.trim()) {
+      const q = query.trim();
+      const clauses = [`id.ilike.%${q}%`, `notes.ilike.%${q}%`];
+      if (propertyIds.length) clauses.push(`property_id.in.(${propertyIds.join(',')})`);
+      if (unitIds.length) clauses.push(`unit_id.in.(${unitIds.join(',')})`);
+      dbQuery = dbQuery.or(clauses.join(','));
+    }
+    dbQuery = sort === 'oldest'
+      ? dbQuery.order('created_at', { ascending: true }).order('id', { ascending: true })
+      : dbQuery.order('created_at', { ascending: false }).order('id', { ascending: false });
+    const { data, count, error } = await dbQuery.range(from, to);
+    if (error) toast(`Could not load reservations: ${error.message}`, 'error');
+    setReservations((data as typeof reservations) || []); setTotalReservations(count || 0); setTotalPages(Math.max(1, Math.ceil((count || 0) / 20))); setLoading(false);
+  };
+  useEffect(() => { setPage(1); }, [query, filter, sort]);
+  useEffect(() => { const timer = window.setTimeout(() => void load(), 250); return () => window.clearTimeout(timer); }, [page, query, filter, sort]);
   const update = async (id: string, status: 'confirmed' | 'cancelled') => { const { error } = await supabase.rpc('update_reservation_status_by_manager', { p_reservation_id: id, p_status: status }); if (error) { toast(`Could not update reservation: ${error.message}`, 'error'); return; } toast(`Reservation ${titleCase(status)}`, 'success'); await load(); };
   const pending = reservations.filter((r) => r.status === 'pending').length;
   const confirmed = reservations.filter((r) => r.status === 'confirmed').length;
   return <DashboardLayout navItems={adminNav} title="Reservations">
-    <AdminPageHeader eyebrow="Booking control" title="Reservations" description="Confirm or cancel reservation requests while keeping the unit status synchronized." action={<button onClick={() => void load()} className="btn-secondary"><RefreshCw className="h-4 w-4" /> Refresh</button>} />
-    <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4"><StatCard label="All reservations" value={reservations.length} icon={<Calendar className="h-5 w-5" />} /><StatCard label="Pending" value={pending} icon={<Calendar className="h-5 w-5" />} accent="accent" /><StatCard label="Confirmed" value={confirmed} icon={<CheckCircle className="h-5 w-5" />} accent="blue" /><StatCard label="Converted" value={reservations.filter(r => r.status === 'converted').length} icon={<ShieldCheck className="h-5 w-5" />} /></div>
-    {loading ? <LoadingPage /> : reservations.length === 0 ? <EmptyState icon={<Calendar className="h-8 w-8" />} title="No reservations yet" description="New reservation requests will appear here." /> : <Card className="overflow-hidden"><div className="overflow-x-auto"><table className="premium-table w-full min-w-[900px] text-sm"><thead><tr><th>Property</th><th>Unit</th><th>Fee</th><th>Status</th><th>Date</th><th>Action</th></tr></thead><tbody>{reservations.map((r) => <tr key={r.id}><td><p className="font-semibold text-ink-900">{r.properties?.name || '—'}</p><p className="text-xs text-ink-400">Reservation · {r.id.slice(0,8)}…</p></td><td className="font-medium">{r.property_units?.unit_number || '—'}</td><td className="font-semibold">{formatKES(r.reservation_fee)}</td><td><Badge status={r.status} /></td><td className="text-ink-500">{formatDate(r.created_at)}</td><td>{r.status === 'pending' ? <div className="flex gap-2"><button type="button" onClick={() => void update(r.id, 'confirmed')} className="btn-primary px-3 py-2 text-xs"><CheckCircle className="h-3.5 w-3.5" /> Confirm</button><button type="button" onClick={() => void update(r.id, 'cancelled')} className="btn-secondary px-3 py-2 text-xs text-red-600"><XCircle className="h-3.5 w-3.5" /> Cancel</button></div> : <span className="text-xs text-ink-400">No action</span>}</td></tr>)}</tbody></table></div></Card>}
-        <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
-</DashboardLayout>;
+    <AdminPageHeader eyebrow="Booking control" title="Reservations" description="Search, filter and sort reservations on the server while keeping unit status synchronized during approval." action={<button onClick={() => void load()} className="btn-secondary"><RefreshCw className="h-4 w-4" /> Refresh</button>} />
+    <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4"><StatCard label="Matching reservations" value={totalReservations} icon={<Calendar className="h-5 w-5" />} /><StatCard label="Pending · page" value={pending} icon={<Calendar className="h-5 w-5" />} accent="accent" /><StatCard label="Confirmed · page" value={confirmed} icon={<CheckCircle className="h-5 w-5" />} accent="blue" /><StatCard label="Converted · page" value={reservations.filter(r => r.status === 'converted').length} icon={<ShieldCheck className="h-5 w-5" />} /></div>
+    <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-ink-100 bg-white p-4 sm:flex-row"><div className="relative flex-1"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" /><input className="input pl-10" placeholder="Search property, unit, reservation ID or notes…" value={query} onChange={(e)=>setQuery(e.target.value)} /></div><div className="flex gap-3"><select className="input sm:w-48" value={filter} onChange={(e)=>setFilter(e.target.value)}><option value="all">All statuses</option><option value="pending">Pending</option><option value="confirmed">Confirmed</option><option value="cancelled">Cancelled</option><option value="converted">Converted</option></select><select className="input sm:w-40" value={sort} onChange={(e)=>setSort(e.target.value)}><option value="newest">Newest first</option><option value="oldest">Oldest first</option></select></div></div>
+    {loading ? <LoadingPage /> : reservations.length === 0 ? <EmptyState icon={<Calendar className="h-8 w-8" />} title="No matching reservations" description="Try another search or status." /> : <Card className="overflow-hidden"><div className="overflow-x-auto"><table className="premium-table w-full min-w-[900px] text-sm"><thead><tr><th>Property</th><th>Unit</th><th>Fee</th><th>Status</th><th>Date</th><th>Action</th></tr></thead><tbody>{reservations.map((r) => <tr key={r.id}><td><p className="font-semibold text-ink-900">{r.properties?.name || '—'}</p><p className="text-xs text-ink-400">Reservation · {r.id.slice(0,8)}…</p></td><td className="font-medium">{r.property_units?.unit_number || '—'}</td><td className="font-semibold">{formatKES(r.reservation_fee)}</td><td><Badge status={r.status} /></td><td className="text-ink-500">{formatDate(r.created_at)}</td><td>{r.status === 'pending' ? <div className="flex gap-2"><button type="button" onClick={() => void update(r.id, 'confirmed')} className="btn-primary px-3 py-2 text-xs"><CheckCircle className="h-3.5 w-3.5" /> Confirm</button><button type="button" onClick={() => void update(r.id, 'cancelled')} className="btn-secondary px-3 py-2 text-xs text-red-600"><XCircle className="h-3.5 w-3.5" /> Cancel</button></div> : <span className="text-xs text-ink-400">No action</span>}</td></tr>)}</tbody></table></div></Card>}
+    <Pagination page={page} totalPages={totalPages} totalItems={totalReservations} pageSize={20} onPageChange={setPage} />
+  </DashboardLayout>;
 }
 
 export function AdminPayments() {
@@ -196,21 +294,56 @@ export function AdminPayments() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [totalPayments, setTotalPayments] = useState(0);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState('all');
+  const [sort, setSort] = useState('newest');
   const [busyId, setBusyId] = useState<string | null>(null);
-  const load = async () => { setLoading(true); const from = (page - 1) * 20; const to = from + 19; const { data, count } = await supabase.from('payments').select('*, properties(name), profiles:user_id(full_name,phone), property_units(unit_number)', { count: 'exact' }).order('created_at', { ascending: false }).range(from, to); setPayments((data as typeof payments) || []); setTotalPages(Math.max(1, Math.ceil((count || 0) / 20))); setLoading(false); };
-  useEffect(() => { void load(); }, [page]);
+  const load = async () => {
+    setLoading(true);
+    let userIds: string[] = [];
+    let propertyIds: string[] = [];
+    let unitIds: string[] = [];
+    if (query.trim()) {
+      const q = query.trim();
+      const [{ data: profiles }, { data: properties }, { data: units }] = await Promise.all([
+        supabase.from('profiles').select('id').or(`full_name.ilike.%${q}%,phone.ilike.%${q}%`).limit(100),
+        supabase.from('properties').select('id').ilike('name', `%${q}%`).limit(100),
+        supabase.from('property_units').select('id').ilike('unit_number', `%${q}%`).limit(100),
+      ]);
+      userIds = (profiles || []).map((row) => row.id); propertyIds = (properties || []).map((row) => row.id); unitIds = (units || []).map((row) => row.id);
+    }
+    const from = (page - 1) * 20; const to = from + 19;
+    let dbQuery = supabase.from('payments').select('*, properties(name), profiles:user_id(full_name,phone), property_units(unit_number)', { count: 'exact' });
+    if (filter === 'pending') dbQuery = dbQuery.eq('status', 'pending').eq('verified', false);
+    else if (filter === 'verified') dbQuery = dbQuery.eq('verified', true);
+    else if (filter !== 'all') dbQuery = dbQuery.eq('status', filter);
+    if (query.trim()) {
+      const q = query.trim();
+      const clauses = [`transaction_ref.ilike.%${q}%`, `provider_reference.ilike.%${q}%`];
+      if (userIds.length) clauses.push(`user_id.in.(${userIds.join(',')})`);
+      if (propertyIds.length) clauses.push(`property_id.in.(${propertyIds.join(',')})`);
+      if (unitIds.length) clauses.push(`unit_id.in.(${unitIds.join(',')})`);
+      dbQuery = dbQuery.or(clauses.join(','));
+    }
+    dbQuery = sort === 'oldest'
+      ? dbQuery.order('created_at', { ascending: true }).order('id', { ascending: true })
+      : dbQuery.order('created_at', { ascending: false }).order('id', { ascending: false });
+    const { data, count, error } = await dbQuery.range(from, to);
+    if (error) toast(`Could not load payments: ${error.message}`, 'error');
+    setPayments((data as typeof payments) || []); setTotalPayments(count || 0); setTotalPages(Math.max(1, Math.ceil((count || 0) / 20))); setLoading(false);
+  };
+  useEffect(() => { setPage(1); }, [query, filter, sort]);
+  useEffect(() => { const timer = window.setTimeout(() => void load(), 250); return () => window.clearTimeout(timer); }, [page, query, filter, sort]);
   const review = async (id: string, action: 'verify' | 'reject') => { setBusyId(id); const { error } = await supabase.rpc('review_payment_by_admin', { p_payment_id: id, p_action: action }); setBusyId(null); if (error) { toast(`Could not ${action} payment: ${error.message}`, 'error'); return; } toast(action === 'verify' ? 'Payment verified and receipt issued.' : 'Payment rejected.', action === 'verify' ? 'success' : 'info'); await load(); };
-  const filtered = payments.filter((p) => { const hay = `${p.properties?.name || ''} ${p.profiles?.full_name || ''} ${p.transaction_ref || ''} ${p.provider_reference || ''}`.toLowerCase(); return hay.includes(query.toLowerCase()) && (filter === 'all' || (filter === 'pending' ? !p.verified && p.status === 'pending' : filter === 'verified' ? p.verified : p.status === filter)); });
   const verifiedTotal = payments.filter(p => p.verified && p.status === 'successful').reduce((s,p)=>s+Number(p.amount||0),0);
   return <DashboardLayout navItems={adminNav} title="Payments">
-    <AdminPageHeader eyebrow="Finance control" title="Payments & verification" description="Review submitted payment intents, verify successful transactions and issue a receipt notification to the tenant." action={<button onClick={() => void load()} className="btn-secondary"><RefreshCw className="h-4 w-4" /> Refresh</button>} />
-    <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4"><StatCard label="Verified revenue" value={formatKES(verifiedTotal)} icon={<Wallet className="h-5 w-5" />} accent="blue" /><StatCard label="Transactions" value={payments.length} icon={<Receipt className="h-5 w-5" />} /><StatCard label="Awaiting verification" value={payments.filter(p => !p.verified && p.status === 'pending').length} icon={<ShieldCheck className="h-5 w-5" />} accent="accent" /><StatCard label="Verified" value={payments.filter(p => p.verified).length} icon={<CheckCircle className="h-5 w-5" />} accent="brand" /></div>
-    <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-ink-100 bg-white p-4 sm:flex-row"><div className="relative flex-1"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" /><input className="input pl-10" placeholder="Search tenant, property or transaction reference…" value={query} onChange={(e)=>{ setQuery(e.target.value); setPage(1); }} /></div><select className="input sm:w-56" value={filter} onChange={(e)=>{ setFilter(e.target.value); setPage(1); }}><option value="all">All payments</option><option value="pending">Awaiting verification</option><option value="verified">Verified</option><option value="failed">Failed</option><option value="cancelled">Cancelled</option></select></div>
-    {loading ? <LoadingPage /> : filtered.length === 0 ? <EmptyState icon={<Wallet className="h-8 w-8" />} title="No matching payments" description="Submitted payment transactions will appear here." /> : <Card className="overflow-hidden"><div className="overflow-x-auto"><table className="premium-table w-full min-w-[1180px] text-sm"><thead><tr><th>Tenant</th><th>Property / Unit</th><th>Type</th><th>Amount</th><th>Method</th><th>Status</th><th>Reference</th><th>Date</th><th>Action</th></tr></thead><tbody>{filtered.map((p) => <tr key={p.id}><td><p className="font-semibold text-ink-900">{p.profiles?.full_name || 'Unnamed tenant'}</p><p className="text-xs text-ink-400">{p.profiles?.phone || 'No phone'}</p></td><td><p className="font-medium text-ink-900">{p.properties?.name || '—'}</p><p className="text-xs text-ink-400">Unit {p.property_units?.unit_number || '—'}</p></td><td className="capitalize">{p.payment_type}</td><td className="font-bold">{formatKES(p.amount)}</td><td className="capitalize">{String(p.payment_method).replace('_',' ')}</td><td><Badge status={p.status} />{p.verified && <span className="ml-2 badge bg-brand-50 text-brand-700">Verified</span>}</td><td className="max-w-40 truncate font-mono text-xs text-ink-500" title={p.transaction_ref || p.provider_reference || ''}>{p.transaction_ref || p.provider_reference || 'Pending ref'}</td><td className="text-ink-500">{formatDate(p.created_at)}</td><td>{!p.verified && p.status === 'pending' ? <div className="flex gap-2"><button type="button" disabled={busyId === p.id} onClick={()=>void review(p.id,'verify')} className="btn-primary px-3 py-2 text-xs">{busyId===p.id ? 'Working…' : <><CheckCircle className="h-3.5 w-3.5" /> Verify & issue receipt</>}</button><button type="button" disabled={busyId===p.id} onClick={()=>void review(p.id,'reject')} className="icon-action text-red-600" title="Reject payment"><XCircle className="h-4 w-4" /></button></div> : p.verified ? <button type="button" onClick={()=>downloadPaymentReceiptPdf({ payment:p, propertyName:p.properties?.name || 'Property', unitNumber:p.property_units?.unit_number || null, tenantName:p.profiles?.full_name || 'Tenant' })} className="btn-secondary px-3 py-2 text-xs"><Download className="h-3.5 w-3.5" /> Receipt</button> : <span className="text-xs text-ink-400">No action</span>}</td></tr>)}</tbody></table></div></Card>}
-        <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
-</DashboardLayout>;
+    <AdminPageHeader eyebrow="Finance control" title="Payments & verification" description="Search payment records on the server by tenant, property, unit or reference, then review transactions without loading the full ledger." action={<button onClick={() => void load()} className="btn-secondary"><RefreshCw className="h-4 w-4" /> Refresh</button>} />
+    <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4"><StatCard label="Matching payments" value={totalPayments} icon={<Receipt className="h-5 w-5" />} /><StatCard label="Verified revenue · page" value={formatKES(verifiedTotal)} icon={<Wallet className="h-5 w-5" />} accent="blue" /><StatCard label="Awaiting verification · page" value={payments.filter(p => !p.verified && p.status === 'pending').length} icon={<ShieldCheck className="h-5 w-5" />} accent="accent" /><StatCard label="Verified · page" value={payments.filter(p => p.verified).length} icon={<CheckCircle className="h-5 w-5" />} accent="brand" /></div>
+    <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-ink-100 bg-white p-4 lg:flex-row"><div className="relative flex-1"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" /><input className="input pl-10" placeholder="Search tenant, property, unit or transaction reference…" value={query} onChange={(e)=>setQuery(e.target.value)} /></div><div className="flex gap-3"><select className="input sm:w-56" value={filter} onChange={(e)=>setFilter(e.target.value)}><option value="all">All payments</option><option value="pending">Awaiting verification</option><option value="verified">Verified</option><option value="successful">Successful</option><option value="failed">Failed</option><option value="cancelled">Cancelled</option><option value="refunded">Refunded</option></select><select className="input sm:w-40" value={sort} onChange={(e)=>setSort(e.target.value)}><option value="newest">Newest first</option><option value="oldest">Oldest first</option></select></div></div>
+    {loading ? <LoadingPage /> : payments.length === 0 ? <EmptyState icon={<Wallet className="h-8 w-8" />} title="No matching payments" description="Try another search or payment status." /> : <Card className="overflow-hidden"><div className="overflow-x-auto"><table className="premium-table w-full min-w-[1180px] text-sm"><thead><tr><th>Tenant</th><th>Property / Unit</th><th>Type</th><th>Amount</th><th>Method</th><th>Status</th><th>Reference</th><th>Date</th><th>Action</th></tr></thead><tbody>{payments.map((p) => <tr key={p.id}><td><p className="font-semibold text-ink-900">{p.profiles?.full_name || 'Unnamed tenant'}</p><p className="text-xs text-ink-400">{p.profiles?.phone || 'No phone'}</p></td><td><p className="font-medium text-ink-900">{p.properties?.name || '—'}</p><p className="text-xs text-ink-400">Unit {p.property_units?.unit_number || '—'}</p></td><td className="capitalize">{p.payment_type}</td><td className="font-bold">{formatKES(p.amount)}</td><td className="capitalize">{String(p.payment_method).replace('_',' ')}</td><td><Badge status={p.status} />{p.verified && <span className="ml-2 badge bg-brand-50 text-brand-700">Verified</span>}</td><td className="max-w-40 truncate font-mono text-xs text-ink-500" title={p.transaction_ref || p.provider_reference || ''}>{p.transaction_ref || p.provider_reference || 'Pending ref'}</td><td className="text-ink-500">{formatDate(p.created_at)}</td><td>{!p.verified && p.status === 'pending' ? <div className="flex gap-2"><button type="button" disabled={busyId === p.id} onClick={()=>void review(p.id,'verify')} className="btn-primary px-3 py-2 text-xs">{busyId===p.id ? 'Working…' : <><CheckCircle className="h-3.5 w-3.5" /> Verify & issue receipt</>}</button><button type="button" disabled={busyId===p.id} onClick={()=>void review(p.id,'reject')} className="icon-action text-red-600" title="Reject payment"><XCircle className="h-4 w-4" /></button></div> : p.verified ? <button type="button" onClick={()=>downloadPaymentReceiptPdf({ payment:p, propertyName:p.properties?.name || 'Property', unitNumber:p.property_units?.unit_number || null, tenantName:p.profiles?.full_name || 'Tenant' })} className="btn-secondary px-3 py-2 text-xs"><Download className="h-3.5 w-3.5" /> Receipt</button> : <span className="text-xs text-ink-400">No action</span>}</td></tr>)}</tbody></table></div></Card>}
+    <Pagination page={page} totalPages={totalPages} totalItems={totalPayments} pageSize={20} onPageChange={setPage} />
+  </DashboardLayout>;
 }
 
 function AdminPageHeader({ eyebrow, title, description, action }: { eyebrow: string; title: string; description: string; action?: ReactNode }) {
@@ -290,6 +423,19 @@ export function AdminTax() {
   );
 }
 
+
+type AdminFinancialMonthly = { period: string; expected: number; collected: number; expenses: number; payouts: number };
+type AdminFinancialProperty = { id: string; name: string; expected: number; collected: number; expenses: number; units: number; occupied: number; net: number };
+type AdminFinancialData = { period: string; expected_rent: number; collected_rent: number; collection_rate: number; arrears: number; expenses: number; net_operating_income: number; owner_payouts: number; monthly: AdminFinancialMonthly[]; properties: AdminFinancialProperty[] };
+
+function AdminFinancialCommandCenter({ data }: { data: AdminFinancialData }) {
+  const maxMonthly = Math.max(1, ...data.monthly.flatMap((m) => [m.expected, m.collected, m.expenses]));
+  const topProperties = [...data.properties].sort((a,b) => b.net-a.net).slice(0,6);
+  const occupied = data.properties.reduce((n,p) => n+p.occupied,0); const units = data.properties.reduce((n,p) => n+p.units,0); const occupancyRate = units ? Math.round(occupied/units*100) : 0;
+  const metric = (label:string,value:string,note:string,positive=true) => <div className="rounded-2xl border border-ink-100 bg-white p-4 shadow-sm"><div className="flex items-center justify-between"><p className="text-xs font-semibold uppercase tracking-wide text-ink-400">{label}</p>{positive ? <ArrowUpRight className="h-4 w-4 text-brand-600"/> : <ArrowDownRight className="h-4 w-4 text-accent-600"/>}</div><p className="mt-2 text-xl font-bold text-ink-900">{value}</p><p className="mt-1 text-xs text-ink-500">{note}</p></div>;
+  const maxNet=Math.max(1,...topProperties.map(p=>Math.max(0,p.net)));
+  return <Card className="mb-7 overflow-hidden"><div className="border-b border-ink-100 bg-gradient-to-r from-white to-brand-50/40 px-5 py-4"><div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><div><div className="flex items-center gap-2"><TrendingUp className="h-5 w-5 text-brand-700"/><h3 className="font-semibold text-ink-900">Financial command centre</h3></div><p className="mt-1 text-xs text-ink-500">Portfolio cash performance, arrears and operating profitability for {data.period}, with a six-month trend.</p></div><span className="badge bg-brand-50 text-brand-700">Management finance</span></div></div><div className="grid grid-cols-2 gap-px bg-ink-100 sm:grid-cols-3 lg:grid-cols-6">{metric('Expected rent',formatKES(data.expected_rent),'Invoice value')}{metric('Collected',formatKES(data.collected_rent),`${data.collection_rate}% collection rate`)}{metric('Arrears',formatKES(data.arrears),'Past-due invoice balance',false)}{metric('Expenses',formatKES(data.expenses),'Recorded operating costs',false)}{metric('Net operating',formatKES(data.net_operating_income),'Collected less expenses',data.net_operating_income>=0)}{metric('Owner payouts',formatKES(data.owner_payouts),`${occupancyRate}% portfolio occupancy`)}</div><div className="grid grid-cols-1 gap-5 p-5 xl:grid-cols-[1.45fr_1fr]"><div className="rounded-2xl border border-ink-100 p-4"><div className="mb-4"><h4 className="font-semibold text-ink-900">Six-month cash trend</h4><p className="text-xs text-ink-500">Expected rent, verified collections and expenses.</p></div><div className="space-y-3">{data.monthly.map(m=><div key={m.period}><div className="mb-1 flex items-center justify-between text-[11px] font-medium text-ink-500"><span>{m.period}</span><span>{formatKES(m.collected)} collected</span></div><div className="h-2.5 overflow-hidden rounded-full bg-ink-100"><div className="h-full rounded-full bg-brand-600" style={{width:`${Math.max(2,Math.round(m.collected/maxMonthly*100))}%`}}/></div><div className="mt-1 flex gap-3 text-[10px] text-ink-400"><span>Expected {formatKES(m.expected)}</span><span>Expenses {formatKES(m.expenses)}</span></div></div>)}</div></div><div className="rounded-2xl border border-ink-100 p-4"><div className="mb-4"><h4 className="font-semibold text-ink-900">Property profitability</h4><p className="text-xs text-ink-500">Net cash contribution after recorded expenses.</p></div><div className="space-y-3">{topProperties.map(p=><div key={p.id}><div className="flex items-center justify-between gap-3"><p className="truncate text-sm font-semibold text-ink-800">{p.name}</p><p className={`text-sm font-bold ${p.net>=0?'text-brand-700':'text-red-600'}`}>{formatKES(p.net)}</p></div><div className="mt-1 h-2 overflow-hidden rounded-full bg-ink-100"><div className="h-full rounded-full bg-brand-500" style={{width:`${Math.min(100,Math.max(3,Math.round(Math.max(0,p.net)/maxNet*100)))}%`}}/></div><p className="mt-1 text-[10px] text-ink-400">{p.occupied}/{p.units} occupied · {formatKES(p.expenses)} expenses</p></div>)}{topProperties.length===0&&<p className="text-sm text-ink-500">No property financial records for this period.</p>}</div></div></div></Card>;
+}
 
 function OperationalPreview({ title, description, href, icon }: { title: string; description: string; href: string; icon: ReactNode }) {
   const { navigate } = useRouter();
