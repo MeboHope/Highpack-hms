@@ -1,7 +1,8 @@
 import { useState, useEffect, type ReactNode } from 'react';
-import { Building2, Users, Calendar, Wallet, Home, CheckCircle, XCircle, ShieldCheck, Receipt, UserCheck, Wrench, Search, Download, Eye, RefreshCw, TrendingUp, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { Building2, Users, Calendar, Wallet, Home, CheckCircle, XCircle, ShieldCheck, Receipt, UserCheck, Wrench, Search, Download, Eye, RefreshCw, TrendingUp, ArrowUpRight, ArrowDownRight, CalendarClock, UserRound, LogOut, AlertTriangle } from 'lucide-react';
 import { DashboardLayout, adminNav } from '@/components/DashboardLayout';
 import { StatCard, Card, Badge, EmptyState, LoadingPage, Pagination } from '@/components/ui';
+import { Modal } from '@/components/Modal';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/context/ToastContext';
 import { useRouter } from '@/context/RouterContext';
@@ -509,6 +510,126 @@ export function AdminMaintenance() {
     <div className="mb-6 rounded-2xl brand-gradient p-6 text-white shadow-soft-lg"><p className="text-sm font-semibold text-white/80">Service desk</p><h2 className="mt-1 text-2xl font-bold">Maintenance & service requests</h2><p className="mt-1 text-sm text-white/80">Review tenant-reported issues, assign work and track completion across the portfolio.</p></div>
     {loading ? <LoadingPage /> : rows.length === 0 ? <EmptyState icon={<Wrench className="h-8 w-8" />} title="No service requests" description="Tenant maintenance requests will appear here as soon as they are submitted." /> : <div className="space-y-3">{rows.map((r) => <Card key={String(r.id)} className="p-5"><div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h3 className="font-semibold text-ink-900">{titleCase(String(r.category || 'other'))}</h3><Badge status={String(r.status)} /><Badge>{String(r.priority || 'medium')}</Badge></div><p className="mt-2 text-sm text-ink-600">{String(r.description || '')}</p><p className="mt-2 text-xs text-ink-400">{r.properties?.name || '—'} · Unit {r.property_units?.unit_number || '—'} · {r.profiles?.full_name || 'Tenant'} · {formatDate(String(r.created_at))}</p></div><select className="input w-full lg:w-48" value={String(r.status)} onChange={(e) => update(String(r.id), e.target.value)}><option value="submitted">Submitted</option><option value="assigned">Assigned</option><option value="in_progress">In Progress</option><option value="awaiting_parts">Awaiting Parts</option><option value="completed">Completed</option><option value="closed">Closed</option></select></div></Card>)}</div>}
         <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
+  </DashboardLayout>;
+}
+
+export function AdminLeases() {
+  const { toast } = useToast();
+  const [leases, setLeases] = useState<Array<{
+    id: string; tenant_id: string; property_id: string; unit_id: string; lease_start: string; lease_end: string;
+    monthly_rent: number; deposit: number; service_charge: number; status: string; signed_by_tenant: boolean; signed_by_owner: boolean;
+    tenant_name: string | null; tenant_phone: string | null; property_name: string | null; unit_number: string | null;
+    outstanding_balance: number;
+  }>>([]);
+  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [query, setQuery] = useState('');
+  const [status, setStatus] = useState('all');
+  const [sort, setSort] = useState('newest');
+  const [selected, setSelected] = useState<typeof leases[number] | null>(null);
+  const [busy, setBusy] = useState(false);
+  const pageSize = 20;
+
+  const load = async () => {
+    setLoading(true);
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+    let q = supabase.from('leases').select('id,tenant_id,property_id,unit_id,lease_start,lease_end,monthly_rent,deposit,service_charge,status,signed_by_tenant,signed_by_owner,created_at,profiles:tenant_id(full_name,phone),properties(name),property_units(unit_number)', { count: 'exact' });
+    if (status !== 'all') q = q.eq('status', status);
+    if (query.trim()) {
+      const safe = query.trim().replace(/[%_]/g, '');
+      const [{ data: people }, { data: properties }, { data: units }] = await Promise.all([
+        supabase.from('profiles').select('id').or(`full_name.ilike.%${safe}%,phone.ilike.%${safe}%`).limit(100),
+        supabase.from('properties').select('id').or(`name.ilike.%${safe}%,town.ilike.%${safe}%,county.ilike.%${safe}%`).limit(100),
+        supabase.from('property_units').select('id').ilike('unit_number', `%${safe}%`).limit(100),
+      ]);
+      const clauses = [`id.eq.${safe}`];
+      if ((people || []).length) clauses.push(`tenant_id.in.(${(people || []).map(x => x.id).join(',')})`);
+      if ((properties || []).length) clauses.push(`property_id.in.(${(properties || []).map(x => x.id).join(',')})`);
+      if ((units || []).length) clauses.push(`unit_id.in.(${(units || []).map(x => x.id).join(',')})`);
+      q = q.or(clauses.join(','));
+    }
+    q = sort === 'expiry'
+      ? q.order('lease_end', { ascending: true }).order('id', { ascending: true })
+      : sort === 'oldest'
+        ? q.order('created_at', { ascending: true }).order('id', { ascending: true })
+        : q.order('created_at', { ascending: false }).order('id', { ascending: false });
+    const { data, count, error } = await q.range(from, to);
+    if (error) {
+      toast(`Could not load leases: ${error.message}`, 'error');
+      setLeases([]); setTotal(0); setLoading(false); return;
+    }
+    const raw = (data || []) as unknown as Array<Record<string, unknown>>;
+    const leaseIds = raw.map(r => String(r.id));
+    let balances = new Map<string, number>();
+    if (leaseIds.length) {
+      const { data: invoices } = await supabase.from('rent_invoices').select('lease_id,balance,status').in('lease_id', leaseIds);
+      balances = new Map<string, number>();
+      (invoices || []).forEach((inv) => balances.set(String(inv.lease_id), (balances.get(String(inv.lease_id)) || 0) + Math.max(0, Number(inv.balance || 0))));
+    }
+    setLeases(raw.map((r) => {
+      const profile = Array.isArray(r.profiles) ? r.profiles[0] : r.profiles as Record<string, unknown> | null;
+      const property = Array.isArray(r.properties) ? r.properties[0] : r.properties as Record<string, unknown> | null;
+      const unit = Array.isArray(r.property_units) ? r.property_units[0] : r.property_units as Record<string, unknown> | null;
+      return {
+        id: String(r.id), tenant_id: String(r.tenant_id), property_id: String(r.property_id), unit_id: String(r.unit_id),
+        lease_start: String(r.lease_start), lease_end: String(r.lease_end), monthly_rent: Number(r.monthly_rent || 0),
+        deposit: Number(r.deposit || 0), service_charge: Number(r.service_charge || 0), status: String(r.status),
+        signed_by_tenant: Boolean(r.signed_by_tenant), signed_by_owner: Boolean(r.signed_by_owner),
+        tenant_name: profile?.full_name == null ? null : String(profile.full_name), tenant_phone: profile?.phone == null ? null : String(profile.phone),
+        property_name: property?.name == null ? null : String(property.name), unit_number: unit?.unit_number == null ? null : String(unit.unit_number),
+        outstanding_balance: balances.get(String(r.id)) || 0,
+      };
+    }));
+    setTotal(count || 0); setLoading(false);
+  };
+
+  useEffect(() => { setPage(1); }, [query, status, sort]);
+  useEffect(() => { void load(); }, [page, query, status, sort]);
+
+  const runAction = async (action: 'renew' | 'moveout' | 'expire') => {
+    if (!selected && action !== 'expire') return;
+    setBusy(true);
+    if (action === 'renew' && selected) {
+      const { error } = await supabase.rpc('renew_lease', { p_lease_id: selected.id, p_lease_months: 12 });
+      if (error) toast(`Could not renew lease: ${error.message}`, 'error'); else { toast('Lease renewed for 12 months.', 'success'); setSelected(null); await load(); }
+    }
+    if (action === 'moveout' && selected) {
+      const { error } = await supabase.rpc('move_out_lease', { p_lease_id: selected.id, p_reason: 'Move-out recorded by administrator' });
+      if (error) toast(`Could not close tenancy: ${error.message}`, 'error'); else { toast('Move-out recorded and unit released.', 'success'); setSelected(null); await load(); }
+    }
+    if (action === 'expire') {
+      const { data, error } = await supabase.rpc('expire_due_leases');
+      if (error) toast(`Could not process expiries: ${error.message}`, 'error'); else { toast(`${Number(data || 0)} expired lease(s) processed.`, 'success'); await load(); }
+    }
+    setBusy(false);
+  };
+
+  const today = new Date();
+  const daysTo = (date: string) => Math.ceil((new Date(date).getTime() - today.getTime()) / 86400000);
+  const active = leases.filter(l => l.status === 'active').length;
+  const expiring = leases.filter(l => l.status === 'active' && daysTo(l.lease_end) >= 0 && daysTo(l.lease_end) <= 45).length;
+  const overdue = leases.filter(l => l.outstanding_balance > 0).length;
+  const pendingSign = leases.filter(l => !l.signed_by_tenant && ['active','pending_signature'].includes(l.status)).length;
+
+  return <DashboardLayout navItems={adminNav} title="Leases & Tenants">
+    <AdminPageHeader eyebrow="Tenant lifecycle" title="Leases & Tenants" description="Control the full tenancy lifecycle: active leases, expiry risk, outstanding balances, renewals and move-outs." action={<button type="button" onClick={() => void runAction('expire')} disabled={busy} className="btn-secondary"><CalendarClock className="h-4 w-4" /> Process expired leases</button>} />
+    <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <StatCard label="Active leases · page" value={active} icon={<Home className="h-5 w-5" />} />
+      <StatCard label="Expiring ≤ 45 days" value={expiring} icon={<CalendarClock className="h-5 w-5" />} accent="accent" />
+      <StatCard label="With outstanding balance" value={overdue} icon={<Wallet className="h-5 w-5" />} accent="red" />
+      <StatCard label="Awaiting tenant signature" value={pendingSign} icon={<UserRound className="h-5 w-5" />} accent="blue" />
+    </div>
+    <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-ink-100 bg-white p-4 lg:flex-row">
+      <div className="relative flex-1"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" /><input className="input pl-10" placeholder="Search tenant, property, unit or lease ID…" value={query} onChange={e => setQuery(e.target.value)} /></div>
+      <select className="input lg:w-52" value={status} onChange={e => setStatus(e.target.value)}><option value="all">All lease statuses</option><option value="active">Active</option><option value="pending_signature">Pending signature</option><option value="expired">Expired</option><option value="renewed">Renewed</option><option value="terminated">Terminated</option><option value="draft">Draft</option></select>
+      <select className="input lg:w-44" value={sort} onChange={e => setSort(e.target.value)}><option value="newest">Newest first</option><option value="oldest">Oldest first</option><option value="expiry">Nearest expiry</option></select>
+      <button type="button" onClick={() => void load()} className="btn-secondary"><RefreshCw className="h-4 w-4" /> Refresh</button>
+    </div>
+    {loading ? <LoadingPage /> : leases.length === 0 ? <EmptyState icon={<Users className="h-8 w-8" />} title="No matching leases" description="Try another search or status filter." /> : <Card className="overflow-hidden"><div className="overflow-x-auto"><table className="premium-table w-full min-w-[1120px] text-sm"><thead><tr><th>Tenant</th><th>Property / Unit</th><th>Lease term</th><th>Rent</th><th>Balance</th><th>Status</th><th>Expiry</th><th>Action</th></tr></thead><tbody>{leases.map(l => { const remaining = daysTo(l.lease_end); return <tr key={l.id}><td><p className="font-semibold text-ink-900">{l.tenant_name || 'Unnamed tenant'}</p><p className="text-xs text-ink-400">{l.tenant_phone || 'No phone'}</p></td><td><p className="font-medium">{l.property_name || '—'}</p><p className="text-xs text-ink-400">Unit {l.unit_number || '—'}</p></td><td><p>{formatDate(l.lease_start)} → {formatDate(l.lease_end)}</p><p className="text-xs text-ink-400">{l.signed_by_tenant ? 'Tenant signed' : 'Tenant signature pending'}</p></td><td className="font-bold">{formatKES(l.monthly_rent + l.service_charge)}</td><td className={l.outstanding_balance > 0 ? 'font-bold text-red-600' : 'font-semibold text-brand-700'}>{formatKES(l.outstanding_balance)}</td><td><Badge status={l.status} /></td><td>{l.status === 'active' && remaining >= 0 ? <span className={remaining <= 45 ? 'badge bg-accent-50 text-accent-700' : 'text-ink-500'}>{remaining} days</span> : <span className="text-xs text-ink-400">{remaining < 0 ? `${Math.abs(remaining)} days ago` : '—'}</span>}</td><td><button type="button" onClick={() => setSelected(l)} className="btn-secondary px-3 py-2 text-xs"><Eye className="h-3.5 w-3.5" /> Manage</button></td></tr>})}</tbody></table></div></Card>}
+    <Pagination page={page} totalPages={Math.max(1, Math.ceil(total / pageSize))} totalItems={total} pageSize={pageSize} onPageChange={setPage} />
+    {selected && <Modal open onClose={() => setSelected(null)} title="Lease lifecycle" size="md"><div className="space-y-5"><div className="rounded-2xl bg-brand-50 p-4"><p className="text-xs font-semibold uppercase tracking-wider text-brand-700">Tenant</p><h3 className="mt-1 text-lg font-bold text-brand-950">{selected.tenant_name || 'Unnamed tenant'}</h3><p className="text-sm text-brand-800">{selected.tenant_phone || 'No phone'} · {selected.property_name || 'Property'} · Unit {selected.unit_number || '—'}</p></div><div className="grid grid-cols-2 gap-3 text-sm"><div className="rounded-xl bg-ink-50 p-3"><p className="text-xs text-ink-400">Lease status</p><p className="mt-1 font-semibold"><Badge status={selected.status} /></p></div><div className="rounded-xl bg-ink-50 p-3"><p className="text-xs text-ink-400">Outstanding</p><p className="mt-1 font-semibold">{formatKES(selected.outstanding_balance)}</p></div><div className="rounded-xl bg-ink-50 p-3"><p className="text-xs text-ink-400">Lease period</p><p className="mt-1 font-semibold">{formatDate(selected.lease_start)} → {formatDate(selected.lease_end)}</p></div><div className="rounded-xl bg-ink-50 p-3"><p className="text-xs text-ink-400">Monthly obligation</p><p className="mt-1 font-semibold">{formatKES(selected.monthly_rent + selected.service_charge)}</p></div></div>{selected.status === 'active' && daysTo(selected.lease_end) <= 45 && <div className="flex gap-3 rounded-xl border border-accent-200 bg-accent-50 p-3 text-sm text-accent-800"><AlertTriangle className="h-5 w-5 shrink-0" /><span>This lease is due to expire in {Math.max(0, daysTo(selected.lease_end))} days. Renewal can create a new active term while preserving the old lease record.</span></div>}<div className="grid grid-cols-1 gap-3 sm:grid-cols-2"><button type="button" disabled={busy || !['active','expired'].includes(selected.status)} onClick={() => void runAction('renew')} className="btn-primary"><CalendarClock className="h-4 w-4" /> Renew 12 months</button><button type="button" disabled={busy || !['active','expired'].includes(selected.status)} onClick={() => void runAction('moveout')} className="btn-secondary text-red-600"><LogOut className="h-4 w-4" /> Record move-out</button></div><p className="text-[11px] text-ink-400">Renewal creates a new active lease and first-period invoice, then marks the previous lease as renewed. Move-out terminates the lease and releases the unit.</p></div></Modal>}
   </DashboardLayout>;
 }
 

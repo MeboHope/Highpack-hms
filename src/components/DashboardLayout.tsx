@@ -417,6 +417,11 @@ export const adminNav = [
     icon: <Building2 className="w-5 h-5" />,
   },
   {
+    label: 'Leases & Tenants',
+    to: '/admin/leases',
+    icon: <Users className="w-5 h-5" />,
+  },
+  {
     label: 'Reservations',
     to: '/admin/reservations',
     icon: <Calendar className="w-5 h-5" />,
