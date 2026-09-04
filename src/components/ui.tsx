@@ -102,3 +102,27 @@ export function SkeletonCard() {
     </div>
   );
 }
+
+
+export function Pagination({ page, totalPages, onPageChange, totalItems, pageSize = 20 }: { page: number; totalPages: number; onPageChange: (page: number) => void; totalItems?: number; pageSize?: number }) {
+  const safeTotalPages = Math.max(1, totalPages);
+  const startItem = totalItems && totalItems > 0 ? ((page - 1) * pageSize) + 1 : 0;
+  const endItem = totalItems && totalItems > 0 ? Math.min(page * pageSize, totalItems) : 0;
+  const pages: Array<number | 'ellipsis'> = [];
+  const add = (p: number) => { if (!pages.includes(p)) pages.push(p); };
+  add(1);
+  const start = Math.max(2, page - 2);
+  const end = Math.min(safeTotalPages - 1, page + 2);
+  if (start > 2) pages.push('ellipsis');
+  for (let p = start; p <= end; p++) add(p);
+  if (end < safeTotalPages - 1) pages.push('ellipsis');
+  if (safeTotalPages > 1) add(safeTotalPages);
+  return <div className="flex flex-col gap-3 border-t border-ink-100 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+    <p className="text-xs text-ink-500">{totalItems !== undefined && totalItems > 0 ? `Showing ${startItem}–${endItem} of ${totalItems}` : `Page ${page} of ${safeTotalPages}`}</p>
+    <div className="flex items-center gap-1">
+      <button type="button" disabled={page === 1} onClick={() => onPageChange(page - 1)} className="rounded-lg border border-ink-200 px-3 py-2 text-xs font-semibold text-ink-600 disabled:cursor-not-allowed disabled:opacity-40">Previous</button>
+      {pages.map((p, i) => p === 'ellipsis' ? <span key={`e-${i}`} className="px-2 text-ink-400">…</span> : <button type="button" key={p} onClick={() => onPageChange(p)} className={`min-w-9 rounded-lg border px-3 py-2 text-xs font-semibold ${p === page ? 'border-brand-700 bg-brand-700 text-white' : 'border-ink-200 text-ink-600 hover:bg-brand-50'}`}>{p}</button>)}
+      <button type="button" disabled={page === safeTotalPages} onClick={() => onPageChange(page + 1)} className="rounded-lg border border-ink-200 px-3 py-2 text-xs font-semibold text-ink-600 disabled:cursor-not-allowed disabled:opacity-40">Next</button>
+    </div>
+  </div>;
+}

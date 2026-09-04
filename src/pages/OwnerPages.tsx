@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Building2, Home, Calendar, Users, Wallet, Receipt, Wrench, TrendingUp, FileText, Plus, MapPin, BedDouble, Bath, Trash2, Eye, CheckCircle, XCircle, Download, Calculator, Layers3, Clock, ImagePlus, Video, Music2 } from 'lucide-react';
 import { DashboardLayout, ownerNav } from '@/components/DashboardLayout';
-import { StatCard, Card, Badge, EmptyState, LoadingPage } from '@/components/ui';
+import { StatCard, Card, Badge, EmptyState, LoadingPage, Pagination } from '@/components/ui';
 import { Modal, ConfirmDialog } from '@/components/Modal';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
@@ -11,7 +11,7 @@ import { formatKES, formatDate, titleCase, PROPERTY_TYPES, KENYAN_COUNTIES, PROP
 import { uploadPropertyMedia, deletePropertyMedia } from '@/lib/media';
 import { getPropertyImages } from '@/lib/images';
 import { downloadPaymentReceiptPdf } from '@/lib/documents';
-import { loadDashboardPropertyPerformance, loadManagedExpenses, loadManagedMaintenance } from '@/lib/operationalData';
+import { loadDashboardPropertyPerformance } from '@/lib/operationalData';
 import type { Property, PropertyUnit, Reservation, Lease, Expense, TaxRecord, MaintenanceRequest, Payment } from '@/lib/supabase';
 
 export function OwnerDashboard() {
@@ -127,18 +127,21 @@ export function OwnerProperties() {
   const { navigate } = useRouter();
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [showAdd, setShowAdd] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [mediaProperty, setMediaProperty] = useState<Property | null>(null);
 
   const load = async () => {
     if (!profile) return;
-    const { data } = await supabase.from('properties').select('*').eq('owner_id', profile.id).order('created_at', { ascending: false });
-    setProperties((data as Property[]) || []);
+    const from = (page - 1) * 20; const to = from + 19;
+    const { data, count } = await supabase.from('properties').select('*', { count: 'exact' }).eq('owner_id', profile.id).order('created_at', { ascending: false }).range(from, to);
+    setProperties((data as Property[]) || []); setTotalPages(Math.max(1, Math.ceil((count || 0) / 20)));
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, [profile]);
+  useEffect(() => { load(); }, [profile, page]);
 
   const handleDelete = async () => {
     if (!deleteId) return;
@@ -187,7 +190,8 @@ export function OwnerProperties() {
       {showAdd && <AddPropertyModal onClose={() => { setShowAdd(false); load(); }} />}
       <ConfirmDialog open={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={handleDelete} title="Delete Property" message="Are you sure? This will also delete all units, reservations, and leases associated with this property. This cannot be undone." confirmLabel="Delete" danger />
       {mediaProperty && <PropertyMediaModal property={mediaProperty} onClose={() => { setMediaProperty(null); load(); }} />}
-    </DashboardLayout>
+          <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
+</DashboardLayout>
   );
 }
 
@@ -339,18 +343,21 @@ export function OwnerUnits({ propertyId }: { propertyId: string }) {
   const [units, setUnits] = useState<PropertyUnit[]>([]);
   const [property, setProperty] = useState<Property | null>(null);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [showAdd, setShowAdd] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const load = async () => {
     const { data: prop } = await supabase.from('properties').select('*').eq('id', propertyId).maybeSingle();
     setProperty(prop as Property | null);
-    const { data } = await supabase.from('property_units').select('*').eq('property_id', propertyId).order('unit_number', { ascending: true });
-    setUnits((data as PropertyUnit[]) || []);
+    const from = (page - 1) * 20; const to = from + 19;
+    const { data, count } = await supabase.from('property_units').select('*', { count: 'exact' }).eq('property_id', propertyId).order('unit_number', { ascending: true }).range(from, to);
+    setUnits((data as PropertyUnit[]) || []); setTotalPages(Math.max(1, Math.ceil((count || 0) / 20)));
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, [propertyId]);
+  useEffect(() => { load(); }, [propertyId, page]);
 
   const handleDelete = async () => {
     if (!deleteId) return;
@@ -413,7 +420,8 @@ export function OwnerUnits({ propertyId }: { propertyId: string }) {
 
       {showAdd && <AddUnitModal propertyId={propertyId} onClose={() => { setShowAdd(false); load(); }} />}
       <ConfirmDialog open={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={handleDelete} title="Delete Unit" message="Delete this unit? Reservations and leases may be affected." confirmLabel="Delete" danger />
-    </DashboardLayout>
+          <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
+</DashboardLayout>
   );
 }
 
@@ -489,6 +497,8 @@ export function OwnerReservations() {
   const { toast } = useToast();
   const [reservations, setReservations] = useState<(Reservation & { property_units: { unit_number: string; monthly_rent?: number; security_deposit?: number }; properties: { name: string } })[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [leaseReservation, setLeaseReservation] = useState<(Reservation & { property_units: { unit_number: string; monthly_rent?: number; security_deposit?: number }; properties: { name: string } }) | null>(null);
 
   const convertToLease = async (r: Reservation & { property_units: { unit_number: string; monthly_rent?: number; security_deposit?: number }; properties: { name: string } }) => {
@@ -506,13 +516,15 @@ export function OwnerReservations() {
     if (propsError) { toast(`Could not load properties: ${propsError.message}`, 'error'); setLoading(false); return; }
     const propIds = (props || []).map((p) => p.id);
     if (propIds.length === 0) { setReservations([]); setLoading(false); return; }
-    const { data, error } = await supabase.from('reservations').select('*, property_units(unit_number,monthly_rent,security_deposit), properties(name)').in('property_id', propIds).order('created_at', { ascending: false });
+    const from = (page - 1) * 20; const to = from + 19;
+    const { data, error, count } = await supabase.from('reservations').select('*, property_units(unit_number,monthly_rent,security_deposit), properties(name)', { count: 'exact' }).in('property_id', propIds).order('created_at', { ascending: false }).range(from, to);
+    setTotalPages(Math.max(1, Math.ceil((count || 0) / 20)));
     if (error) { toast(`Could not load reservations: ${error.message}`, 'error'); return; }
     setReservations((data as typeof reservations) || []);
     setLoading(false);
   }, [profile, toast]);
 
-  useEffect(() => { void loadReservations(); }, [loadReservations]);
+  useEffect(() => { void loadReservations(); }, [loadReservations, page]);
 
   const updateStatus = async (id: string, status: 'confirmed' | 'cancelled') => {
     const { error } = await supabase.rpc('update_reservation_status_by_manager', { p_reservation_id: id, p_status: status });
@@ -575,7 +587,8 @@ export function OwnerReservations() {
           </div>
         </Modal>
       )}
-    </DashboardLayout>
+          <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
+</DashboardLayout>
   );
 }
 
@@ -584,28 +597,33 @@ export function OwnerExpenses() {
   const [expenses, setExpenses] = useState<(Expense & { properties: { name: string } })[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalExpenseAmount, setTotalExpenseAmount] = useState(0);
   const [showAdd, setShowAdd] = useState(false);
   const { toast } = useToast();
 
   const load = async () => {
     if (!profile) return;
-    const [{ data: props }, expenseResult] = await Promise.all([
+    const [{ data: props }, rpc] = await Promise.all([
       supabase.from('properties').select('*').eq('owner_id', profile.id).order('name'),
-      loadManagedExpenses(profile.id, profile.role),
+      supabase.rpc('get_managed_expenses_page', { p_page: page, p_page_size: 20 }),
     ]);
+    let expenseResult: { data: Array<Record<string, unknown>>; error: unknown } = { data: [], error: null };
+    if (rpc.error) expenseResult = { data: [], error: rpc.error }; else { const payload = (rpc.data || {}) as { rows?: Record<string, unknown>[]; total_count?: number; total_amount?: number }; expenseResult.data = Array.isArray(payload.rows) ? payload.rows.map((row) => ({ ...row, properties: row.property_name ? { name: String(row.property_name) } : null })) : []; setTotalPages(Math.max(1, Math.ceil(Number(payload.total_count || 0) / 20))); setTotalExpenseAmount(Number(payload.total_amount || 0)); }
     setProperties((props as Property[]) || []);
     if (expenseResult.error) {
       setExpenses([]);
       toast('Unable to load the expense ledger. Please refresh and try again.', 'error');
     } else {
-      setExpenses((expenseResult.data as typeof expenses) || []);
+      setExpenses((expenseResult.data as unknown as typeof expenses) || []);
     }
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, [profile]);
+  useEffect(() => { load(); }, [profile, page]);
 
-  const total = expenses.reduce((s, e) => s + e.amount, 0);
+  const total = totalExpenseAmount;
 
   return (
     <DashboardLayout navItems={ownerNav} title="Expenses">
@@ -649,13 +667,14 @@ export function OwnerExpenses() {
         // The RPC has already committed the row. Do not immediately reload the
         // ledger here: a slower/empty read can overwrite the freshly saved row
         // and make a successful expense appear to have disappeared.
-        setExpenses((current) => [
+        if (page === 1) setExpenses((current) => [
           { ...expense, properties: { name: property?.name || 'Property' } },
           ...current.filter((item) => item.id !== expense.id),
         ]);
         setShowAdd(false);
       }} />}
-    </DashboardLayout>
+          <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
+</DashboardLayout>
   );
 }
 
@@ -705,15 +724,18 @@ export function OwnerTax() {
   const { toast } = useToast();
   const [records, setRecords] = useState<(TaxRecord & { properties: { name: string } | null })[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [showCalc, setShowCalc] = useState(false);
 
   const load = async () => {
     if (!profile) return;
-    const { data } = await supabase.from('tax_records').select('*, properties(name)').eq('owner_id', profile.id).order('period', { ascending: false }).order('created_at', { ascending: false });
-    setRecords((data as typeof records) || []);
+    const from = (page - 1) * 20; const to = from + 19;
+    const { data, count } = await supabase.from('tax_records').select('*, properties(name)', { count: 'exact' }).eq('owner_id', profile.id).order('period', { ascending: false }).order('created_at', { ascending: false }).range(from, to);
+    setRecords((data as typeof records) || []); setTotalPages(Math.max(1, Math.ceil((count || 0) / 20)));
     setLoading(false);
   };
-  useEffect(() => { load(); }, [profile]);
+  useEffect(() => { load(); }, [profile, page]);
 
   const prepareLatest = async () => {
     const record = records.find((r) => r.status === 'calculated');
@@ -770,7 +792,8 @@ export function OwnerTax() {
       )}
 
       {showCalc && <TaxCalcModal ownerId={profile?.id || ''} onClose={() => { setShowCalc(false); load(); }} />}
-    </DashboardLayout>
+          <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
+</DashboardLayout>
   );
 }
 
@@ -826,14 +849,22 @@ export function OwnerMaintenance() {
   const { toast } = useToast();
   const [requests, setRequests] = useState<(MaintenanceRequest & { property_units: { unit_number: string }; properties: { name: string } })[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
   const load = useCallback(async () => {
     if (!profile) return;
     setLoading(true);
-    const result = await loadManagedMaintenance(profile.id, profile.role);
-    setRequests((result.data as typeof requests) || []);
+    const rpc = await supabase.rpc('get_managed_maintenance_page', { p_page: page, p_page_size: 20 });
+    if (rpc.error) { setRequests([]); setTotalPages(1); setLoading(false); return; }
+    const payload = (rpc.data || {}) as { rows?: unknown[]; total_count?: number };
+    const data = Array.isArray(payload.rows) ? payload.rows.map((raw) => {
+      const row = raw as Record<string, unknown>;
+      return { ...row, properties: row.property_name ? { name: String(row.property_name) } : null, property_units: row.unit_number ? { unit_number: String(row.unit_number) } : null, profiles: { full_name: row.tenant_name == null ? null : String(row.tenant_name), phone: row.tenant_phone == null ? null : String(row.tenant_phone) } };
+    }) : [];
+    setRequests(data as unknown as typeof requests); setTotalPages(Math.max(1, Math.ceil(Number(payload.total_count || 0) / 20)));
     setLoading(false);
-  }, [profile]);
+  }, [profile, page]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -877,7 +908,8 @@ export function OwnerMaintenance() {
           ))}
         </div>
       )}
-    </DashboardLayout>
+          <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
+</DashboardLayout>
   );
 }
 
@@ -885,6 +917,8 @@ export function OwnerTenants() {
   const { profile } = useAuth();
   const [leases, setLeases] = useState<(Lease & { properties: { name: string }; property_units: { unit_number: string } })[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
   useEffect(() => {
     if (!profile) return;
@@ -892,11 +926,12 @@ export function OwnerTenants() {
       const { data: props } = await supabase.from('properties').select('id').eq('owner_id', profile.id);
       const propIds = (props || []).map((p) => p.id);
       if (propIds.length === 0) { setLoading(false); return; }
-      const { data } = await supabase.from('leases').select('*, properties(name), property_units(unit_number)').in('property_id', propIds).order('created_at', { ascending: false });
-      setLeases((data as typeof leases) || []);
+      const from = (page - 1) * 20; const to = from + 19;
+      const { data, count } = await supabase.from('leases').select('*, properties(name), property_units(unit_number)', { count: 'exact' }).in('property_id', propIds).order('created_at', { ascending: false }).range(from, to);
+      setLeases((data as typeof leases) || []); setTotalPages(Math.max(1, Math.ceil((count || 0) / 20)));
       setLoading(false);
     })();
-  }, [profile]);
+  }, [profile, page]);
 
   return (
     <DashboardLayout navItems={ownerNav} title="Tenants">
@@ -926,7 +961,8 @@ export function OwnerTenants() {
           </div>
         </Card>
       )}
-    </DashboardLayout>
+          <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
+</DashboardLayout>
   );
 }
 
@@ -934,6 +970,8 @@ export function OwnerPayments() {
   const { profile } = useAuth();
   const [payments, setPayments] = useState<(Payment & { properties: { name: string } | null; property_units: { unit_number: string } | null; profiles: { full_name: string | null } | null })[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
   useEffect(() => {
     if (!profile) return;
@@ -941,11 +979,12 @@ export function OwnerPayments() {
       const { data: props } = await supabase.from('properties').select('id').eq('owner_id', profile.id);
       const propIds = (props || []).map((p) => p.id);
       if (propIds.length === 0) { setLoading(false); return; }
-      const { data } = await supabase.from('payments').select('*, properties(name), property_units(unit_number), profiles:user_id(full_name)').in('property_id', propIds).order('created_at', { ascending: false });
-      setPayments((data as typeof payments) || []);
+      const from = (page - 1) * 20; const to = from + 19;
+      const { data, count } = await supabase.from('payments').select('*, properties(name), property_units(unit_number), profiles:user_id(full_name)', { count: 'exact' }).in('property_id', propIds).order('created_at', { ascending: false }).range(from, to);
+      setPayments((data as typeof payments) || []); setTotalPages(Math.max(1, Math.ceil((count || 0) / 20)));
       setLoading(false);
     })();
-  }, [profile]);
+  }, [profile, page]);
 
   const total = payments.filter((p) => p.verified && p.status === 'successful').reduce((s, p) => s + p.amount, 0);
 
@@ -981,7 +1020,8 @@ export function OwnerPayments() {
           </div>
         </Card>
       )}
-    </DashboardLayout>
+          <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
+</DashboardLayout>
   );
 }
 
