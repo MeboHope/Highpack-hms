@@ -51,6 +51,15 @@ export interface Property {
   name: string;
   description: string | null;
   property_type: string;
+  asset_class: 'built_property' | 'land' | 'mixed_use' | 'development_project' | 'other';
+  operation_model: 'long_term_rental' | 'short_stay' | 'sale' | 'lease' | 'land_sale' | 'mixed';
+  ownership_type: string | null;
+  title_number: string | null;
+  parcel_number: string | null;
+  total_land_area: number | null;
+  land_area_unit: string | null;
+  zoning: string | null;
+  year_built: number | null;
   county: string;
   sub_county: string | null;
   town: string;

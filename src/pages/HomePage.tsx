@@ -154,7 +154,7 @@ export function HomePage() {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<Stat[]>([
     { value: 0, suffix: '+', label: 'Verified Properties' },
-    { value: 0, suffix: '+', label: 'Available Homes' },
+    { value: 0, suffix: '+', label: 'Available Properties' },
     { value: 0, suffix: '+', label: 'Counties Covered' },
     { value: 24, prefix: '< ', suffix: 'h', label: 'Reservation Hold' },
   ]);
@@ -218,7 +218,7 @@ export function HomePage() {
 
       setStats([
         { value: verifiedCount, suffix: '+', label: 'Verified Properties' },
-        { value: availableCount, suffix: '+', label: 'Available Homes' },
+        { value: availableCount, suffix: '+', label: 'Available Properties' },
         { value: countyCount, suffix: '+', label: 'Counties Covered' },
         { value: 24, prefix: '< ', suffix: 'h', label: 'Reservation Hold' },
       ]);
@@ -280,15 +280,14 @@ export function HomePage() {
 
           {/* Hero heading */}
           <div className="mx-auto mb-10 max-w-4xl text-center">
-            <div className="mx-auto mb-5 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-accent-100 backdrop-blur"><ShieldCheck className="h-4 w-4" /> Verified homes · Kenya</div>
+            <div className="mx-auto mb-5 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-accent-100 backdrop-blur"><ShieldCheck className="h-4 w-4" /> Verified property opportunities · Kenya</div>
 
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white mb-4 leading-tight">
-              Find Your Next Home in Kenya
+              Find Your Next Property Opportunity in Kenya
             </h1>
 
             <p className="text-lg text-brand-100 max-w-2xl mx-auto">
-              Browse verified houses, reserve online for KSh 2,000,
-              and manage your tenancy — all in one place.
+              Browse verified homes, land, commercial spaces and short-stay properties — with reservations, sales and management tools in one place.
             </p>
 
           </div>
@@ -455,7 +454,7 @@ export function HomePage() {
 
           <div>
             <h2 className="text-2xl sm:text-3xl font-bold text-ink-900">
-              Featured Properties
+              Featured Property Opportunities
             </h2>
 
             <p className="text-ink-500 mt-1">
@@ -797,7 +796,7 @@ export function HomePage() {
               to="/properties"
               className="btn-accent"
             >
-              Browse Properties
+              Browse Properties, Land & Stays
             </Link>
 
             <Link

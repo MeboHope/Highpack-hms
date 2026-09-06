@@ -18,7 +18,7 @@ import {
   TrendingUp,
   Heart,
   Search,
-  Activity,
+  Activity, LandPlot, Hotel, BadgeDollarSign,
 } from 'lucide-react';
 
 import { Link, useRouter } from '@/context/RouterContext';
@@ -297,6 +297,21 @@ export const ownerNav = [
     icon: <Building2 className="w-5 h-5" />,
   },
   {
+    label: 'Portfolio & Assets',
+    to: '/owner/portfolio',
+    icon: <LandPlot className="w-5 h-5" />,
+  },
+  {
+    label: 'Short-Stay Operations',
+    to: '/owner/short-stay',
+    icon: <Hotel className="w-5 h-5" />,
+  },
+  {
+    label: 'Sales & Disposals',
+    to: '/owner/sales',
+    icon: <BadgeDollarSign className="w-5 h-5" />,
+  },
+  {
     label: 'Reservations',
     to: '/owner/reservations',
     icon: <Calendar className="w-5 h-5" />,
@@ -418,6 +433,11 @@ export const adminNav = [
     icon: <Building2 className="w-5 h-5" />,
   },
   {
+    label: 'Portfolio & Assets',
+    to: '/admin/portfolio',
+    icon: <LandPlot className="w-5 h-5" />,
+  },
+  {
     label: 'Users',
     to: '/admin/users',
     icon: <Users className="w-5 h-5" />,
@@ -431,6 +451,16 @@ export const adminNav = [
     label: 'Leases & Tenants',
     to: '/admin/leases',
     icon: <Users className="w-5 h-5" />,
+  },
+  {
+    label: 'Short-Stay Operations',
+    to: '/admin/short-stay',
+    icon: <Hotel className="w-5 h-5" />,
+  },
+  {
+    label: 'Sales & Disposals',
+    to: '/admin/sales',
+    icon: <BadgeDollarSign className="w-5 h-5" />,
   },
   {
     label: 'Reservations',

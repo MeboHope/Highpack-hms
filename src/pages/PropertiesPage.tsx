@@ -66,7 +66,9 @@ export function PropertiesPage() {
         if (!byProperty.has(row.property_id)) {
           byProperty.set(row.property_id, {
             id: row.property_id, owner_id: null, name: row.name, description: row.description,
-            property_type: row.property_type, county: row.county, sub_county: row.sub_county,
+            property_type: row.property_type, asset_class: 'built_property', operation_model: 'long_term_rental', ownership_type: null,
+            title_number: null, parcel_number: null, total_land_area: null, land_area_unit: null, zoning: null, year_built: null,
+            county: row.county, sub_county: row.sub_county,
             town: row.town, estate: row.estate, street: null, address: row.address,
             latitude: null, longitude: null, map_url: null, number_of_units: row.number_of_units || 0,
             number_of_floors: row.number_of_floors || 0, amenities: row.amenities || [],
@@ -110,7 +112,7 @@ export function PropertiesPage() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-ink-900">Browse Properties</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-ink-900">Browse Properties, Land & Stays</h1>
           <p className="text-ink-500 mt-1">
             {loading ? 'Loading...' : `${properties.length} ${properties.length === 1 ? 'property' : 'properties'} found`}
           </p>
@@ -143,7 +145,7 @@ export function PropertiesPage() {
       {showFilters && (
         <div className="card p-5 mb-6 animate-slide-up">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-ink-900">Filter Properties</h3>
+            <h3 className="font-semibold text-ink-900">Filter Property Opportunities</h3>
             <button
               onClick={() => setFilters({ location: '', type: '', bedrooms: '', minRent: '', maxRent: '', furnishing: '', parking: false, water: false, internet: false, pets: false })}
               className="text-sm text-brand-600 hover:underline"
