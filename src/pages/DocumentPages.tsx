@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { CheckCircle, Download, FileText, Search, Trash2, UploadCloud, XCircle } from 'lucide-react';
-import { DashboardLayout, adminNav, ownerNav, tenantNav } from '@/components/DashboardLayout';
+import { DashboardLayout } from '@/components/DashboardLayout';
+import { adminNav, ownerNav, tenantNav } from '@/components/dashboardNav';
 import { Card, EmptyState, LoadingPage, Pagination } from '@/components/ui';
 import { Modal, ConfirmDialog } from '@/components/Modal';
 import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/context/AuthContext';
-import { useToast } from '@/context/ToastContext';
+import { useAuth } from '@/context/hooks';
+import { useToast } from '@/context/hooks';
 import { formatDate, titleCase } from '@/lib/constants';
 
 export type DocumentStatus = 'pending_review' | 'verified' | 'rejected' | 'expired' | 'archived';

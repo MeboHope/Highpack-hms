@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowRight, Building2, MapPin, Search, ShieldCheck, SlidersHorizontal, Tag } from 'lucide-react';
-import { Link, useRouter } from '@/context/RouterContext';
+import { Link } from '@/context/RouterContext';
+import { useRouter } from '@/context/hooks';
 import { supabase } from '@/lib/supabase';
 import { formatKES, KENYAN_COUNTIES, ASSET_CLASS_OPTIONS, OPERATION_MODEL_OPTIONS } from '@/lib/constants';
 import { EmptyState, SkeletonCard } from '@/components/ui';

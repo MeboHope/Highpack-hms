@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useEffect, useState, type ReactNode } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import type { Profile } from '@/lib/supabase';
@@ -9,12 +9,13 @@ interface AuthContextValue {
   profile: Profile | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null; role: Profile['role'] | null }>;
-  signUp: (email: string, password: string, fullName: string, phone?: string) => Promise<{ error: string | null }>;
+  signUp: (email: string, password: string, fullName: string, phone?: string) => Promise<{ error: string | null; confirmationRequired: boolean }>;
+  resendConfirmation: (email: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+export const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
@@ -142,13 +143,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
     });
 
-    if (error) return { error: error.message };
+    if (error) return { error: error.message, confirmationRequired: false };
 
     if (data.user && data.session) {
       await loadProfile(data.user.id);
+      return { error: null, confirmationRequired: false };
     }
 
-    return { error: null };
+    // Supabase returns a user without a session when email confirmation is required.
+    return { error: null, confirmationRequired: Boolean(data.user) };
+  };
+
+  const resendConfirmation = async (email: string) => {
+    const cleanEmail = email.trim().toLowerCase();
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email: cleanEmail,
+    });
+    return { error: error?.message ?? null }; 
   };
 
   const signOut = async () => {
@@ -171,6 +183,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loading,
         signIn,
         signUp,
+        resendConfirmation,
         signOut,
         refreshProfile,
       }}
@@ -178,10 +191,4 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       {children}
     </AuthContext.Provider>
   );
-}
-
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (!context) throw new Error('useAuth must be used within AuthProvider');
-  return context;
 }

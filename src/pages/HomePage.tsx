@@ -12,7 +12,8 @@ import {
   TrendingUp,
 } from 'lucide-react';
 
-import { Link, useRouter } from '@/context/RouterContext';
+import { Link } from '@/context/RouterContext';
+import { useRouter } from '@/context/hooks';
 import { supabase } from '@/lib/supabase';
 import {
   formatKES,

@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { CalendarDays, CheckCircle2, DollarSign, Hotel, Plus, RefreshCw, Search, Sparkles, Users, X } from 'lucide-react';
-import { DashboardLayout, adminNav, ownerNav } from '@/components/DashboardLayout';
+import { DashboardLayout } from '@/components/DashboardLayout';
+import { adminNav, ownerNav } from '@/components/dashboardNav';
 import { Badge, Card, EmptyState, LoadingPage, Pagination, StatCard } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/context/AuthContext';
-import { useToast } from '@/context/ToastContext';
+import { useAuth } from '@/context/hooks';
+import { useToast } from '@/context/hooks';
 import { formatKES, titleCase } from '@/lib/constants';
 
 interface Listing { id:string; property_id:string; unit_id:string|null; listing_name:string; listing_code:string|null; listing_status:string; booking_mode:string; nightly_rate:number; weekend_rate:number; cleaning_fee:number; max_guests:number; minimum_nights:number; maximum_nights:number; direct_booking_enabled:boolean; channel_airbnb:boolean; channel_booking_com:boolean; channel_expedia:boolean; channel_vrbo:boolean; external_listing_ref:string|null; properties?: {name:string}|{name:string}[]|null; }

@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
 import { AlertCircle, CheckCircle2, Eye, EyeOff, Lock, Mail, Phone, User } from 'lucide-react';
-import { Link, useRouter } from '@/context/RouterContext';
-import { useAuth } from '@/context/AuthContext';
-import { useToast } from '@/context/ToastContext';
+import { Link } from '@/context/RouterContext';
+import { useRouter } from '@/context/hooks';
+import { useAuth } from '@/context/hooks';
+import { useToast } from '@/context/hooks';
 import { Brand } from '@/components/Brand';
 
 function validatePassword(password: string): string | null {
@@ -16,7 +17,7 @@ function validatePassword(password: string): string | null {
 
 export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
   const isRegister = mode === 'register';
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, resendConfirmation } = useAuth();
   const { toast } = useToast();
   const { navigate } = useRouter();
 
@@ -29,6 +30,8 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [confirmationRequired, setConfirmationRequired] = useState(false);
+  const [resending, setResending] = useState(false);
 
   const passwordError = useMemo(
     () => (isRegister && password ? validatePassword(password) : null),
@@ -39,6 +42,7 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
     event.preventDefault();
     setError(null);
     setSuccess(null);
+    setConfirmationRequired(false);
 
     const cleanEmail = email.trim().toLowerCase();
 
@@ -69,18 +73,31 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
       if (isRegister) {
         const result = await signUp(cleanEmail, password, fullName, phone);
         if (result.error) {
-          setError(result.error);
+          const message = result.error.toLowerCase().includes('email not confirmed')
+            ? 'Your email address has not been confirmed yet. Check your inbox for the HighPark Consult confirmation email, then try again.'
+            : result.error;
+          setError(message);
+          if (result.error.toLowerCase().includes('email not confirmed')) setConfirmationRequired(true);
           return;
         }
 
-        setSuccess(
-          'Your tenant account has been created. If email confirmation is enabled, check your inbox before signing in.',
-        );
+        if (result.confirmationRequired) {
+          setConfirmationRequired(true);
+          setSuccess('Your tenant account has been created. Please confirm your email address before signing in.');
+        } else {
+          setSuccess('Your tenant account has been created and you can sign in now.');
+        }
         toast('Tenant account created successfully.', 'success');
       } else {
         const result = await signIn(cleanEmail, password);
         if (result.error) {
-          setError(result.error);
+          const needsConfirmation = result.error.toLowerCase().includes('email not confirmed');
+          setError(
+            needsConfirmation
+              ? 'Your email address has not been confirmed yet. Check your inbox for the HighPark Consult confirmation email, then try again.'
+              : result.error,
+          );
+          setConfirmationRequired(needsConfirmation);
           return;
         }
 
@@ -139,6 +156,29 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
               <div className="mb-5 flex gap-3 rounded-xl border border-red-100 bg-red-50 p-4 text-sm text-red-700">
                 <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
                 <span>{error}</span>
+              </div>
+            )}
+
+            {confirmationRequired && !isRegister && (
+              <div className="mb-5 rounded-xl border border-amber-100 bg-amber-50 p-4">
+                <div className="text-sm font-semibold text-amber-900">Email confirmation required</div>
+                <p className="mt-1 text-sm leading-6 text-amber-800">
+                  Check your email for the confirmation link. If you cannot find it, you can request a new one below.
+                </p>
+                <button
+                  type="button"
+                  disabled={resending || !email.trim()}
+                  className="mt-3 text-sm font-semibold text-brand-800 hover:text-accent-700 disabled:opacity-50"
+                  onClick={async () => {
+                    setResending(true);
+                    const result = await resendConfirmation(email);
+                    setResending(false);
+                    if (result.error) setError(result.error);
+                    else setSuccess('A new confirmation email has been sent. Please check your inbox.');
+                  }}
+                >
+                  {resending ? 'Sending confirmation email...' : 'Resend confirmation email'}
+                </button>
               </div>
             )}
 

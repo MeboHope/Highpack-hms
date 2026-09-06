@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { Bell, Heart, LayoutDashboard, LogOut, Menu, X, Phone, Mail, MapPin, MessageCircle, Navigation } from 'lucide-react';
-import { Link, useRouter } from '@/context/RouterContext';
-import { useAuth } from '@/context/AuthContext';
-import { useToast } from '@/context/ToastContext';
+import { Link } from '@/context/RouterContext';
+import { useRouter } from '@/context/hooks';
+import { useAuth } from '@/context/hooks';
+import { useToast } from '@/context/hooks';
 import { Brand } from '@/components/Brand';
 import highparkLogo from '@/assets/highpark-logo-clean.png';
 

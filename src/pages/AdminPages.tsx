@@ -1,12 +1,13 @@
 import { useState, useEffect, type ReactNode } from 'react';
 import { Building2, Users, Calendar, Wallet, Home, CheckCircle, XCircle, ShieldCheck, Receipt, UserCheck, Wrench, Search, Download, Eye, RefreshCw, TrendingUp, ArrowUpRight, ArrowDownRight, CalendarClock, UserRound, LogOut, AlertTriangle, Bell, Activity, CheckCheck } from 'lucide-react';
-import { DashboardLayout, adminNav } from '@/components/DashboardLayout';
+import { DashboardLayout } from '@/components/DashboardLayout';
+import { adminNav } from '@/components/dashboardNav';
 import { StatCard, Card, Badge, EmptyState, LoadingPage, Pagination } from '@/components/ui';
 import { Modal } from '@/components/Modal';
 import { supabase } from '@/lib/supabase';
-import { useToast } from '@/context/ToastContext';
-import { useAuth } from '@/context/AuthContext';
-import { useRouter } from '@/context/RouterContext';
+import { useToast } from '@/context/hooks';
+import { useAuth } from '@/context/hooks';
+import { useRouter } from '@/context/hooks';
 import { formatKES, formatDate, titleCase } from '@/lib/constants';
 import { downloadPaymentReceiptPdf } from '@/lib/documents';
 import { loadDashboardPropertyPerformance, loadManagedExpenses, loadManagedMaintenance } from '@/lib/operationalData';

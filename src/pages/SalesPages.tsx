@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { BadgeDollarSign, FileCheck2, HandCoins, LandPlot, Plus, RefreshCw, Search, ShieldCheck, TrendingUp } from 'lucide-react';
-import { DashboardLayout, adminNav, ownerNav } from '@/components/DashboardLayout';
+import { DashboardLayout } from '@/components/DashboardLayout';
+import { adminNav, ownerNav } from '@/components/dashboardNav';
 import { Badge, Card, EmptyState, LoadingPage, Pagination, StatCard } from '@/components/ui';
 import { Modal } from '@/components/Modal';
 import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/context/AuthContext';
-import { useToast } from '@/context/ToastContext';
+import { useAuth } from '@/context/hooks';
+import { useToast } from '@/context/hooks';
 import { formatKES, titleCase } from '@/lib/constants';
 
 type SaleRow = { id:string; property_id:string; listing_code:string|null; sale_type:string; listing_status:string; asking_price:number; negotiable:boolean; reservation_amount:number; title_verified:boolean; survey_verified:boolean; marketing_summary:string|null; properties?: { name:string; town:string; county:string }|{name:string;town:string;county:string}[]|null };

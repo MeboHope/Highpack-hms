@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Building2, LandPlot, Search, RefreshCw, Save, Hotel, MapPin, Tag, BriefcaseBusiness } from 'lucide-react';
-import { DashboardLayout, adminNav, ownerNav } from '@/components/DashboardLayout';
+import { DashboardLayout } from '@/components/DashboardLayout';
+import { adminNav, ownerNav } from '@/components/dashboardNav';
 import { Card, EmptyState, LoadingPage, Pagination, StatCard, Badge } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
-import { useToast } from '@/context/ToastContext';
-import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/context/hooks';
+import { useAuth } from '@/context/hooks';
 import { titleCase } from '@/lib/constants';
 
 type AssetClass = 'built_property' | 'land' | 'mixed_use' | 'development_project' | 'other';

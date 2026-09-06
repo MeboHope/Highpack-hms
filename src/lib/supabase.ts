@@ -141,6 +141,15 @@ export interface Payment {
   refund_status: string | null;
   receipt_number?: string | null;
   verified_at?: string | null;
+  invoice_id?: string | null;
+  payer_phone?: string | null;
+  merchant_request_id?: string | null;
+  checkout_request_id?: string | null;
+  mpesa_receipt_number?: string | null;
+  provider_result_code?: number | null;
+  provider_result_description?: string | null;
+  initiated_at?: string | null;
+  completed_at?: string | null;
   created_at: string;
   updated_at: string;
 }

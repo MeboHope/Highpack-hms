@@ -1,6 +1,8 @@
-import { AuthProvider, useAuth } from '@/context/AuthContext';
+import { AuthProvider } from '@/context/AuthContext';
+import { useAuth } from '@/context/hooks';
 import { ToastProvider } from '@/context/ToastContext';
-import { RouterProvider, useRouter } from '@/context/RouterContext';
+import { RouterProvider } from '@/context/RouterContext';
+import { useRouter } from '@/context/hooks';
 import { Header, Footer } from '@/components/Layout';
 import { Spinner } from '@/components/ui';
 import { HomePage } from '@/pages/HomePage';

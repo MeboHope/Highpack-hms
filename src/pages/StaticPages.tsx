@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'react';
 import { useState } from 'react';
 import { Link } from '@/context/RouterContext';
 import { supabase } from '@/lib/supabase';
-import { useToast } from '@/context/ToastContext';
+import { useToast } from '@/context/hooks';
 
 function AboutCount({ value, suffix = '', prefix = '', label }: { value: number; suffix?: string; prefix?: string; label: string }) {
   const [count, setCount] = useState(0);

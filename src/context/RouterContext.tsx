@@ -5,7 +5,7 @@ interface RouterContextValue {
   navigate: (to: string) => void;
 }
 
-const RouterContext = createContext<RouterContextValue | undefined>(undefined);
+export const RouterContext = createContext<RouterContextValue | undefined>(undefined);
 
 function getHashPath(): string {
   const hash = window.location.hash.replace(/^#/, '');
@@ -36,14 +36,14 @@ export function RouterProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export function useRouter() {
+function useRouterInternal() {
   const ctx = useContext(RouterContext);
   if (!ctx) throw new Error('useRouter must be used within RouterProvider');
   return ctx;
 }
 
 export function Link({ to, children, className, onClick }: { to: string; children: ReactNode; className?: string; onClick?: () => void }) {
-  const { navigate } = useRouter();
+  const { navigate } = useRouterInternal();
   return (
     <a
       href={`#${to}`}

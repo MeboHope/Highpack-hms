@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
-import { Home, Wallet, FileText, Wrench, Bell, Calendar, CheckCircle, Plus, MapPin, BedDouble, Bath, ShieldCheck, Search, ArrowRight, Clock, Eye, Receipt, CreditCard, Download } from 'lucide-react';
-import { DashboardLayout, tenantNav } from '@/components/DashboardLayout';
+import { Home, Wallet, FileText, Wrench, Bell, Calendar, CheckCircle, Plus, MapPin, BedDouble, Bath, ShieldCheck, Search, ArrowRight, Clock, Eye, Receipt, CreditCard, Download, X } from 'lucide-react';
+import { DashboardLayout } from '@/components/DashboardLayout';
+import { tenantNav } from '@/components/dashboardNav';
 import { StatCard, Card, Badge, EmptyState, LoadingPage } from '@/components/ui';
 import { Modal } from '@/components/Modal';
 import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/context/AuthContext';
-import { useToast } from '@/context/ToastContext';
-import { useRouter } from '@/context/RouterContext';
+import { useAuth } from '@/context/hooks';
+import { useToast } from '@/context/hooks';
+import { useRouter } from '@/context/hooks';
 import { formatKES, formatDate, titleCase, MAINTENANCE_CATEGORIES } from '@/lib/constants';
 import { getPropertyImages } from '@/lib/images';
 import type { Lease, RentInvoice, MaintenanceRequest, Reservation, Property, PropertyUnit, Payment } from '@/lib/supabase';
@@ -278,75 +279,145 @@ export function TenantRent() {
 
 function PayRentModal({ invoice, onClose }: { invoice: RentInvoice; onClose: () => void }) {
   const { profile } = useAuth();
-  const [method, setMethod] = useState<'mpesa' | 'card' | 'bank_transfer'>('mpesa');
-  const [phone, setPhone] = useState('');
-  const [step, setStep] = useState<'pay' | 'processing' | 'success'>('pay');
+  const { toast } = useToast();
+  const [method, setMethod] = useState<'mpesa' | 'bank_transfer'>('mpesa');
+  const [phone, setPhone] = useState(profile?.phone || '');
+  const [step, setStep] = useState<'pay' | 'processing' | 'pending' | 'success' | 'error'>('pay');
+  const [message, setMessage] = useState('');
+  const [checkoutId, setCheckoutId] = useState('');
 
   const handlePay = async () => {
     if (!profile) return;
+    if (method === 'mpesa' && !phone.trim()) {
+      toast('Enter the M-Pesa number that should receive the payment prompt.', 'error');
+      return;
+    }
     setStep('processing');
-    const { error } = await supabase.rpc('create_rent_payment', {
+    setMessage('Creating a secure payment request…');
+
+    const { data: payment, error } = await supabase.rpc('create_rent_payment', {
       p_invoice_id: invoice.id,
       p_payment_method: method,
     });
-    if (error) {
-      setStep('pay');
+    if (error || !payment) {
+      setStep('error');
+      setMessage(error?.message || 'Could not create the payment request.');
       return;
     }
-    setStep('success');
+
+    if (method === 'bank_transfer') {
+      setStep('pending');
+      setMessage('Your bank-transfer payment intent is recorded as pending. Complete the transfer using the account instructions supplied by HighPark Consult, then the finance team will verify it.');
+      return;
+    }
+
+    const { data, error: functionError } = await supabase.functions.invoke('mpesa-stk', {
+      body: { payment_id: payment.id, phone: phone.trim() },
+    });
+    if (functionError || data?.error) {
+      setStep('error');
+      setMessage(data?.error || functionError?.message || 'Could not start the M-Pesa prompt.');
+      return;
+    }
+
+    setCheckoutId(data?.checkout_request_id || '');
+    setStep('pending');
+    setMessage(data?.customer_message || 'A payment prompt has been sent to your phone. Enter your M-Pesa PIN to complete the payment.');
+
+    // Poll only for the provider result. The browser never marks the payment
+    // successful; the Safaricom callback does that server-side.
+    let attempts = 0;
+    const timer = window.setInterval(async () => {
+      attempts += 1;
+      const { data: latest } = await supabase.from('payments').select('status,verified,provider_result_description,mpesa_receipt_number').eq('id', payment.id).single();
+      if (latest?.status === 'successful' && latest.verified) {
+        window.clearInterval(timer);
+        setStep('success');
+        setMessage(`Payment confirmed${latest.mpesa_receipt_number ? ` · Receipt ${latest.mpesa_receipt_number}` : ''}.`);
+      } else if (latest?.status === 'failed' || latest?.status === 'cancelled') {
+        window.clearInterval(timer);
+        setStep('error');
+        setMessage(latest.provider_result_description || 'The M-Pesa payment was not completed.');
+      } else if (attempts >= 15) {
+        window.clearInterval(timer);
+        setStep('pending');
+        setMessage('The payment is still awaiting Safaricom confirmation. You can close this window; the payment centre will update automatically once the callback is received.');
+      }
+    }, 3000);
   };
 
   return (
     <Modal open onClose={onClose} title="Pay Rent" size="md">
       {step === 'pay' && (
         <div className="space-y-4">
-          <div className="bg-brand-50 rounded-xl p-4">
+          <div className="rounded-2xl border border-brand-100 bg-brand-50 p-4">
             <div className="flex justify-between mb-2"><span className="text-ink-500">Period</span><span className="font-semibold">{invoice.period}</span></div>
-            <div className="flex justify-between mb-2"><span className="text-ink-500">Amount Due</span><span className="font-bold text-lg">{formatKES(invoice.balance)}</span></div>
+            <div className="flex justify-between"><span className="text-ink-500">Amount Due</span><span className="font-bold text-xl text-brand-900">{formatKES(invoice.balance)}</span></div>
           </div>
           <div>
             <label className="label">Payment Method</label>
-            <div className="grid grid-cols-3 gap-2">
-              {[{ v: 'mpesa', l: 'M-Pesa' }, { v: 'card', l: 'Card' }, { v: 'bank_transfer', l: 'Bank' }].map((m) => (
-                <button key={m.v} onClick={() => setMethod(m.v as typeof method)} className={`p-3 rounded-xl border text-sm font-medium ${method === m.v ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-ink-200 text-ink-600'}`}>{m.l}</button>
-              ))}
+            <div className="grid grid-cols-2 gap-2">
+              <button type="button" onClick={() => setMethod('mpesa')} className={`rounded-xl border p-3 text-left ${method === 'mpesa' ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-ink-200 text-ink-600'}`}><p className="font-semibold">M-Pesa</p><p className="text-xs opacity-70">Instant STK prompt</p></button>
+              <button type="button" onClick={() => setMethod('bank_transfer')} className={`rounded-xl border p-3 text-left ${method === 'bank_transfer' ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-ink-200 text-ink-600'}`}><p className="font-semibold">Bank transfer</p><p className="text-xs opacity-70">Manual verification</p></button>
             </div>
           </div>
-          {method === 'mpesa' && <div><label className="label">M-Pesa Phone</label><input className="input" placeholder="07XX XXX XXX" value={phone} onChange={(e) => setPhone(e.target.value)} /></div>}
-          <button onClick={handlePay} className="btn-primary w-full">Pay {formatKES(invoice.balance)}</button>
+          {method === 'mpesa' && <div><label className="label">M-Pesa Phone</label><input className="input" placeholder="07XX XXX XXX" value={phone} onChange={(e) => setPhone(e.target.value)} /><p className="mt-1 text-xs text-ink-400">The number receives the Safaricom payment prompt. It is normalized securely on the server.</p></div>}
+          {method === 'bank_transfer' && <div className="rounded-xl border border-ink-100 bg-ink-50 p-4 text-sm text-ink-600">A bank transfer intent will be recorded as pending. Bank-account verification and automatic reconciliation are part of a later production integration.</div>}
+          <button type="button" onClick={handlePay} className="btn-primary w-full">{method === 'mpesa' ? `Send M-Pesa Prompt · ${formatKES(invoice.balance)}` : `Create Bank Payment · ${formatKES(invoice.balance)}`}</button>
         </div>
       )}
       {step === 'processing' && (
-        <div className="text-center py-8">
-          <div className="inline-block animate-spin rounded-full border-2 border-ink-200 border-t-brand-500 w-12 h-12 mb-4" />
-          <p className="text-ink-500">Processing payment...</p>
-        </div>
+        <div className="text-center py-10"><div className="inline-block animate-spin rounded-full border-2 border-ink-200 border-t-brand-500 w-12 h-12 mb-4" /><p className="font-semibold text-ink-900">{message}</p><p className="text-sm text-ink-500 mt-2">Please keep this window open.</p></div>
+      )}
+      {step === 'pending' && (
+        <div className="text-center py-8"><div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-amber-50 text-amber-600"><Wallet className="h-8 w-8" /></div><h4 className="font-bold text-ink-900 text-lg">Payment awaiting confirmation</h4><p className="text-sm text-ink-500 mt-2">{message}</p>{checkoutId && <p className="mt-4 text-xs text-ink-400">Reference: <span className="font-mono">{checkoutId}</span></p>}<button type="button" onClick={onClose} className="btn-primary mt-6">Close</button></div>
       )}
       {step === 'success' && (
-        <div className="text-center py-8">
-          <div className="w-16 h-16 rounded-full bg-brand-100 text-brand-600 flex items-center justify-center mx-auto mb-4"><CheckCircle className="w-8 h-8" /></div>
-          <h4 className="font-bold text-ink-900 text-lg mb-1">Payment Initiated</h4>
-          <p className="text-sm text-ink-500 mb-6">Your rent payment request for {formatKES(invoice.balance)} has been recorded as pending. Your invoice will update only after the payment provider or administrator verifies the transaction.</p>
-          <button onClick={onClose} className="btn-primary">Done</button>
-        </div>
+        <div className="text-center py-8"><div className="w-16 h-16 rounded-full bg-brand-100 text-brand-600 flex items-center justify-center mx-auto mb-4"><CheckCircle className="w-8 h-8" /></div><h4 className="font-bold text-ink-900 text-lg">Payment confirmed</h4><p className="text-sm text-ink-500 mt-2">{message}</p><button type="button" onClick={onClose} className="btn-primary mt-6">Done</button></div>
+      )}
+      {step === 'error' && (
+        <div className="text-center py-8"><div className="w-16 h-16 rounded-full bg-red-50 text-red-600 flex items-center justify-center mx-auto mb-4"><X className="w-8 h-8" /></div><h4 className="font-bold text-ink-900 text-lg">Payment not completed</h4><p className="text-sm text-ink-500 mt-2">{message}</p><button type="button" onClick={() => setStep('pay')} className="btn-primary mt-6">Try again</button></div>
       )}
     </Modal>
   );
 }
 
 function PayDepositModal({ lease, amount, onClose }: { lease: Lease; amount: number; onClose: () => void }) {
+  const { profile } = useAuth();
   const { toast } = useToast();
-  const [method, setMethod] = useState<'mpesa' | 'card' | 'bank_transfer'>('mpesa');
+  const [method, setMethod] = useState<'mpesa' | 'bank_transfer'>('mpesa');
+  const [phone, setPhone] = useState(profile?.phone || '');
   const [loading, setLoading] = useState(false);
+  const [pending, setPending] = useState(false);
+
   const handlePay = async () => {
+    if (!profile) return;
+    if (method === 'mpesa' && !phone.trim()) { toast('Enter the M-Pesa number that should receive the payment prompt.', 'error'); return; }
     setLoading(true);
-    const { error } = await supabase.rpc('create_deposit_payment', { p_lease_id: lease.id, p_payment_method: method });
+    const { data: payment, error } = await supabase.rpc('create_deposit_payment', { p_lease_id: lease.id, p_payment_method: method });
+    if (error || !payment) { setLoading(false); toast(error?.message || 'Could not initiate deposit payment.', 'error'); return; }
+
+    if (method === 'bank_transfer') {
+      setLoading(false); setPending(true);
+      toast('Deposit payment intent recorded as pending. Bank transfer verification is manual.', 'success');
+      return;
+    }
+
+    const { data, error: functionError } = await supabase.functions.invoke('mpesa-stk', { body: { payment_id: payment.id, phone: phone.trim() } });
     setLoading(false);
-    if (error) { toast(error.message || 'Could not initiate deposit payment.', 'error'); return; }
-    toast('Security deposit payment request recorded as pending.', 'success');
-    onClose();
+    if (functionError || data?.error) { toast(data?.error || functionError?.message || 'Could not start the M-Pesa prompt.', 'error'); return; }
+    setPending(true);
+    toast(data?.customer_message || 'M-Pesa prompt sent. Enter your PIN to complete the deposit payment.', 'success');
   };
-  return <Modal open onClose={onClose} title="Pay Security Deposit" size="md"><div className="space-y-4"><div className="rounded-xl bg-brand-50 p-4"><p className="text-sm text-ink-500">The system calculates the outstanding deposit server-side.</p><p className="mt-1 text-xl font-bold text-brand-900">{formatKES(amount)}</p></div><div><label className="label">Payment Method</label><div className="grid grid-cols-3 gap-2">{[{ v: 'mpesa', l: 'M-Pesa' }, { v: 'card', l: 'Card' }, { v: 'bank_transfer', l: 'Bank' }].map((m) => <button key={m.v} type="button" onClick={() => setMethod(m.v as typeof method)} className={`rounded-xl border p-3 text-sm font-medium ${method === m.v ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-ink-200 text-ink-600'}`}>{m.l}</button>)}</div></div><button onClick={handlePay} className="btn-primary w-full" disabled={loading}>{loading ? 'Processing…' : 'Create Deposit Payment'}</button></div></Modal>;
+
+  return <Modal open onClose={onClose} title="Pay Security Deposit" size="md">
+    {!pending ? <div className="space-y-4">
+      <div className="rounded-2xl border border-brand-100 bg-brand-50 p-4"><p className="text-sm text-ink-500">Outstanding security deposit</p><p className="mt-1 text-2xl font-bold text-brand-900">{formatKES(amount)}</p><p className="mt-1 text-xs text-ink-500">The final amount is calculated server-side from verified payments.</p></div>
+      <div><label className="label">Payment Method</label><div className="grid grid-cols-2 gap-2"><button type="button" onClick={() => setMethod('mpesa')} className={`rounded-xl border p-3 text-left ${method === 'mpesa' ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-ink-200 text-ink-600'}`}><p className="font-semibold">M-Pesa</p><p className="text-xs opacity-70">Instant STK prompt</p></button><button type="button" onClick={() => setMethod('bank_transfer')} className={`rounded-xl border p-3 text-left ${method === 'bank_transfer' ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-ink-200 text-ink-600'}`}><p className="font-semibold">Bank transfer</p><p className="text-xs opacity-70">Manual verification</p></button></div></div>
+      {method === 'mpesa' && <div><label className="label">M-Pesa Phone</label><input className="input" placeholder="07XX XXX XXX" value={phone} onChange={(e) => setPhone(e.target.value)} /></div>}
+      <button type="button" onClick={handlePay} className="btn-primary w-full" disabled={loading}>{loading ? 'Starting payment…' : method === 'mpesa' ? `Send M-Pesa Prompt · ${formatKES(amount)}` : `Create Bank Payment · ${formatKES(amount)}`}</button>
+    </div> : <div className="py-8 text-center"><div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-amber-50 text-amber-600"><Wallet className="h-8 w-8" /></div><h4 className="text-lg font-bold text-ink-900">Deposit payment awaiting confirmation</h4><p className="mt-2 text-sm text-ink-500">{method === 'mpesa' ? 'Your M-Pesa request has been sent. The deposit balance will update only after Safaricom confirms the transaction.' : 'Your bank-transfer payment intent is recorded. The finance team will verify the transfer before updating your balance.'}</p><button type="button" onClick={onClose} className="btn-primary mt-6">Close</button></div>}
+  </Modal>;
 }
 
 export function TenantMaintenance() {

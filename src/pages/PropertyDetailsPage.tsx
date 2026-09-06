@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { MapPin, BedDouble, Bath, ShieldCheck, Heart, Share2, Phone, Calendar, ChevronLeft, ChevronRight, Car, Wifi, Droplets, Zap, PawPrint, CheckCircle, X, MessageSquare , Music2 } from 'lucide-react';
-import { Link, useRouter } from '@/context/RouterContext';
+import { Link } from '@/context/RouterContext';
+import { useRouter } from '@/context/hooks';
 import { supabase } from '@/lib/supabase';
 import { formatKES, titleCase } from '@/lib/constants';
 import { Badge, Spinner, EmptyState } from '@/components/ui';
 import { Modal } from '@/components/Modal';
-import { useAuth } from '@/context/AuthContext';
-import { useToast } from '@/context/ToastContext';
+import { useAuth } from '@/context/hooks';
+import { useToast } from '@/context/hooks';
 import { getPropertyImages } from '@/lib/images';
 import type { Property, PropertyUnit, Profile } from '@/lib/supabase';
 

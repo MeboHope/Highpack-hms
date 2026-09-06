@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Building2, Home, Calendar, Users, Wallet, Receipt, Wrench, TrendingUp, FileText, Plus, MapPin, BedDouble, Bath, Trash2, Eye, CheckCircle, XCircle, Download, Calculator, Layers3, Clock, ImagePlus, Video, Music2 } from 'lucide-react';
-import { DashboardLayout, ownerNav } from '@/components/DashboardLayout';
+import { DashboardLayout } from '@/components/DashboardLayout';
+import { ownerNav } from '@/components/dashboardNav';
 import { StatCard, Card, Badge, EmptyState, LoadingPage, Pagination } from '@/components/ui';
 import { Modal, ConfirmDialog } from '@/components/Modal';
 import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/context/AuthContext';
-import { useToast } from '@/context/ToastContext';
-import { useRouter } from '@/context/RouterContext';
+import { useAuth } from '@/context/hooks';
+import { useToast } from '@/context/hooks';
+import { useRouter } from '@/context/hooks';
 import { formatKES, formatDate, titleCase, PROPERTY_TYPES, KENYAN_COUNTIES, PROPERTY_AMENITIES, EXPENSE_CATEGORIES, ASSET_CLASS_OPTIONS, OPERATION_MODEL_OPTIONS, LAND_USE_OPTIONS } from '@/lib/constants';
 import { uploadPropertyMedia, deletePropertyMedia } from '@/lib/media';
 import { getPropertyImages } from '@/lib/images';

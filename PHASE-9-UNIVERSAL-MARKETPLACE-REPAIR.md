@@ -33,3 +33,7 @@ The migration ends with `NOTIFY pgrst, 'reload schema'` to refresh the PostgREST
 4. Verify `/owner/properties`, `/admin/short-stay`, `/admin/sales`, `/properties`, and an individual `/property/<id>` page.
 
 Do not skip the migration: the two reported schema-cache errors are database-side errors and the frontend cannot create missing Supabase tables/columns by itself.
+
+## Generated nights compatibility repair
+
+The short-stay schema can contain a generated `nights` column from earlier migrations. The compatibility repair no longer attempts to write to a generated column. It conditionally backfills only legacy non-generated columns.
