@@ -1,15 +1,17 @@
 import { useState, useEffect, type ReactNode } from 'react';
-import { Building2, Users, Calendar, Wallet, Home, CheckCircle, XCircle, ShieldCheck, Receipt, UserCheck, Wrench, Search, Download, Eye, RefreshCw, TrendingUp, ArrowUpRight, ArrowDownRight, CalendarClock, UserRound, LogOut, AlertTriangle } from 'lucide-react';
+import { Building2, Users, Calendar, Wallet, Home, CheckCircle, XCircle, ShieldCheck, Receipt, UserCheck, Wrench, Search, Download, Eye, RefreshCw, TrendingUp, ArrowUpRight, ArrowDownRight, CalendarClock, UserRound, LogOut, AlertTriangle, Bell, Activity, CheckCheck } from 'lucide-react';
 import { DashboardLayout, adminNav } from '@/components/DashboardLayout';
 import { StatCard, Card, Badge, EmptyState, LoadingPage, Pagination } from '@/components/ui';
 import { Modal } from '@/components/Modal';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/context/ToastContext';
+import { useAuth } from '@/context/AuthContext';
 import { useRouter } from '@/context/RouterContext';
 import { formatKES, formatDate, titleCase } from '@/lib/constants';
 import { downloadPaymentReceiptPdf } from '@/lib/documents';
 import { loadDashboardPropertyPerformance, loadManagedExpenses, loadManagedMaintenance } from '@/lib/operationalData';
-import type { Property, Profile, Reservation, Payment, SystemSettings, TaxRecord } from '@/lib/supabase';
+import type { Property, Profile, Reservation, Payment, SystemSettings, TaxRecord, Notification } from '@/lib/supabase';
+import type { AuditLog } from '@/lib/types';
 import type { ManagedExpenseRow } from '@/lib/operationalData';
 
 export function AdminDashboard() {
@@ -90,6 +92,112 @@ export function AdminDashboard() {
         <Card className="p-6"><div className="mb-4"><h3 className="font-semibold text-ink-900">Actual unit-type mix</h3><p className="text-xs text-ink-500">Bedsitters, 1-bedroom, 2-bedroom and other rentable unit types.</p></div><div className="grid grid-cols-2 gap-3">{Object.entries(unitMix).sort((a,b) => b[1].total-a[1].total).map(([type, x]) => <div key={type} className="rounded-xl border border-ink-100 bg-ink-50 p-3"><p className="text-sm font-semibold text-ink-800">{type}</p><p className="mt-1 text-2xl font-bold text-brand-700">{x.total}</p><p className="text-[11px] text-ink-500">{x.total === 1 ? '1 unit' : `${x.total} units`} across the portfolio</p></div>)}{!Object.keys(unitMix).length && <p className="text-sm text-ink-500">No units yet.</p>}</div></Card>
         <Card className="p-6"><h3 className="font-semibold text-ink-900 mb-4">Customer base</h3><p className="text-3xl font-bold text-brand-700">{customerCount}</p><p className="mt-1 text-sm text-ink-500">Registered customer/tenant accounts</p><div className="mt-5 grid grid-cols-2 gap-3"><div className="rounded-xl bg-brand-50 p-4"><p className="text-xs text-brand-700">Verified properties</p><p className="mt-1 text-lg font-bold text-brand-900">{summary.length}</p></div><div className="rounded-xl bg-ink-50 p-4"><p className="text-xs text-ink-500">Reserved units</p><p className="mt-1 text-lg font-bold text-ink-900">{totals.reserved}</p></div></div></Card>
       </div>
+    </DashboardLayout>
+  );
+}
+
+
+export function AdminActivity() {
+  const { profile } = useAuth();
+  const { toast } = useToast();
+  const [tab, setTab] = useState<'activity' | 'notifications'>('activity');
+  const [logs, setLogs] = useState<AuditLog[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const [query, setQuery] = useState('');
+  const [entityType, setEntityType] = useState('all');
+  const [action, setAction] = useState('all');
+
+  const loadActivity = async () => {
+    setLoading(true);
+    const { data, error } = await supabase.rpc('get_admin_audit_page', {
+      p_page: page,
+      p_page_size: 20,
+      p_entity_type: entityType === 'all' ? null : entityType,
+      p_action: action === 'all' ? null : action,
+      p_query: query.trim() || null,
+    });
+    if (error) toast(error.message, 'error');
+    const payload = (data || {}) as { rows?: AuditLog[]; total?: number; total_pages?: number };
+    setLogs((payload.rows || []) as AuditLog[]);
+    setTotalItems(Number(payload.total || 0));
+    setTotalPages(Math.max(1, Number(payload.total_pages || 1)));
+    setLoading(false);
+  };
+
+  const loadNotifications = async () => {
+    if (!profile) return;
+    const { data, error } = await supabase.from('notifications').select('*').eq('user_id', profile.id).order('created_at', { ascending: false }).limit(100);
+    if (error) toast(error.message, 'error');
+    setNotifications((data || []) as Notification[]);
+  };
+
+  useEffect(() => { loadActivity(); }, [page, entityType, action]);
+  useEffect(() => { loadNotifications(); }, [profile?.id]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      if (tab === 'activity') { setPage(1); loadActivity(); }
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [query]);
+
+  const markRead = async (id: string) => {
+    await supabase.from('notifications').update({ read: true }).eq('id', id).eq('user_id', profile?.id);
+    setNotifications((items) => items.map((item) => item.id === id ? { ...item, read: true } : item));
+  };
+
+  const markAllRead = async () => {
+    await supabase.from('notifications').update({ read: true }).eq('user_id', profile?.id).eq('read', false);
+    setNotifications((items) => items.map((item) => ({ ...item, read: true })));
+    toast('All administrator notifications marked as read', 'success');
+  };
+
+  const unread = notifications.filter((n) => !n.read).length;
+  const entityOptions = ['properties','property_units','reservations','payments','leases','rent_invoices','expenses','maintenance_requests','tax_records','owner_payouts'];
+
+  return (
+    <DashboardLayout navItems={adminNav} title="Activity & Notifications">
+      <div className="mb-7 rounded-2xl brand-gradient p-6 text-white shadow-soft-lg">
+        <p className="text-sm font-semibold text-white/90">Administration oversight</p>
+        <h2 className="mt-1 text-2xl font-bold text-white">Activity & notifications centre</h2>
+        <p className="mt-2 max-w-3xl text-sm font-medium text-white/90">Review important system actions, trace record changes and keep up with administrator notifications without leaving the control centre.</p>
+      </div>
+
+      <div className="mb-5 flex flex-wrap items-center gap-2 rounded-2xl border border-ink-100 bg-white p-2 shadow-sm">
+        <button type="button" onClick={() => setTab('activity')} className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold ${tab === 'activity' ? 'bg-brand-50 text-brand-700' : 'text-ink-500 hover:bg-ink-50'}`}><Activity className="h-4 w-4" /> Audit activity <span className="badge bg-ink-100 text-ink-500">{totalItems}</span></button>
+        <button type="button" onClick={() => setTab('notifications')} className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold ${tab === 'notifications' ? 'bg-brand-50 text-brand-700' : 'text-ink-500 hover:bg-ink-50'}`}><Bell className="h-4 w-4" /> Notifications {unread > 0 && <span className="badge bg-accent-50 text-accent-700">{unread} new</span>}</button>
+      </div>
+
+      {tab === 'activity' ? (
+        <>
+          <Card className="mb-5 p-4">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_180px_180px_auto]">
+              <div className="relative"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" /><input value={query} onChange={(e) => setQuery(e.target.value)} className="input pl-9" placeholder="Search action or record type…" /></div>
+              <select className="input" value={entityType} onChange={(e) => { setEntityType(e.target.value); setPage(1); }}><option value="all">All record types</option>{entityOptions.map((type) => <option key={type} value={type}>{type}</option>)}</select>
+              <select className="input" value={action} onChange={(e) => { setAction(e.target.value); setPage(1); }}><option value="all">All actions</option><option value="INSERT">Created</option><option value="UPDATE">Updated</option><option value="DELETE">Deleted</option></select>
+              <button type="button" onClick={() => loadActivity()} className="btn-secondary"><RefreshCw className="h-4 w-4" /> Refresh</button>
+            </div>
+          </Card>
+
+          <Card className="overflow-hidden">
+            {loading ? <LoadingPage /> : logs.length === 0 ? <EmptyState icon={<Activity className="h-8 w-8" />} title="No audit activity" description="Tracked administrative and operational changes will appear here." /> : (
+              <>
+                <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b border-ink-100 bg-ink-50/70 text-left text-xs uppercase tracking-wide text-ink-400"><th className="px-4 py-3">When</th><th className="px-4 py-3">Action</th><th className="px-4 py-3">Record</th><th className="px-4 py-3">User</th><th className="px-4 py-3">Change</th></tr></thead><tbody className="divide-y divide-ink-100">{logs.map((log) => { const profileData = (log as AuditLog & { user_name?: string; user_role?: string }); return <tr key={log.id} className="hover:bg-ink-50/60"><td className="whitespace-nowrap px-4 py-4 text-xs text-ink-500">{new Date(log.created_at).toLocaleString()}</td><td className="px-4 py-4"><span className={`badge ${log.action === 'DELETE' ? 'bg-red-50 text-red-700' : log.action === 'UPDATE' ? 'bg-accent-50 text-accent-700' : 'bg-brand-50 text-brand-700'}`}>{log.action}</span></td><td className="px-4 py-4"><p className="font-semibold capitalize text-ink-800">{log.entity_type || 'System'}</p><p className="mt-0.5 max-w-[220px] truncate text-[11px] text-ink-400">{log.entity_id || '—'}</p></td><td className="px-4 py-4"><p className="font-medium text-ink-700">{profileData.user_name || 'System / deleted user'}</p><p className="text-[11px] capitalize text-ink-400">{profileData.user_role || 'system'}</p></td><td className="max-w-[360px] px-4 py-4"><p className="truncate text-xs text-ink-500">{log.action === 'INSERT' ? 'New record created' : log.action === 'DELETE' ? 'Record removed' : 'Record updated'}</p></td></tr> })}</tbody></table></div>
+                <div className="border-t border-ink-100 p-4"><Pagination page={page} totalPages={totalPages} onPageChange={setPage} totalItems={totalItems} pageSize={20} /></div>
+              </>
+            )}
+          </Card>
+        </>
+      ) : (
+        <Card className="overflow-hidden">
+          <div className="flex flex-col gap-3 border-b border-ink-100 p-5 sm:flex-row sm:items-center sm:justify-between"><div><h3 className="font-semibold text-ink-900">Administrator notifications</h3><p className="text-sm text-ink-500">System messages, workflow alerts and important operational events.</p></div>{unread > 0 && <button type="button" onClick={markAllRead} className="btn-secondary text-sm"><CheckCheck className="h-4 w-4" /> Mark all read</button>}</div>
+          {notifications.length === 0 ? <EmptyState icon={<Bell className="h-8 w-8" />} title="No notifications" description="New administrative alerts will appear here." /> : <div className="divide-y divide-ink-100">{notifications.map((n) => <button key={n.id} type="button" onClick={() => !n.read && markRead(n.id)} className={`flex w-full items-start gap-4 p-5 text-left transition-colors hover:bg-ink-50 ${!n.read ? 'bg-brand-50/30' : ''}`}><span className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${!n.read ? 'bg-brand-100 text-brand-700' : 'bg-ink-100 text-ink-400'}`}><Bell className="h-5 w-5" /></span><span className="min-w-0 flex-1"><span className="flex items-center gap-2"><span className="font-semibold text-ink-900">{n.title}</span>{!n.read && <span className="h-2 w-2 rounded-full bg-brand-500" />}</span><span className="mt-1 block text-sm text-ink-600">{n.message}</span><span className="mt-2 block text-xs text-ink-400">{new Date(n.created_at).toLocaleString()} · {n.type}</span></span></button>)}</div>}
+        </Card>
+      )}
     </DashboardLayout>
   );
 }

@@ -18,6 +18,7 @@ import {
   TrendingUp,
   Heart,
   Search,
+  Activity,
 } from 'lucide-react';
 
 import { Link, useRouter } from '@/context/RouterContext';
@@ -445,6 +446,11 @@ export const adminNav = [
     label: 'Tax',
     to: '/admin/tax',
     icon: <Receipt className="w-5 h-5" />,
+  },
+  {
+    label: 'Activity & Alerts',
+    to: '/admin/activity',
+    icon: <Activity className="w-5 h-5" />,
   },
   {
     label: 'Settings',
