@@ -33,19 +33,28 @@ export function PropertyDetailsPage({ propertyId }: { propertyId: string }) {
     (async () => {
       // Load the public catalog through the SECURITY DEFINER RPC so verified
       // listings remain visible regardless of stale client-side RLS state.
-      const { data: catalog, error: catalogError } = await supabase.rpc('get_public_property_catalog');
-      if (catalogError) console.error('Property detail catalog error:', catalogError);
+      const [{ data: catalog, error: catalogError }, { data: universal, error: universalError }] = await Promise.all([
+        supabase.rpc('get_public_property_catalog'),
+        supabase.rpc('get_public_universal_catalog'),
+      ]);
+      if (catalogError) console.error('Property detail catalogue error:', catalogError);
+      if (universalError) console.error('Property detail universal catalogue error:', universalError);
       const rows = (catalog || []) as Array<Record<string, unknown>>;
       const matching = rows.filter((row) => String(row.property_id) === propertyId);
-      const first = matching[0];
+      const universalRow = ((universal || []) as Array<Record<string, unknown>>).find((row) => String(row.property_id) === propertyId);
+      const first = matching[0] || universalRow;
       const data = first ? {
-        id: first.property_id, name: first.name, description: first.description,
-        property_type: first.property_type, county: first.county, sub_county: first.sub_county,
-        town: first.town, estate: first.estate, address: first.address,
-        number_of_units: first.number_of_units, number_of_floors: first.number_of_floors,
-        amenities: first.amenities || [], parking: first.parking,
-        water_availability: first.water_availability, electricity: first.electricity,
-        photos: first.photos || [], audio: first.audio || [], created_at: first.created_at,
+        id: first.property_id, owner_id: null, name: first.name, description: first.description,
+        property_type: first.property_type, asset_class: universalRow?.asset_class || 'built_property', operation_model: universalRow?.operation_model || 'long_term_rental',
+        ownership_type: universalRow?.ownership_type || null, title_number: universalRow?.title_number || null, parcel_number: universalRow?.parcel_number || null,
+        total_land_area: universalRow?.total_land_area == null ? null : Number(universalRow.total_land_area), land_area_unit: universalRow?.land_area_unit || null,
+        zoning: universalRow?.zoning || null, year_built: universalRow?.year_built == null ? null : Number(universalRow.year_built),
+        county: first.county, sub_county: first.sub_county, town: first.town, estate: first.estate, street: first.street || null, address: first.address,
+        latitude: first.latitude || null, longitude: first.longitude || null, map_url: first.map_url || null,
+        number_of_units: first.number_of_units || 0, number_of_floors: first.number_of_floors || 0, amenities: first.amenities || [], parking: first.parking,
+        security_info: first.security_info || null, water_availability: first.water_availability, electricity: first.electricity, internet: first.internet || false,
+        pets_allowed: first.pets_allowed || false, photos: universalRow?.photos || first.photos || [], videos: [], audio: first.audio || [], status: 'verified',
+        created_at: first.created_at, updated_at: first.created_at,
       } : null;
       setProperty(data as PropertyWithOwner | null);
 
@@ -112,24 +121,28 @@ export function PropertyDetailsPage({ propertyId }: { propertyId: string }) {
 
   if (!property) return (
     <div className="max-w-7xl mx-auto px-4 py-16">
-      <EmptyState icon={<X className="w-8 h-8" />} title="Property not found" description="This property may have been removed or is no longer available." action={<Link to="/properties" className="btn-primary">Browse Properties</Link>} />
+      <EmptyState icon={<X className="w-8 h-8" />} title="Opportunity not found" description="This opportunity may have been removed or is no longer available." action={<Link to="/properties" className="btn-primary">Browse Properties</Link>} />
     </div>
   );
 
   const availableUnits = units.filter((u) => u.status === 'available');
   const minRent = units.length > 0 ? Math.min(...units.map((u) => u.monthly_rent)) : 0;
+  const isLand = property.asset_class === 'land';
+  const isSale = ['sale', 'land_sale'].includes(property.operation_model);
+  const isStay = property.operation_model === 'short_stay';
+  const headline = isSale ? 'Sale opportunity — enquire' : isStay ? 'Short-stay opportunity — enquire' : minRent > 0 ? `${formatKES(minRent)}/month` : 'Price on enquiry';
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <button onClick={() => navigate('/properties')} className="flex items-center gap-1 text-sm text-ink-500 hover:text-ink-800 mb-4">
-        <ChevronLeft className="w-4 h-4" /> Back to Properties
+        <ChevronLeft className="w-4 h-4" /> Back to Opportunities
       </button>
 
       {/* Title Row */}
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6">
         <div>
           <div className="flex items-center gap-2 mb-2">
-            <span className="badge bg-brand-100 text-brand-700"><ShieldCheck className="w-3 h-3" /> Verified Property</span>
+            <span className="badge bg-brand-100 text-brand-700"><ShieldCheck className="w-3 h-3" /> Verified Opportunity</span>
             <span className="badge bg-ink-100 text-ink-600">{property.property_type}</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold text-ink-900">{property.name}</h1>
@@ -220,14 +233,28 @@ export function PropertyDetailsPage({ propertyId }: { propertyId: string }) {
           {/* Description */}
           {property.description && (
             <div className="card p-6">
-              <h3 className="font-semibold text-ink-900 mb-3">About this property</h3>
+              <h3 className="font-semibold text-ink-900 mb-3">About this opportunity</h3>
               <p className="text-ink-600 leading-relaxed">{property.description}</p>
             </div>
           )}
 
+          <div className="card p-6 bg-gradient-to-br from-brand-50 to-white">
+            <div className="mb-4"><h3 className="font-semibold text-ink-900">Asset information</h3><p className="text-sm text-ink-500">Core ownership, land and operating information for this opportunity.</p></div>
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+              <div><p className="text-xs text-ink-400">Asset class</p><p className="mt-1 font-semibold capitalize">{property.asset_class.replace(/_/g, ' ')}</p></div>
+              <div><p className="text-xs text-ink-400">Operating model</p><p className="mt-1 font-semibold capitalize">{property.operation_model.replace(/_/g, ' ')}</p></div>
+              <div><p className="text-xs text-ink-400">Ownership / tenure</p><p className="mt-1 font-semibold">{property.ownership_type ? titleCase(property.ownership_type) : 'On enquiry'}</p></div>
+              <div><p className="text-xs text-ink-400">Title number</p><p className="mt-1 font-semibold">{property.title_number || 'On enquiry'}</p></div>
+              <div><p className="text-xs text-ink-400">Parcel / plot</p><p className="mt-1 font-semibold">{property.parcel_number || 'On enquiry'}</p></div>
+              <div><p className="text-xs text-ink-400">Land area</p><p className="mt-1 font-semibold">{property.total_land_area ? `${property.total_land_area} ${property.land_area_unit || 'acres'}` : '—'}</p></div>
+              <div><p className="text-xs text-ink-400">Zoning</p><p className="mt-1 font-semibold">{property.zoning || 'On enquiry'}</p></div>
+              <div><p className="text-xs text-ink-400">Year built / completion</p><p className="mt-1 font-semibold">{property.year_built || '—'}</p></div>
+            </div>
+          </div>
+
           {/* Features */}
           <div className="card p-6">
-            <h3 className="font-semibold text-ink-900 mb-4">Property Features</h3>
+            <h3 className="font-semibold text-ink-900 mb-4">Asset Features</h3>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {[
                 { icon: <Droplets className="w-4 h-4" />, label: 'Water', value: property.water_availability },
@@ -258,11 +285,11 @@ export function PropertyDetailsPage({ propertyId }: { propertyId: string }) {
             )}
           </div>
 
-          {/* Units */}
-          <div>
-            <h3 className="font-semibold text-ink-900 mb-4">Available Units ({availableUnits.length})</h3>
+          {/* Units / rentable spaces */}
+          {!isLand && <div>
+            <h3 className="font-semibold text-ink-900 mb-4">Available Spaces ({availableUnits.length})</h3>
             {units.length === 0 ? (
-              <p className="text-ink-500 text-sm">No units listed yet.</p>
+              <p className="text-ink-500 text-sm">No rentable spaces are listed for this asset yet.</p>
             ) : (
               <div className="space-y-3">
                 {units.map((unit) => (
@@ -295,7 +322,7 @@ export function PropertyDetailsPage({ propertyId }: { propertyId: string }) {
                 ))}
               </div>
             )}
-          </div>
+          </div>}
 
           {/* Location */}
           <div className="card p-6">
@@ -317,9 +344,9 @@ export function PropertyDetailsPage({ propertyId }: { propertyId: string }) {
         <div className="space-y-4">
           {/* Price Card */}
           <div className="card p-6 sticky top-20">
-            <p className="text-sm text-ink-500">Starting from</p>
-            <p className="text-3xl font-bold text-brand-700 mb-1">{formatKES(minRent)}<span className="text-base font-normal text-ink-400">/month</span></p>
-            <p className="text-sm text-ink-500 mb-6">{availableUnits.length} units available</p>
+            <p className="text-sm text-ink-500">Opportunity pricing</p>
+            <p className="text-2xl font-bold text-brand-700 mb-1">{headline}</p>
+            <p className="text-sm text-ink-500 mb-6">{isSale ? 'Verified sale opportunity.' : isStay ? 'Hospitality availability and rates on enquiry.' : `${availableUnits.length} rentable spaces available`}</p>
 
             <div className="space-y-3">
               <button
@@ -329,9 +356,9 @@ export function PropertyDetailsPage({ propertyId }: { propertyId: string }) {
                   if (firstAvailable) setShowReserve(firstAvailable.id);
                 }}
                 className="btn-primary w-full"
-                disabled={availableUnits.length === 0}
+                disabled={isLand || isSale || isStay || availableUnits.length === 0}
               >
-                Reserve This House
+                {isSale ? 'Enquire About Purchase' : isStay ? 'Enquire About Stay' : 'Reserve This Property'}
               </button>
               <button onClick={() => setShowViewing(true)} className="btn-secondary w-full">
                 <Calendar className="w-4 h-4" /> Schedule Viewing
@@ -342,9 +369,9 @@ export function PropertyDetailsPage({ propertyId }: { propertyId: string }) {
             </div>
 
             <div className="mt-6 pt-6 border-t border-ink-100">
-              <p className="text-sm text-ink-500 mb-2">Reservation Fee</p>
-              <p className="text-xl font-bold text-accent-600">KSh 2,000</p>
-              <p className="text-xs text-ink-400 mt-1">Non-refundable · Deductible from deposit</p>
+              <p className="text-sm text-ink-500 mb-2">Listing reference</p>
+              <p className="text-sm font-semibold text-ink-800">{property.title_number || property.parcel_number || 'Verified opportunity'}</p>
+              <p className="text-xs text-ink-400 mt-1">{property.ownership_type ? titleCase(property.ownership_type) : 'Ownership details available on enquiry'}</p>
             </div>
           </div>
 
@@ -444,7 +471,7 @@ function ReservationModal({ unitId, onClose }: { unitId: string; onClose: () => 
   };
 
   return (
-    <Modal open onClose={onClose} title="Reserve This House" size="md">
+    <Modal open onClose={onClose} title="Reserve This Property" size="md">
       {step === 'summary' && (
         <div>
           <div className="bg-brand-50 rounded-xl p-4 mb-4">

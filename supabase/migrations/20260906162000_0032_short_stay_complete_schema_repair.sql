@@ -82,7 +82,27 @@ alter table public.short_stay_bookings add column if not exists updated_at times
 update public.short_stay_bookings set guests=coalesce(guests,1), nightly_rate=coalesce(nightly_rate,0), cleaning_fee=coalesce(cleaning_fee,0), taxes=coalesce(taxes,0), service_fee=coalesce(service_fee,0), total_amount=coalesce(total_amount,0), amount_paid=coalesce(amount_paid,0), channel=coalesce(channel,'direct'), status=coalesce(status,'pending'), payment_status=coalesce(payment_status,'unpaid'), created_at=coalesce(created_at,now()), updated_at=coalesce(updated_at,now()) where true;
 
 -- Keep application reads working even where a legacy table did not have generated nights.
-update public.short_stay_bookings set nights = greatest(1, check_out-check_in) where nights is null and check_in is not null and check_out is not null;
+-- `nights` may already be a GENERATED ALWAYS column on installations created by the earlier short-stay migrations.
+-- PostgreSQL does not allow UPDATE against a generated column. Generated columns calculate
+-- automatically from check_in/check_out, so no backfill is required. For legacy installations
+-- where nights is a normal column, safely backfill it only when the column is not generated.
+do $$
+begin
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'short_stay_bookings'
+      and column_name = 'nights'
+      and is_generated = 'NEVER'
+  ) then
+    update public.short_stay_bookings
+       set nights = greatest(1, check_out - check_in)
+     where nights is null
+       and check_in is not null
+       and check_out is not null;
+  end if;
+end $$;
 
 -- Rate calendar and turnovers may also have been partially created.
 create table if not exists public.short_stay_rate_calendar (id uuid primary key default gen_random_uuid());

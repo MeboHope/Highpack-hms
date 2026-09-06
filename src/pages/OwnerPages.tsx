@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import { useRouter } from '@/context/RouterContext';
-import { formatKES, formatDate, titleCase, PROPERTY_TYPES, KENYAN_COUNTIES, PROPERTY_AMENITIES, EXPENSE_CATEGORIES } from '@/lib/constants';
+import { formatKES, formatDate, titleCase, PROPERTY_TYPES, KENYAN_COUNTIES, PROPERTY_AMENITIES, EXPENSE_CATEGORIES, ASSET_CLASS_OPTIONS, OPERATION_MODEL_OPTIONS, LAND_USE_OPTIONS } from '@/lib/constants';
 import { uploadPropertyMedia, deletePropertyMedia } from '@/lib/media';
 import { getPropertyImages } from '@/lib/images';
 import { downloadPaymentReceiptPdf } from '@/lib/documents';
@@ -154,14 +154,14 @@ export function OwnerProperties() {
   return (
     <DashboardLayout navItems={ownerNav} title="Properties">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-bold text-ink-900">My Properties</h2>
+        <div><h2 className="text-xl font-bold text-ink-900">My Property Assets</h2><p className="mt-1 text-sm text-ink-500">Buildings, land, commercial assets, developments and hospitality inventory.</p></div>
         <button onClick={() => setShowAdd(true)} className="btn-primary">
-          <Plus className="w-4 h-4" /> Add Property
+          <Plus className="w-4 h-4" /> Add Property / Asset
         </button>
       </div>
 
       {loading ? <LoadingPage /> : properties.length === 0 ? (
-        <EmptyState icon={<Building2 className="w-8 h-8" />} title="No properties yet" description="Add your first property to start listing units and receiving reservations." action={<button onClick={() => setShowAdd(true)} className="btn-primary"><Plus className="w-4 h-4" /> Add Property</button>} />
+        <EmptyState icon={<Building2 className="w-8 h-8" />} title="No property assets yet" description="Register your first building, land parcel, development or hospitality asset." action={<button onClick={() => setShowAdd(true)} className="btn-primary"><Plus className="w-4 h-4" /> Add Property / Asset</button>} />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {properties.map((p) => (
@@ -199,8 +199,12 @@ function AddPropertyModal({ onClose }: { onClose: () => void }) {
   const { profile } = useAuth();
   const { toast } = useToast();
   const [form, setForm] = useState({
-    name: '', description: '', property_type: 'Apartment', county: 'Nairobi', town: '', estate: '', street: '',
-    number_of_units: 1, number_of_floors: 1, parking: false, water_availability: true, electricity: true, internet: false, pets_allowed: false,
+    name: '', description: '', asset_class: 'built_property', operation_model: 'long_term_rental', property_type: 'Residential apartment / flat',
+    ownership_type: 'freehold', title_number: '', parcel_number: '', total_land_area: '', land_area_unit: 'acres', zoning: '', year_built: '',
+    county: 'Nairobi', sub_county: '', town: '', estate: '', street: '', address: '', latitude: '', longitude: '', map_url: '',
+    number_of_units: 0, number_of_floors: 0, security_info: '', parking: false, water_availability: true, electricity: true, internet: false, pets_allowed: false,
+    land_use: 'Residential', land_boundaries: '', land_utilities: '', land_access: '', asking_price: '', reservation_amount: '', negotiable: true,
+    nightly_rate: '', weekend_rate: '', cleaning_fee: '', max_guests: '2', minimum_nights: '1', maximum_nights: '30',
   });
   const [amenities, setAmenities] = useState<string[]>([]);
   const [photos, setPhotos] = useState<File[]>([]);
@@ -208,80 +212,116 @@ function AddPropertyModal({ onClose }: { onClose: () => void }) {
   const [audio, setAudio] = useState<File[]>([]);
   const [loading, setLoading] = useState(false);
 
+  const isLand = form.asset_class === 'land';
+  const isShortStay = form.operation_model === 'short_stay' || form.operation_model === 'mixed';
+  const isSale = ['sale', 'land_sale', 'mixed'].includes(form.operation_model);
+
+  const update = (key: string, value: string | number | boolean) => setForm((current) => ({ ...current, [key]: value }));
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!profile) return;
     setLoading(true);
     const { data: property, error } = await supabase.from('properties').insert({
-      ...form,
-      owner_id: profile.id,
-      amenities,
-      photos: [],
-      videos: [],
-      audio: [],
-      status: 'pending_verification',
+      name: form.name.trim(), description: form.description.trim() || null, asset_class: form.asset_class, operation_model: form.operation_model,
+      property_type: form.property_type, ownership_type: form.ownership_type || null, title_number: form.title_number.trim() || null,
+      parcel_number: form.parcel_number.trim() || null, total_land_area: form.total_land_area ? Number(form.total_land_area) : null,
+      land_area_unit: form.land_area_unit, zoning: form.zoning.trim() || null, year_built: form.year_built ? Number(form.year_built) : null,
+      county: form.county, sub_county: form.sub_county.trim() || null, town: form.town.trim(), estate: form.estate.trim() || null,
+      street: form.street.trim() || null, address: form.address.trim() || null, latitude: form.latitude ? Number(form.latitude) : null,
+      longitude: form.longitude ? Number(form.longitude) : null, map_url: form.map_url.trim() || null, number_of_units: Number(form.number_of_units) || 0,
+      number_of_floors: Number(form.number_of_floors) || 0, amenities, photos: [], videos: [], audio: [], parking: form.parking,
+      security_info: form.security_info.trim() || null, water_availability: form.water_availability, electricity: form.electricity,
+      internet: form.internet, pets_allowed: form.pets_allowed, owner_id: profile.id, status: 'pending_verification',
     }).select('id').single();
-    if (error || !property) { setLoading(false); toast(error?.message || 'Could not create property. Please try again.', 'error'); return; }
+    if (error || !property) { setLoading(false); toast(error?.message || 'Could not create asset. Please try again.', 'error'); return; }
 
     const uploadedPhotos: string[] = [];
     const uploadedVideos: string[] = [];
     const uploadedAudio: string[] = [];
-    for (const file of photos) {
-      const url = await uploadPropertyMedia(profile.id, property.id, file);
-      if (url) uploadedPhotos.push(url); else toast(`Could not upload ${file.name}`, 'error');
+    for (const file of photos) { const url = await uploadPropertyMedia(profile.id, property.id, file); if (url) uploadedPhotos.push(url); else toast(`Could not upload ${file.name}`, 'error'); }
+    for (const file of videos) { const url = await uploadPropertyMedia(profile.id, property.id, file); if (url) uploadedVideos.push(url); else toast(`Could not upload ${file.name}`, 'error'); }
+    for (const file of audio) { const url = await uploadPropertyMedia(profile.id, property.id, file); if (url) uploadedAudio.push(url); else toast(`Could not upload ${file.name}`, 'error'); }
+    await supabase.from('properties').update({ photos: uploadedPhotos, videos: uploadedVideos, audio: uploadedAudio }).eq('id', property.id);
+
+    if (isLand) {
+      const { error: landError } = await supabase.from('land_parcels').insert({
+        property_id: property.id, parcel_number: form.parcel_number.trim() || null, title_number: form.title_number.trim() || null,
+        land_use: form.land_use.toLowerCase(), tenure: form.ownership_type || 'freehold', acreage: form.total_land_area ? Number(form.total_land_area) : null,
+        area_unit: form.land_area_unit, zoning: form.zoning.trim() || null, asking_price: Number(form.asking_price) || 0,
+        sale_status: isSale ? 'available' : 'available', boundaries: form.land_boundaries.trim() || null, utilities: form.land_utilities.trim() || null,
+        access_description: form.land_access.trim() || null,
+      });
+      if (landError) toast(`Asset created, but land register was not created: ${landError.message}`, 'error');
     }
-    for (const file of videos) {
-      const url = await uploadPropertyMedia(profile.id, property.id, file);
-      if (url) uploadedVideos.push(url); else toast(`Could not upload ${file.name}`, 'error');
+
+    if (isSale && Number(form.asking_price) > 0) {
+      const { error: saleError } = await supabase.from('sale_listings').insert({
+        property_id: property.id, sale_type: isLand ? 'land' : form.asset_class === 'development_project' ? 'development' : 'property',
+        asking_price: Number(form.asking_price), reservation_amount: Number(form.reservation_amount) || 0, negotiable: form.negotiable,
+        listing_status: 'draft', created_by: profile.id, marketing_summary: form.description.trim() || null,
+      });
+      if (saleError) toast(`Asset created, but sale listing was not created: ${saleError.message}`, 'error');
     }
-    for (const file of audio) {
-      const url = await uploadPropertyMedia(profile.id, property.id, file);
-      if (url) uploadedAudio.push(url); else toast(`Could not upload ${file.name}`, 'error');
+
+    if (isShortStay && Number(form.nightly_rate) > 0) {
+      const { error: stayError } = await supabase.from('short_stay_listings').insert({
+        property_id: property.id, listing_name: form.name.trim(), listing_status: 'draft', booking_mode: 'entire_place',
+        nightly_rate: Number(form.nightly_rate), weekend_rate: Number(form.weekend_rate) || Number(form.nightly_rate), cleaning_fee: Number(form.cleaning_fee) || 0,
+        max_guests: Number(form.max_guests) || 2, minimum_nights: Number(form.minimum_nights) || 1, maximum_nights: Number(form.maximum_nights) || 30,
+        direct_booking_enabled: true, created_by: profile.id,
+      });
+      if (stayError) toast(`Asset created, but short-stay listing was not created: ${stayError.message}`, 'error');
     }
-    const { error: mediaError } = await supabase.from('properties').update({ photos: uploadedPhotos, videos: uploadedVideos, audio: uploadedAudio }).eq('id', property.id);
+
     setLoading(false);
-    if (mediaError) { toast('Property was created, but its media could not be saved.', 'error'); return; }
-    toast('Property created! It will be reviewed by our team before going live.', 'success');
+    toast('Asset created and submitted for verification.', 'success');
     onClose();
   };
 
+  const toggle = (key: string) => update(key, !(form as Record<string, unknown>)[key]);
+
   return (
-    <Modal open onClose={onClose} title="Add Property" size="lg">
-      <form onSubmit={handleSubmit} className="space-y-5">
-        <div className="rounded-xl bg-brand-50 p-4 text-sm text-brand-900"><strong>Property first, media second.</strong> Add the building details below, then attach clear photos and an optional walkthrough video. The listing stays pending until an administrator verifies it.</div>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div><label className="label">Property Name</label><input className="input" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Sunrise Apartments" /></div>
-          <div><label className="label">Property Type</label><select className="input" value={form.property_type} onChange={(e) => setForm({ ...form, property_type: e.target.value })}>{PROPERTY_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}</select></div>
-          <div><label className="label">County</label><select className="input" value={form.county} onChange={(e) => setForm({ ...form, county: e.target.value })}>{KENYAN_COUNTIES.map((c) => <option key={c} value={c}>{c}</option>)}</select></div>
-          <div><label className="label">Town</label><input className="input" required value={form.town} onChange={(e) => setForm({ ...form, town: e.target.value })} placeholder="Kilimani" /></div>
-          <div><label className="label">Estate/Neighborhood</label><input className="input" value={form.estate} onChange={(e) => setForm({ ...form, estate: e.target.value })} placeholder="Kilimani" /></div>
-          <div><label className="label">Street/Address</label><input className="input" value={form.street} onChange={(e) => setForm({ ...form, street: e.target.value })} placeholder="Argwings Kodhek Road" /></div>
+    <Modal open onClose={onClose} title="Add Property / Asset" size="lg">
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="rounded-2xl bg-gradient-to-r from-brand-50 to-accent-50 p-5 ring-1 ring-brand-100">
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-brand-700">Universal asset onboarding</p>
+          <h3 className="mt-1 text-lg font-bold text-ink-900">Register any real-estate asset</h3>
+          <p className="mt-1 text-sm text-ink-600">Buildings, apartments, commercial spaces, land, development projects, sale assets and short-stay hospitality inventory all start here.</p>
         </div>
-        <div><label className="label">Description</label><textarea className="input" rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Describe your property..." /></div>
-        <div>
-          <label className="label">Amenities</label>
-          <div className="flex flex-wrap gap-2">
-            {PROPERTY_AMENITIES.map((a) => (
-              <button key={a} type="button" onClick={() => setAmenities(amenities.includes(a) ? amenities.filter((x) => x !== a) : [...amenities, a])} className={`badge cursor-pointer ${amenities.includes(a) ? 'bg-brand-100 text-brand-700' : 'bg-ink-100 text-ink-500'}`}>{a}</button>
-            ))}
+
+        <section><div className="mb-3"><h4 className="font-semibold text-ink-900">1. Asset identity & purpose</h4><p className="text-xs text-ink-500">These choices control the fields and workflows used later.</p></div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <label className="field"><span className="field-label">Asset class</span><select className="input" value={form.asset_class} onChange={(e) => update('asset_class', e.target.value)}>{ASSET_CLASS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</select></label>
+            <label className="field"><span className="field-label">Primary operating model</span><select className="input" value={form.operation_model} onChange={(e) => update('operation_model', e.target.value)}>{OPERATION_MODEL_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</select></label>
+            <label className="field"><span className="field-label">Asset / listing name</span><input required className="input" value={form.name} onChange={(e) => update('name', e.target.value)} placeholder="e.g. Ocean View Commercial Centre" /></label>
+            <label className="field"><span className="field-label">Property / asset type</span><select className="input" value={form.property_type} onChange={(e) => update('property_type', e.target.value)}>{PROPERTY_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}</select></label>
           </div>
-        </div>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <div><label className="label">Total Units</label><input type="number" min="1" className="input" value={form.number_of_units} onChange={(e) => setForm({ ...form, number_of_units: Math.max(1, parseInt(e.target.value || '1')) })} /></div>
-          <div><label className="label">Number of Floors</label><input type="number" min="1" className="input" value={form.number_of_floors} onChange={(e) => setForm({ ...form, number_of_floors: Math.max(1, parseInt(e.target.value || '1')) })} /></div>
-          <div className="rounded-xl bg-brand-50 p-4 text-sm text-brand-800"><strong>Apartment?</strong><p className="mt-1">Set the floor count now. Units can later be assigned to each floor.</p></div>
-        </div>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-          {[{ k: 'parking', l: 'Parking' }, { k: 'water_availability', l: 'Water' }, { k: 'electricity', l: 'Electricity' }, { k: 'internet', l: 'Internet' }, { k: 'pets_allowed', l: 'Pets' }].map((f) => (
-            <label key={f.k} className="flex items-center gap-2 text-sm text-ink-700"><input type="checkbox" className="h-4 w-4 rounded text-brand-600" checked={(form as Record<string, unknown>)[f.k] as boolean} onChange={(e) => setForm({ ...form, [f.k]: e.target.checked })} />{f.l}</label>
-          ))}
-        </div>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <div className="rounded-2xl border border-dashed border-brand-200 bg-brand-50/50 p-4"><ImagePlus className="mb-2 h-5 w-5 text-brand-600" /><label className="label">Photos</label><input className="input" type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={(e) => setPhotos(Array.from(e.target.files || []))} /><p className="mt-2 text-xs text-ink-500">JPG, PNG, WebP.</p></div>
-          <div className="rounded-2xl border border-dashed border-brand-200 bg-brand-50/50 p-4"><Video className="mb-2 h-5 w-5 text-brand-600" /><label className="label">Walkthrough Videos</label><input className="input" type="file" accept="video/mp4,video/webm,video/quicktime" multiple onChange={(e) => setVideos(Array.from(e.target.files || []))} /><p className="mt-2 text-xs text-ink-500">MP4, WebM, MOV.</p></div>
-          <div className="rounded-2xl border border-dashed border-accent-200 bg-accent-50/50 p-4"><Music2 className="mb-2 h-5 w-5 text-accent-600" /><label className="label">Audio / Voice Tour</label><input className="input" type="file" accept="audio/mpeg,audio/wav,audio/ogg,audio/mp4,audio/x-m4a" multiple onChange={(e) => setAudio(Array.from(e.target.files || []))} /><p className="mt-2 text-xs text-ink-500">MP3, WAV, OGG, M4A.</p></div>
-        </div>
-        <button type="submit" className="btn-primary w-full" disabled={loading}>{loading ? 'Creating property & uploading media...' : 'Create Property'}</button>
+        </section>
+
+        <section><h4 className="mb-3 font-semibold text-ink-900">2. Ownership, title & land information</h4>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <label className="field"><span className="field-label">Ownership / tenure</span><select className="input" value={form.ownership_type} onChange={(e) => update('ownership_type', e.target.value)}><option>Freehold</option><option>Leasehold</option><option>Sectional title</option><option>Joint ownership</option><option>Company owned</option><option>Trust / institution</option><option>Other</option></select></label>
+            <label className="field"><span className="field-label">Title number</span><input className="input" value={form.title_number} onChange={(e) => update('title_number', e.target.value)} placeholder="Title deed / certificate reference" /></label>
+            <label className="field"><span className="field-label">Parcel / plot number</span><input className="input" value={form.parcel_number} onChange={(e) => update('parcel_number', e.target.value)} placeholder="LR / parcel / plot number" /></label>
+            <div className="grid grid-cols-2 gap-3"><label className="field"><span className="field-label">Land area</span><input type="number" min="0" step="0.01" className="input" value={form.total_land_area} onChange={(e) => update('total_land_area', e.target.value)} /></label><label className="field"><span className="field-label">Unit</span><select className="input" value={form.land_area_unit} onChange={(e) => update('land_area_unit', e.target.value)}><option>acres</option><option>hectares</option><option>square_metres</option><option>square_feet</option></select></label></div>
+            <label className="field"><span className="field-label">Zoning / permitted use</span><input className="input" value={form.zoning} onChange={(e) => update('zoning', e.target.value)} placeholder="Residential, commercial, agricultural…" /></label>
+            <label className="field"><span className="field-label">Year built / completion</span><input type="number" min="1800" max="2200" className="input" value={form.year_built} onChange={(e) => update('year_built', e.target.value)} /></label>
+          </div>
+          {isLand && <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2"><label className="field"><span className="field-label">Land use</span><select className="input" value={form.land_use} onChange={(e) => update('land_use', e.target.value)}>{LAND_USE_OPTIONS.map((x) => <option key={x}>{x}</option>)}</select></label><label className="field"><span className="field-label">Asking price (KES)</span><input type="number" min="0" className="input" value={form.asking_price} onChange={(e) => update('asking_price', e.target.value)} /></label><label className="field"><span className="field-label">Boundaries / beacons</span><textarea className="input" value={form.land_boundaries} onChange={(e) => update('land_boundaries', e.target.value)} placeholder="Boundary, beacon and survey notes" /></label><label className="field"><span className="field-label">Access & utilities</span><textarea className="input" value={form.land_access} onChange={(e) => update('land_access', e.target.value)} placeholder="Road access, water, power, drainage…" /></label><label className="field sm:col-span-2"><span className="field-label">Utility details</span><textarea className="input" value={form.land_utilities} onChange={(e) => update('land_utilities', e.target.value)} placeholder="Power, water, sewer, fibre, borehole and other services" /></label></div>}
+        </section>
+
+        <section><h4 className="mb-3 font-semibold text-ink-900">3. Location & access</h4><div className="grid grid-cols-1 gap-4 sm:grid-cols-2"><label className="field"><span className="field-label">County</span><select className="input" value={form.county} onChange={(e) => update('county', e.target.value)}>{KENYAN_COUNTIES.map((c) => <option key={c}>{c}</option>)}</select></label><label className="field"><span className="field-label">Sub-county</span><input className="input" value={form.sub_county} onChange={(e) => update('sub_county', e.target.value)} /></label><label className="field"><span className="field-label">Town / city</span><input required className="input" value={form.town} onChange={(e) => update('town', e.target.value)} /></label><label className="field"><span className="field-label">Estate / neighborhood</span><input className="input" value={form.estate} onChange={(e) => update('estate', e.target.value)} /></label><label className="field"><span className="field-label">Street / road</span><input className="input" value={form.street} onChange={(e) => update('street', e.target.value)} /></label><label className="field"><span className="field-label">Full address</span><input className="input" value={form.address} onChange={(e) => update('address', e.target.value)} /></label><label className="field"><span className="field-label">Latitude</span><input type="number" step="0.000001" className="input" value={form.latitude} onChange={(e) => update('latitude', e.target.value)} /></label><label className="field"><span className="field-label">Longitude</span><input type="number" step="0.000001" className="input" value={form.longitude} onChange={(e) => update('longitude', e.target.value)} /></label><label className="field sm:col-span-2"><span className="field-label">Map / directions URL</span><input type="url" className="input" value={form.map_url} onChange={(e) => update('map_url', e.target.value)} placeholder="https://maps.google.com/..." /></label></div></section>
+
+        {!isLand && <section><h4 className="mb-3 font-semibold text-ink-900">4. Built-asset operating details</h4><div className="grid grid-cols-1 gap-4 sm:grid-cols-3"><label className="field"><span className="field-label">Units / spaces</span><input type="number" min="0" className="input" value={form.number_of_units} onChange={(e) => update('number_of_units', Number(e.target.value) || 0)} /></label><label className="field"><span className="field-label">Floors</span><input type="number" min="0" className="input" value={form.number_of_floors} onChange={(e) => update('number_of_floors', Number(e.target.value) || 0)} /></label><label className="field"><span className="field-label">Security information</span><input className="input" value={form.security_info} onChange={(e) => update('security_info', e.target.value)} placeholder="Guarding, CCTV, access control…" /></label></div><div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-5">{[['parking','Parking'],['water_availability','Water'],['electricity','Electricity'],['internet','Internet'],['pets_allowed','Pets']].map(([key,label])=><label key={key} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={Boolean((form as Record<string, unknown>)[key])} onChange={() => toggle(key)} />{label}</label>)}</div></section>}
+
+        {isSale && !isLand && <section><h4 className="mb-3 font-semibold text-ink-900">5. Sale readiness</h4><div className="grid grid-cols-1 gap-4 sm:grid-cols-3"><label className="field"><span className="field-label">Asking price (KES)</span><input type="number" min="0" className="input" value={form.asking_price} onChange={(e) => update('asking_price', e.target.value)} /></label><label className="field"><span className="field-label">Reservation amount</span><input type="number" min="0" className="input" value={form.reservation_amount} onChange={(e) => update('reservation_amount', e.target.value)} /></label><label className="flex items-center gap-2 pt-7 text-sm"><input type="checkbox" checked={form.negotiable} onChange={() => toggle('negotiable')} /> Price is negotiable</label></div></section>}
+
+        {isShortStay && <section><h4 className="mb-3 font-semibold text-ink-900">6. Short-stay / hospitality setup</h4><div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"><label className="field"><span className="field-label">Nightly rate (KES)</span><input type="number" min="0" className="input" value={form.nightly_rate} onChange={(e) => update('nightly_rate', e.target.value)} /></label><label className="field"><span className="field-label">Weekend rate</span><input type="number" min="0" className="input" value={form.weekend_rate} onChange={(e) => update('weekend_rate', e.target.value)} /></label><label className="field"><span className="field-label">Cleaning fee</span><input type="number" min="0" className="input" value={form.cleaning_fee} onChange={(e) => update('cleaning_fee', e.target.value)} /></label><label className="field"><span className="field-label">Maximum guests</span><input type="number" min="1" className="input" value={form.max_guests} onChange={(e) => update('max_guests', e.target.value)} /></label><label className="field"><span className="field-label">Minimum nights</span><input type="number" min="1" className="input" value={form.minimum_nights} onChange={(e) => update('minimum_nights', e.target.value)} /></label><label className="field"><span className="field-label">Maximum nights</span><input type="number" min="1" className="input" value={form.maximum_nights} onChange={(e) => update('maximum_nights', e.target.value)} /></label></div></section>}
+
+        <section><h4 className="mb-3 font-semibold text-ink-900">7. Description, amenities & media</h4><textarea className="input" rows={4} value={form.description} onChange={(e) => update('description', e.target.value)} placeholder="Describe the asset, investment opportunity, location advantages, facilities, condition and key selling points…" /><div className="mt-4 flex flex-wrap gap-2">{PROPERTY_AMENITIES.map((a) => <button key={a} type="button" onClick={() => setAmenities(amenities.includes(a) ? amenities.filter((x) => x !== a) : [...amenities, a])} className={`badge cursor-pointer ${amenities.includes(a) ? 'bg-brand-100 text-brand-700' : 'bg-ink-100 text-ink-500'}`}>{a}</button>)}</div><div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3"><div className="rounded-2xl border border-dashed border-brand-200 bg-brand-50/50 p-4"><ImagePlus className="mb-2 h-5 w-5 text-brand-600" /><label className="label">Photos</label><input className="input" type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={(e) => setPhotos(Array.from(e.target.files || []))} /></div><div className="rounded-2xl border border-dashed border-brand-200 bg-brand-50/50 p-4"><Video className="mb-2 h-5 w-5 text-brand-600" /><label className="label">Videos</label><input className="input" type="file" accept="video/mp4,video/webm,video/quicktime" multiple onChange={(e) => setVideos(Array.from(e.target.files || []))} /></div><div className="rounded-2xl border border-dashed border-accent-200 bg-accent-50/50 p-4"><Music2 className="mb-2 h-5 w-5 text-accent-600" /><label className="label">Audio tour</label><input className="input" type="file" accept="audio/mpeg,audio/wav,audio/ogg,audio/mp4,audio/x-m4a" multiple onChange={(e) => setAudio(Array.from(e.target.files || []))} /></div></div></section>
+
+        <div className="sticky bottom-0 -mx-6 -mb-6 flex items-center justify-between gap-3 border-t border-ink-100 bg-white/95 p-5 backdrop-blur"><p className="hidden text-xs text-ink-500 sm:block">New assets remain <strong>Pending verification</strong> until an administrator reviews the title, details and media.</p><div className="ml-auto flex gap-3"><button type="button" className="btn-secondary" onClick={onClose}>Cancel</button><button type="submit" className="btn-primary" disabled={loading}>{loading ? 'Creating asset…' : 'Create & submit asset'}</button></div></div>
       </form>
     </Modal>
   );

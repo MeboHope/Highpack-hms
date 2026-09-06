@@ -222,7 +222,7 @@ export function Footer() {
           <div>
             <h3 className="text-sm font-semibold text-white">Explore</h3>
             <div className="mt-4 space-y-2 text-sm">
-              <Link to="/properties" className="block hover:text-accent-300">Browse Properties</Link>
+              <Link to="/properties" className="block hover:text-accent-300">Browse Properties, Land & Stays</Link>
               <Link to="/about" className="block hover:text-accent-300">About Us</Link>
               <Link to="/faqs" className="block hover:text-accent-300">FAQs</Link>
               <Link to="/contact" className="block hover:text-accent-300">Contact</Link>
@@ -232,7 +232,7 @@ export function Footer() {
           <div>
             <h3 className="text-sm font-semibold text-white">For Tenants</h3>
             <div className="mt-4 space-y-2 text-sm">
-              <Link to="/properties" className="block hover:text-accent-300">Find a Home</Link>
+              <Link to="/properties" className="block hover:text-accent-300">Explore Properties & Land</Link>
               <Link to="/register" className="block hover:text-accent-300">Create Tenant Account</Link>
               <Link to="/login" className="block hover:text-accent-300">Tenant Sign In</Link>
             </div>

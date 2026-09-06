@@ -1,22 +1,34 @@
 export const PROPERTY_TYPES = [
-  'Bedsitter',
-  'Studio',
-  '1 Bedroom',
-  '2 Bedroom',
-  '3 Bedroom',
-  '4 Bedroom',
-  '5+ Bedroom',
-  'Maisonette',
-  'Apartment',
-  'Townhouse',
-  'Villa',
-  'Single-family house',
-  'Commercial property',
-  'Office',
-  'Shop',
-  'Other',
+  'Residential apartment / flat', 'Bedsitter / studio', 'Maisonette', 'Townhouse', 'Villa',
+  'Bungalow', 'Single-family house', 'Serviced apartment', 'Student accommodation',
+  'Hotel / lodge', 'Guest house', 'Office building', 'Office suite', 'Retail / shop',
+  'Warehouse / industrial', 'Mixed-use building', 'Commercial complex', 'Development project',
+  'Residential plot / land', 'Commercial plot / land', 'Agricultural land', 'Industrial land',
+  'Beach / coastal land', 'Farm / ranch', 'Other',
 ] as const;
 
+
+
+export const ASSET_CLASS_OPTIONS = [
+  { value: 'built_property', label: 'Built property' },
+  { value: 'land', label: 'Land / plot' },
+  { value: 'mixed_use', label: 'Mixed-use asset' },
+  { value: 'development_project', label: 'Development project' },
+  { value: 'other', label: 'Other real-estate asset' },
+] as const;
+
+export const OPERATION_MODEL_OPTIONS = [
+  { value: 'long_term_rental', label: 'Long-term rental' },
+  { value: 'short_stay', label: 'Short-stay / hospitality' },
+  { value: 'sale', label: 'Sale' },
+  { value: 'lease', label: 'Lease / commercial letting' },
+  { value: 'land_sale', label: 'Land sale' },
+  { value: 'mixed', label: 'Mixed / multiple uses' },
+] as const;
+
+export const LAND_USE_OPTIONS = [
+  'Residential', 'Commercial', 'Agricultural', 'Industrial', 'Mixed-use', 'Institutional', 'Recreational', 'Hospitality', 'Other',
+] as const;
 export const KENYAN_COUNTIES = [
   'Nairobi', 'Mombasa', 'Kisumu', 'Nakuru', 'Kiambu', 'Kilifi', 'Machakos',
   'Kakamega', 'Nyeri', 'Meru', 'Eldoret (Uasin Gishu)', 'Kisii', 'Malindi',

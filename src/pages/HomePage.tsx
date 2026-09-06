@@ -3,8 +3,6 @@ import {
   Search,
   MapPin,
   Home as HomeIcon,
-  BedDouble,
-  Bath,
   ArrowRight,
   Star,
   ShieldCheck,
@@ -19,27 +17,18 @@ import { supabase } from '@/lib/supabase';
 import {
   formatKES,
   KENYAN_COUNTIES,
-  PROPERTY_TYPES,
+  ASSET_CLASS_OPTIONS,
+  OPERATION_MODEL_OPTIONS,
 } from '@/lib/constants';
 import { SkeletonCard } from '@/components/ui';
 import { getPropertyImage } from '@/lib/images';
 import highparkLogo from '@/assets/highpark-logo-clean.png';
 
 interface PropertyWithUnits {
-  id: string;
-  name: string;
-  county: string;
-  town: string;
-  estate: string | null;
-  property_type: string;
-  photos: string[];
-  status: string;
-  property_units: {
-    monthly_rent: number;
-    bedrooms: number;
-    bathrooms: number;
-    status: string;
-  }[];
+  id: string; name: string; county: string; town: string; estate: string | null; property_type: string; asset_class: string; operation_model: string;
+  ownership_type: string | null; title_number: string | null; parcel_number: string | null; total_land_area: number | null; land_area_unit: string | null;
+  photos: string[]; available_units: number; min_monthly_rent: number | null; sale_listing_count: number; sale_min_price: number | null;
+  short_stay_listing_count: number; short_stay_min_rate: number | null;
 }
 
 interface Stat {
@@ -161,96 +150,53 @@ export function HomePage() {
 
   const [search, setSearch] = useState({
     location: '',
-    type: '',
-    bedrooms: '',
+    assetClass: '',
+    operation: '',
   });
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       const [{ data: catalog, error: catalogError }, { data: siteStats, error: statsError }] = await Promise.all([
-        supabase.rpc('get_public_property_catalog'),
+        supabase.rpc('get_public_universal_catalog'),
         supabase.rpc('get_public_site_stats'),
       ]);
-
-      if (catalogError) console.error('Home public catalog load error:', catalogError);
+      if (catalogError) console.error('Home universal catalog load error:', catalogError);
       if (statsError) console.error('Home public statistics load error:', statsError);
-
       const rows = (catalog || []) as Array<Record<string, unknown>>;
-      const byProperty = new Map<string, PropertyWithUnits>();
-      for (const row of rows) {
-        const id = String(row.property_id);
-        if (!byProperty.has(id)) {
-          byProperty.set(id, {
-            id,
-            name: String(row.name ?? ''),
-            county: String(row.county ?? ''),
-            town: String(row.town ?? ''),
-            estate: row.estate == null ? null : String(row.estate),
-            property_type: String(row.property_type ?? ''),
-            photos: Array.isArray(row.photos) ? row.photos.filter((photo): photo is string => typeof photo === 'string') : [],
-            status: 'verified',
-            property_units: [],
-          });
-        }
-        if (row.unit_id) {
-          byProperty.get(id)!.property_units.push({
-            monthly_rent: Number(row.monthly_rent || 0),
-            bedrooms: Number(row.bedrooms || 0),
-            bathrooms: Number(row.bathrooms || 0),
-            status: String(row.status || 'available'),
-          });
-        }
-      }
-
-      const props = Array.from(byProperty.values()).slice(0, 6);
-      const fallbackVerified = byProperty.size;
-      const fallbackAvailable = rows.filter((row) => row.unit_id && row.status === 'available').length;
-      const fallbackCounties = new Set(rows.map((row) => row.county).filter((county) => typeof county === 'string' && county.trim())).size;
+      const props: PropertyWithUnits[] = rows.map((row) => ({
+        id: String(row.property_id), name: String(row.name ?? ''), county: String(row.county ?? ''), town: String(row.town ?? ''),
+        estate: row.estate == null ? null : String(row.estate), property_type: String(row.property_type ?? ''), asset_class: String(row.asset_class ?? 'built_property'),
+        operation_model: String(row.operation_model ?? 'long_term_rental'), ownership_type: row.ownership_type == null ? null : String(row.ownership_type),
+        title_number: row.title_number == null ? null : String(row.title_number), parcel_number: row.parcel_number == null ? null : String(row.parcel_number),
+        total_land_area: row.total_land_area == null ? null : Number(row.total_land_area), land_area_unit: row.land_area_unit == null ? null : String(row.land_area_unit),
+        photos: Array.isArray(row.photos) ? row.photos.filter((x): x is string => typeof x === 'string') : [], available_units: Number(row.available_units || 0),
+        min_monthly_rent: row.min_monthly_rent == null ? null : Number(row.min_monthly_rent), sale_listing_count: Number(row.sale_listing_count || 0),
+        sale_min_price: row.sale_min_price == null ? null : Number(row.sale_min_price), short_stay_listing_count: Number(row.short_stay_listing_count || 0),
+        short_stay_min_rate: row.short_stay_min_rate == null ? null : Number(row.short_stay_min_rate),
+      })).slice(0, 6);
       const statRow = Array.isArray(siteStats) && siteStats.length ? siteStats[0] as Record<string, unknown> : null;
-
-      const verifiedStat = Number(statRow?.verified_properties || 0);
-      const availableStat = Number(statRow?.available_homes || 0);
-      const countyStat = Number(statRow?.counties_covered || 0);
-      const verifiedCount = statRow && (verifiedStat > 0 || fallbackVerified === 0) ? verifiedStat : fallbackVerified;
-      const availableCount = statRow && (availableStat > 0 || fallbackAvailable === 0) ? availableStat : fallbackAvailable;
-      const countyCount = statRow && (countyStat > 0 || fallbackCounties === 0) ? countyStat : fallbackCounties;
-
+      const verifiedCount = Number(statRow?.verified_properties || rows.length);
+      const availableCount = rows.reduce((sum, row) => sum + Number(row.available_units || 0), 0);
+      const countyCount = new Set(rows.map((row) => row.county).filter((x) => typeof x === 'string' && x)).size;
       setStats([
-        { value: verifiedCount, suffix: '+', label: 'Verified Properties' },
-        { value: availableCount, suffix: '+', label: 'Available Properties' },
-        { value: countyCount, suffix: '+', label: 'Counties Covered' },
-        { value: 24, prefix: '< ', suffix: 'h', label: 'Reservation Hold' },
+        { value: verifiedCount, suffix: '+', label: 'Verified Assets' },
+        { value: Number(statRow?.available_homes || availableCount), suffix: '+', label: 'Available Opportunities' },
+        { value: Number(statRow?.counties_covered || countyCount), suffix: '+', label: 'Counties Covered' },
+        { value: 24, prefix: '< ', suffix: 'h', label: 'Reservation / Enquiry Hold' },
       ]);
-
-      if (!cancelled) {
-        setProperties(props);
-        setLoading(false);
-      }
+      if (!cancelled) { setProperties(props); setLoading(false); }
     })();
     return () => { cancelled = true; };
   }, []);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-
     const params = new URLSearchParams();
-
-    if (search.location) {
-      params.set('location', search.location);
-    }
-
-    if (search.type) {
-      params.set('type', search.type);
-    }
-
-    if (search.bedrooms) {
-      params.set('bedrooms', search.bedrooms);
-    }
-
-    navigate(
-      `/properties?${params.toString()}`
-    );
+    if (search.location) params.set('location', search.location);
+    if (search.assetClass) params.set('asset_class', search.assetClass);
+    if (search.operation) params.set('operation', search.operation);
+    navigate(`/properties?${params.toString()}`);
   };
 
 
@@ -298,128 +244,11 @@ export function HomePage() {
 
           <div className="bg-white/95 backdrop-blur rounded-3xl shadow-soft-lg ring-1 ring-white/40 p-4 sm:p-6 max-w-5xl mx-auto">
 
-            <form
-              onSubmit={handleSearch}
-              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3"
-            >
-
-              {/* Location */}
-              <div>
-                <label className="label">
-                  Location
-                </label>
-
-                <select
-                  className="input"
-                  value={search.location}
-                  onChange={(e) =>
-                    setSearch({
-                      ...search,
-                      location: e.target.value,
-                    })
-                  }
-                >
-                  <option value="">
-                    All locations
-                  </option>
-
-                  {KENYAN_COUNTIES.map((county) => (
-                    <option
-                      key={county}
-                      value={county}
-                    >
-                      {county}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Property Type */}
-              <div>
-                <label className="label">
-                  Property Type
-                </label>
-
-                <select
-                  className="input"
-                  value={search.type}
-                  onChange={(e) =>
-                    setSearch({
-                      ...search,
-                      type: e.target.value,
-                    })
-                  }
-                >
-                  <option value="">
-                    Any type
-                  </option>
-
-                  {PROPERTY_TYPES.map((type) => (
-                    <option
-                      key={type}
-                      value={type}
-                    >
-                      {type}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Bedrooms */}
-              <div>
-                <label className="label">
-                  Bedrooms
-                </label>
-
-                <select
-                  className="input"
-                  value={search.bedrooms}
-                  onChange={(e) =>
-                    setSearch({
-                      ...search,
-                      bedrooms: e.target.value,
-                    })
-                  }
-                >
-                  <option value="">
-                    Any
-                  </option>
-
-                  <option value="0">
-                    Bedsitter
-                  </option>
-
-                  <option value="1">
-                    1+
-                  </option>
-
-                  <option value="2">
-                    2+
-                  </option>
-
-                  <option value="3">
-                    3+
-                  </option>
-
-                  <option value="4">
-                    4+
-                  </option>
-                </select>
-              </div>
-
-              {/* Search button */}
-              <div className="flex items-end">
-
-                <button
-                  type="submit"
-                  className="btn-primary w-full"
-                >
-                  <Search className="w-4 h-4" />
-                  Search Houses
-                </button>
-
-              </div>
-
+            <form onSubmit={handleSearch} className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div><label className="label">Location</label><select className="input" value={search.location} onChange={(e) => setSearch({ ...search, location: e.target.value })}><option value="">All locations</option>{KENYAN_COUNTIES.map((county) => <option key={county}>{county}</option>)}</select></div>
+              <div><label className="label">Asset Class</label><select className="input" value={search.assetClass} onChange={(e) => setSearch({ ...search, assetClass: e.target.value })}><option value="">All assets</option>{ASSET_CLASS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</select></div>
+              <div><label className="label">Opportunity</label><select className="input" value={search.operation} onChange={(e) => setSearch({ ...search, operation: e.target.value })}><option value="">Any opportunity</option>{OPERATION_MODEL_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</select></div>
+              <div className="flex items-end"><button type="submit" className="btn-primary w-full"><Search className="h-4 w-4" /> Search Opportunities</button></div>
             </form>
           </div>
 
@@ -458,7 +287,7 @@ export function HomePage() {
             </h2>
 
             <p className="text-ink-500 mt-1">
-              Handpicked homes ready for you to move in
+              Handpicked property, land & stay opportunities
             </p>
           </div>
 
@@ -493,7 +322,7 @@ export function HomePage() {
           properties.length === 0 && (
             <div className="text-center py-16">
               <p className="text-ink-500">
-                No verified properties are available right now.
+                No verified opportunities are available right now.
                 Once an administrator verifies a listing, it will appear here automatically.
               </p>
             </div>
@@ -505,7 +334,7 @@ export function HomePage() {
             to="/properties"
             className="btn-primary"
           >
-            View All Properties
+            View All Opportunities
           </Link>
 
         </div>
@@ -527,7 +356,7 @@ export function HomePage() {
             </h2>
 
             <p className="text-ink-500 mt-2">
-              From search to keys in four simple steps
+              From discovery to management in four simple steps
             </p>
 
           </div>
@@ -538,12 +367,12 @@ export function HomePage() {
               {
                 icon: <Search className="w-6 h-6" />,
                 title: 'Search & Browse',
-                desc: 'Filter verified properties by location, type, price, and amenities.',
+                desc: 'Explore verified property, land, development and hospitality opportunities by location and use.',
               },
               {
                 icon: <Wallet className="w-6 h-6" />,
-                title: 'Reserve for KSh 2,000',
-                desc: 'Secure your chosen house online with a small reservation fee.',
+                title: 'Enquire or Reserve',
+                desc: 'Enquire, reserve a stay, submit an offer or start a property transaction.',
               },
               {
                 icon: <FileText className="w-6 h-6" />,
@@ -781,13 +610,11 @@ export function HomePage() {
         <div className="bg-gradient-to-br from-brand-700 to-brand-800 rounded-3xl p-8 sm:p-12 text-center">
 
           <h2 className="text-2xl sm:text-3xl font-bold text-white mb-4">
-            Ready to Find Your Home?
+            Ready to Find Your Next Property Opportunity?
           </h2>
 
           <p className="text-brand-100 mb-8 max-w-xl mx-auto">
-            Join thousands of Kenyans who found their next
-            home with HighPark Consult. Browse verified
-            properties and reserve online today.
+            Explore verified property, land and hospitality opportunities with HighPark Consult. Browse, enquire, reserve or pursue a sale opportunity online.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
@@ -819,143 +646,14 @@ export function HomePage() {
    FEATURED PROPERTY CARD
    ============================================================ */
 
-function FeaturedPropertyCard({
-  property,
-}: {
-  property: PropertyWithUnits;
-}) {
-  const units = property.property_units || [];
-
-  const availableUnits = units.filter(
-    (unit) => unit.status === 'available'
-  );
-
-  const minRent =
-    units.length > 0
-      ? Math.min(
-          ...units.map(
-            (unit) => unit.monthly_rent
-          )
-        )
-      : 0;
-
-  const firstUnit = units[0];
-
-  const image =
-    property.photos?.[0] ||
-    getPropertyImage(
-      property.property_type
-    );
-
-  return (
-    <Link
-      to={`/property/${property.id}`}
-      className="card overflow-hidden hover:shadow-lg transition-all group"
-    >
-
-      {/* Image */}
-      <div className="relative h-48 overflow-hidden bg-ink-100">
-
-        <img
-          src={image}
-          alt={property.name}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-          loading="lazy"
-        />
-
-        {/* Verified badge */}
-        <div className="absolute top-3 left-3">
-
-          <span className="badge bg-brand-600 text-white">
-            <ShieldCheck className="w-3 h-3" />
-            Verified
-          </span>
-
-        </div>
-
-        {/* Available badge */}
-        {availableUnits.length > 0 && (
-          <div className="absolute top-3 right-3">
-
-            <span className="badge bg-white/90 text-brand-700">
-              {availableUnits.length} available
-            </span>
-
-          </div>
-        )}
-
-      </div>
-
-      {/* Content */}
-      <div className="p-4">
-
-        <h3 className="font-semibold text-ink-900 mb-1 truncate">
-          {property.name}
-        </h3>
-
-        <p className="text-sm text-ink-500 flex items-center gap-1 mb-3">
-
-          <MapPin className="w-3.5 h-3.5" />
-
-          {property.estate
-            ? `${property.estate}, `
-            : ''}
-
-          {property.town}, {property.county}
-
-        </p>
-
-        <div className="flex items-center gap-3 text-sm text-ink-600 mb-3">
-
-          {firstUnit && (
-            <>
-              <span className="flex items-center gap-1">
-                <BedDouble className="w-4 h-4" />
-                {firstUnit.bedrooms || 'Studio'}
-              </span>
-
-              <span className="flex items-center gap-1">
-                <Bath className="w-4 h-4" />
-                {firstUnit.bathrooms}
-              </span>
-
-              <span className="text-ink-400">
-                ·
-              </span>
-
-              <span className="text-ink-500">
-                {property.property_type}
-              </span>
-            </>
-          )}
-
-        </div>
-
-        <div className="flex items-center justify-between pt-3 border-t border-ink-100">
-
-          <div>
-
-            {minRent > 0 && (
-              <p className="text-lg font-bold text-brand-700">
-
-                {formatKES(minRent)}
-
-                <span className="text-sm font-normal text-ink-400">
-                  /mo
-                </span>
-
-              </p>
-            )}
-
-          </div>
-
-          <span className="text-sm font-medium text-brand-600 group-hover:underline">
-            View Details →
-          </span>
-
-        </div>
-
-      </div>
-    </Link>
-  );
+function FeaturedPropertyCard({ property }: { property: PropertyWithUnits }) {
+  const image = property.photos?.[0] || getPropertyImage(property.property_type);
+  const isLand = property.asset_class === 'land';
+  const isSale = property.sale_listing_count > 0 || ['sale','land_sale'].includes(property.operation_model);
+  const isStay = property.short_stay_listing_count > 0 || property.operation_model === 'short_stay';
+  const opportunity = property.min_monthly_rent ? `${formatKES(property.min_monthly_rent)}/mo` : property.sale_min_price ? `From ${formatKES(property.sale_min_price)}` : property.short_stay_min_rate ? `${formatKES(property.short_stay_min_rate)}/night` : 'Enquire for details';
+  return <Link to={`/property/${property.id}`} className="card group overflow-hidden transition-all hover:-translate-y-1 hover:shadow-soft-lg">
+    <div className="relative h-48 overflow-hidden bg-ink-100"><img src={image} alt={property.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" /><div className="absolute left-3 top-3 flex flex-wrap gap-1.5"><span className="badge bg-brand-600 text-white"><ShieldCheck className="h-3 w-3" /> Verified</span>{isSale&&<span className="badge bg-accent-100 text-accent-800">For sale</span>}{isStay&&<span className="badge bg-white/95 text-brand-700">Short stay</span>}</div></div>
+    <div className="p-4"><h3 className="truncate font-semibold text-ink-900">{property.name}</h3><p className="mt-1 flex items-center gap-1 text-sm text-ink-500"><MapPin className="h-3.5 w-3.5" /> {property.estate ? `${property.estate}, ` : ''}{property.town}, {property.county}</p><div className="mt-3 flex flex-wrap gap-1.5"><span className="badge bg-ink-100 text-ink-600">{property.asset_class.replace(/_/g,' ')}</span><span className="badge bg-brand-50 text-brand-700">{property.property_type}</span>{isLand&&property.total_land_area&&<span className="badge bg-accent-50 text-accent-700">{property.total_land_area} {property.land_area_unit || 'acres'}</span>}</div><div className="mt-4 flex items-center justify-between border-t border-ink-100 pt-3"><div><p className="text-lg font-bold text-brand-700">{opportunity}</p>{property.available_units>0&&<p className="text-xs text-ink-400">{property.available_units} rentable space{property.available_units===1?'':'s'} available</p>}</div><span className="text-sm font-medium text-brand-600 group-hover:underline">View Details →</span></div></div>
+  </Link>;
 }
