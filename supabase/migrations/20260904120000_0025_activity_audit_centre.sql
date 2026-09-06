@@ -1,4 +1,8 @@
 -- Phase 5: Notifications + Activity/Audit Centre
+-- Ensure the authenticated API role can access the existing notification table.
+-- RLS still limits users to their own notifications.
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.notifications TO authenticated;
+
 -- Adds automatic audit capture for high-value operational records.
 
 CREATE OR REPLACE FUNCTION public.capture_audit_log()

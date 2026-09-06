@@ -20,6 +20,7 @@ import {
 import {
   AdminDashboard, AdminProperties, AdminUsers, AdminReservations, AdminPayments, AdminSettings, AdminUnits, AdminTax, AdminExpenses, AdminMaintenance, AdminLeases, AdminActivity,
 } from '@/pages/AdminPages';
+import { AdminDocuments, OwnerDocuments, TenantDocuments } from '@/pages/DocumentPages';
 import type { JSX } from 'react';
 import highparkLogo from '@/assets/highpark-logo-clean.png';
 
@@ -86,6 +87,7 @@ function Routes() {
   if (path === '/owner/payments') return isOwner ? <OwnerPayments /> : <AccessDenied />;
   if (path === '/owner/reports') return isOwner ? <OwnerReports /> : <AccessDenied />;
   if (path === '/owner/settings') return isOwner ? <OwnerSettings /> : <AccessDenied />;
+  if (path === '/owner/documents') return isOwner ? <OwnerDocuments /> : <AccessDenied />;
 
   // Tenant routes
   if (path === '/tenant') return isTenant ? <TenantDashboard /> : <AccessDenied />;
@@ -97,6 +99,7 @@ function Routes() {
   if (path === '/tenant/lease') return isTenant ? <TenantLease /> : <AccessDenied />;
   if (path === '/tenant/messages') return isTenant ? <TenantMessages /> : <AccessDenied />;
   if (path === '/tenant/settings') return isTenant ? <TenantSettings /> : <AccessDenied />;
+  if (path === '/tenant/documents') return isTenant ? <TenantDocuments /> : <AccessDenied />;
 
   // Admin routes
   if (path === '/admin') return isAdmin ? <AdminDashboard /> : <AccessDenied />;
@@ -111,6 +114,7 @@ function Routes() {
   if (path === '/admin/tax' || path.startsWith('/admin/tax?')) return isAdmin ? <AdminTax /> : <AccessDenied />;
   if (path === '/admin/settings') return isAdmin ? <AdminSettings /> : <AccessDenied />;
   if (path === '/admin/activity') return isAdmin ? <AdminActivity /> : <AccessDenied />;
+  if (path === '/admin/documents') return isAdmin ? <AdminDocuments /> : <AccessDenied />;
 
   if (path === '/favorites') return profile ? <FavoritesPage /> : <AuthPage mode="login" />;
   if (path === '/notifications') return profile ? <NotificationsPage /> : <AuthPage mode="login" />;

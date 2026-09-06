@@ -172,6 +172,25 @@ export interface RentInvoice {
   created_at: string;
 }
 
+
+export interface DocumentRecord {
+  id: string;
+  title: string;
+  category: string;
+  status: string;
+  file_name: string;
+  mime_type: string;
+  file_size: number;
+  storage_path: string;
+  property_id: string | null;
+  lease_id: string | null;
+  tenant_id: string | null;
+  uploaded_by: string;
+  review_notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface MaintenanceRequest {
   id: string;
   tenant_id: string;

@@ -337,6 +337,11 @@ export const ownerNav = [
     icon: <FileText className="w-5 h-5" />,
   },
   {
+    label: 'Documents',
+    to: '/owner/documents',
+    icon: <FileText className="w-5 h-5" />,
+  },
+  {
     label: 'Settings',
     to: '/owner/settings',
     icon: <Settings className="w-5 h-5" />,
@@ -388,6 +393,11 @@ export const tenantNav = [
     label: 'Messages',
     to: '/tenant/messages',
     icon: <Bell className="w-5 h-5" />,
+  },
+  {
+    label: 'Documents',
+    to: '/tenant/documents',
+    icon: <FileText className="w-5 h-5" />,
   },
   {
     label: 'Settings',
@@ -446,6 +456,11 @@ export const adminNav = [
     label: 'Tax',
     to: '/admin/tax',
     icon: <Receipt className="w-5 h-5" />,
+  },
+  {
+    label: 'Documents & Compliance',
+    to: '/admin/documents',
+    icon: <FileText className="w-5 h-5" />,
   },
   {
     label: 'Activity & Alerts',
