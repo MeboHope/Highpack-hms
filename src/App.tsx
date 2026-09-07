@@ -9,6 +9,7 @@ import { HomePage } from '@/pages/HomePage';
 import { PropertiesPage } from '@/pages/PropertiesPage';
 import { PropertyDetailsPage } from '@/pages/PropertyDetailsPage';
 import { AuthPage } from '@/pages/AuthPage';
+import { ForgotPasswordPage, ResetPasswordPage } from '@/pages/PasswordPages';
 import { AboutPage, ContactPage, FAQsPage } from '@/pages/StaticPages';
 import { FavoritesPage, NotificationsPage } from '@/pages/AccountPages';
 import {
@@ -67,6 +68,8 @@ function Routes() {
 
   if (path === '/login') return <AuthPage mode="login" />;
   if (path === '/register') return <AuthPage mode="register" />;
+  if (path === '/forgot-password') return <ForgotPasswordPage />;
+  if (path === '/reset-password') return <ResetPasswordPage />;
 
   const isOwner = profile?.role === 'owner' || profile?.role === 'agent' || profile?.role === 'admin';
   const isTenant = profile?.role === 'customer' || profile?.role === 'admin';

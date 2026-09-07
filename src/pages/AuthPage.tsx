@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { AlertCircle, CheckCircle2, Eye, EyeOff, Lock, Mail, Phone, User } from 'lucide-react';
 import { Link } from '@/context/RouterContext';
 import { useRouter } from '@/context/hooks';
 import { useAuth } from '@/context/hooks';
 import { useToast } from '@/context/hooks';
 import { Brand } from '@/components/Brand';
+import { getAuthEmailErrorMessage, isAuthEmailRateLimitError } from '@/lib/authErrors';
 
 function validatePassword(password: string): string | null {
   if (password.length < 10) return 'Password must be at least 10 characters.';
@@ -32,6 +33,15 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
   const [success, setSuccess] = useState<string | null>(null);
   const [confirmationRequired, setConfirmationRequired] = useState(false);
   const [resending, setResending] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState<number>(0);
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = window.setInterval(() => {
+      setResendCooldown((seconds: number) => Math.max(0, seconds - 1));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [resendCooldown]);
 
   const passwordError = useMemo(
     () => (isRegister && password ? validatePassword(password) : null),
@@ -167,17 +177,22 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
                 </p>
                 <button
                   type="button"
-                  disabled={resending || !email.trim()}
+                  disabled={resending || resendCooldown > 0 || !email.trim()}
                   className="mt-3 text-sm font-semibold text-brand-800 hover:text-accent-700 disabled:opacity-50"
                   onClick={async () => {
                     setResending(true);
                     const result = await resendConfirmation(email);
                     setResending(false);
-                    if (result.error) setError(result.error);
-                    else setSuccess('A new confirmation email has been sent. Please check your inbox.');
+                    if (result.error) {
+                      setError(getAuthEmailErrorMessage(result.error, 'confirmation'));
+                      if (isAuthEmailRateLimitError(result.error)) setResendCooldown(60);
+                    } else {
+                      setResendCooldown(60);
+                      setSuccess('A new confirmation email has been sent. Please check your inbox.');
+                    }
                   }}
                 >
-                  {resending ? 'Sending confirmation email...' : 'Resend confirmation email'}
+                  {resending ? 'Sending confirmation email...' : resendCooldown > 0 ? `Resend available in ${resendCooldown}s` : 'Resend confirmation email'}
                 </button>
               </div>
             )}
@@ -233,6 +248,12 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
                   </p>
                 )}
               </div>
+
+              {!isRegister && (
+                <div className="-mt-1 text-right">
+                  <Link to="/forgot-password" className="text-sm font-semibold text-brand-800 hover:text-accent-700">Forgot password?</Link>
+                </div>
+              )}
 
               {isRegister && (
                 <div>

@@ -11,6 +11,8 @@ interface AuthContextValue {
   signIn: (email: string, password: string) => Promise<{ error: string | null; role: Profile['role'] | null }>;
   signUp: (email: string, password: string, fullName: string, phone?: string) => Promise<{ error: string | null; confirmationRequired: boolean }>;
   resendConfirmation: (email: string) => Promise<{ error: string | null }>;
+  requestPasswordReset: (email: string) => Promise<{ error: string | null }>;
+  updatePassword: (password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -163,6 +165,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: error?.message ?? null }; 
   };
 
+  const requestPasswordReset = async (email: string) => {
+    const cleanEmail = email.trim().toLowerCase();
+    const redirectTo = `${window.location.origin}/?auth=recovery`;
+    const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, { redirectTo });
+    return { error: error?.message ?? null };
+  };
+
+  const updatePassword = async (password: string) => {
+    const { error } = await supabase.auth.updateUser({ password });
+    return { error: error?.message ?? null };
+  };
+
   const signOut = async () => {
     const { error } = await supabase.auth.signOut();
     if (error) console.error('Sign-out error:', error);
@@ -184,6 +198,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signIn,
         signUp,
         resendConfirmation,
+        requestPasswordReset,
+        updatePassword,
         signOut,
         refreshProfile,
       }}
