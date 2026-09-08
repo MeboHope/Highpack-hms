@@ -41,20 +41,20 @@ export function Header() {
   };
 
   return (
-    <header className="sticky top-0 z-50 border-b border-ink-100 bg-white/95 backdrop-blur-md">
+    <header className="sticky top-0 z-50 border-b border-ink-100/80 bg-white/90 backdrop-blur-xl shadow-[0_8px_30px_rgba(13,35,66,0.04)]">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="flex h-24 items-center justify-between gap-6">
+        <div className="flex h-[76px] items-center justify-between gap-5">
           <Brand compact />
 
-          <nav className="hidden items-center gap-1 md:flex">
+          <nav className="hidden items-center gap-1 rounded-2xl border border-ink-100 bg-ink-50/60 p-1 md:flex">
             {navLinks.map((link) => (
               <Link
                 key={link.to}
                 to={link.to}
-                className={`rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${
+                className={`rounded-xl px-3.5 py-2 text-sm font-semibold transition-all ${
                   isActive(link.to)
-                    ? 'bg-brand-50 text-brand-800'
-                    : 'text-ink-600 hover:bg-ink-50 hover:text-brand-900'
+                    ? 'bg-white text-brand-900 shadow-sm ring-1 ring-ink-100'
+                    : 'text-ink-600 hover:bg-white hover:text-brand-900'
                 }`}
               >
                 {link.label}
@@ -71,7 +71,7 @@ export function Header() {
                 <Link to="/notifications" className="btn-ghost" aria-label="Notifications">
                   <Bell className="h-5 w-5" />
                 </Link>
-                <Link to={dashboardLink} className="btn-accent">
+                <Link to={dashboardLink} className="btn-accent rounded-xl px-4 shadow-sm">
                   <LayoutDashboard className="h-4 w-4" />
                   Dashboard
                 </Link>
@@ -84,7 +84,7 @@ export function Header() {
                     aria-expanded={menuOpen}
                     aria-haspopup="menu"
                   >
-                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-100 font-semibold text-brand-800">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-100 to-accent-100 font-bold text-brand-800 ring-2 ring-white shadow-sm">
                       {profile.full_name?.charAt(0).toUpperCase() || 'U'}
                     </div>
                   </button>
@@ -97,8 +97,8 @@ export function Header() {
                         className="fixed inset-0 z-10 h-full w-full cursor-default"
                         onClick={() => setMenuOpen(false)}
                       />
-                      <div className="absolute right-0 z-20 mt-2 w-52 overflow-hidden rounded-xl border border-ink-100 bg-white py-1 shadow-soft-lg">
-                        <div className="border-b border-ink-100 px-4 py-3">
+                      <div className="absolute right-0 z-20 mt-3 w-60 overflow-hidden rounded-2xl border border-ink-100 bg-white py-1.5 shadow-2xl">
+                        <div className="border-b border-ink-100 bg-gradient-to-br from-brand-50/70 to-white px-4 py-3.5">
                           <p className="truncate text-sm font-semibold text-ink-900">{profile.full_name || 'User'}</p>
                           <p className="mt-0.5 text-xs capitalize text-ink-500">{profile.role === 'customer' ? 'Tenant' : profile.role}</p>
                         </div>
@@ -152,7 +152,7 @@ export function Header() {
                 to={link.to}
                 onClick={() => setMobileOpen(false)}
                 className={`block rounded-lg px-3 py-2.5 text-sm font-semibold ${
-                  isActive(link.to) ? 'bg-brand-50 text-brand-800' : 'text-ink-700 hover:bg-ink-50'
+                  isActive(link.to) ? 'bg-white text-brand-900 shadow-sm ring-1 ring-ink-100' : 'text-ink-700 hover:bg-ink-50'
                 }`}
               >
                 {link.label}

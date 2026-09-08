@@ -14,7 +14,7 @@ import { getPropertyImages } from '@/lib/images';
 import { downloadPaymentReceiptPdf } from '@/lib/documents';
 import { loadDashboardPropertyPerformance } from '@/lib/operationalData';
 import type { Property, PropertyUnit, Reservation, Lease, Expense, TaxRecord, MaintenanceRequest, Payment } from '@/lib/supabase';
-import { ComparisonBars, DonutChart } from '@/components/AnalyticsCharts';
+import { ComparisonBars, DonutChart, TrendChart } from '@/components/AnalyticsCharts';
 
 export function OwnerDashboard() {
   const { profile } = useAuth();
@@ -160,26 +160,23 @@ export function OwnerProperties() {
 
   return (
     <DashboardLayout navItems={ownerNav} title="Properties">
-      <div className="flex items-center justify-between mb-6">
-        <div><h2 className="text-xl font-bold text-ink-900">My Property Assets</h2><p className="mt-1 text-sm text-ink-500">Buildings, land, commercial assets, developments and hospitality inventory.</p></div>
-        <button onClick={() => setShowAdd(true)} className="btn-primary">
+      <div className="mb-6 rounded-3xl brand-gradient p-6 text-white shadow-soft-lg sm:p-7"><div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between"><div><p className="text-xs font-bold uppercase tracking-[0.18em] text-white/70">Owner portfolio</p><h2 className="mt-1 text-2xl font-bold sm:text-3xl text-white">My Property Assets</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-white/80">A premium operating workspace for buildings, land, commercial assets, developments and hospitality inventory.</p></div>
+        <button onClick={() => setShowAdd(true)} className="btn-accent shrink-0">
           <Plus className="w-4 h-4" /> Add Property / Asset
-        </button>
-      </div>
+        </button></div></div>
 
       {loading ? <LoadingPage /> : properties.length === 0 ? (
         <EmptyState icon={<Building2 className="w-8 h-8" />} title="No property assets yet" description="Register your first building, land parcel, development or hospitality asset." action={<button onClick={() => setShowAdd(true)} className="btn-primary"><Plus className="w-4 h-4" /> Add Property / Asset</button>} />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {properties.map((p) => (
-            <Card key={p.id} className="overflow-hidden">
-              <div className="h-40 bg-ink-100 overflow-hidden cursor-pointer" onClick={() => navigate(`/property/${p.id}`)}>
-                <img src={p.photos?.[0] || getPropertyImages(p.property_type)[0]} alt={p.name} className="w-full h-full object-cover hover:scale-105 transition-transform" />
+            <Card key={p.id} className="group overflow-hidden border-ink-100 shadow-sm transition-all hover:-translate-y-1 hover:shadow-soft-lg">
+              <div className="relative h-48 bg-ink-100 overflow-hidden cursor-pointer" onClick={() => navigate(`/property/${p.id}`)}>
+                <img src={p.photos?.[0] || getPropertyImages(p.property_type)[0]} alt={p.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" /><div className="absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-transparent pointer-events-none" /><div className="absolute left-3 top-3"><Badge status={p.status} /></div>
               </div>
               <div className="p-4">
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-semibold text-ink-900 truncate">{p.name}</h3>
-                  <Badge status={p.status} />
+                  <h3 className="font-semibold text-ink-900 truncate group-hover:text-brand-700">{p.name}</h3>
                 </div>
                 <p className="text-sm text-ink-500 flex items-center gap-1 mb-3"><MapPin className="w-3.5 h-3.5" /> {p.town}, {p.county}</p><div className="mb-4 grid grid-cols-3 gap-2"><button type="button" onClick={() => navigate(`/owner/units/${p.id}`)} className="stat-chip"><strong>{p.number_of_units || 0}</strong><span>Units</span></button><button type="button" onClick={() => navigate(`/owner/units/${p.id}`)} className="stat-chip"><strong>{p.number_of_floors || 1}</strong><span>Floors</span></button><button type="button" onClick={() => navigate(`/owner/units/${p.id}`)} className="stat-chip"><strong>{p.property_type === 'Apartment' ? 'View' : 'Open'}</strong><span>Structure</span></button></div>
                 <div className="flex gap-2">
@@ -683,6 +680,10 @@ export function OwnerExpenses() {
         <button onClick={() => setShowAdd(true)} className="btn-primary"><Plus className="w-4 h-4" /> Record Expense</button>
       </div>
       <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-3"><StatCard label="Total Expenses" value={formatKES(total)} icon={<Receipt className="h-5 w-5" />} accent="red" /><StatCard label="Expense Records" value={expenses.length} icon={<FileText className="h-5 w-5" />} /><StatCard label="Properties With Costs" value={new Set(expenses.map((e) => e.property_id)).size} icon={<Building2 className="h-5 w-5" />} accent="accent" /></div>
+      <div className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <DonutChart segments={Object.entries(expenses.reduce((acc, e) => { const key = String(e.category || 'Other'); acc[key] = (acc[key] || 0) + Number(e.amount || 0); return acc; }, {} as Record<string, number>)).slice(0, 5).map(([label, value]) => ({ label, value: Math.round(value) }))} centerLabel="Recent" centerValue={formatKES(total)} />
+        <TrendChart points={expenses.slice().reverse().map((e) => ({ label: new Date(e.expense_date || e.created_at).toLocaleDateString(undefined, { day: '2-digit', month: 'short' }), value: Number(e.amount || 0) })).slice(-6)} valueLabel="Recent expense activity" prefix="KES " />
+      </div>
 
       {loading ? <LoadingPage /> : expenses.length === 0 ? (
         <EmptyState icon={<Receipt className="w-8 h-8" />} title="No expenses recorded" description="Track property expenses for tax deduction purposes." />
@@ -955,6 +956,10 @@ export function OwnerMaintenance() {
           ))}
         </div>
       )}
+          <div className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
+            <DonutChart segments={Object.entries(requests.reduce((acc: Record<string, number>, r: MaintenanceRequest) => { const key = titleCase(String(r.status || 'unknown')); acc[key] = (acc[key] || 0) + 1; return acc; }, {})).map(([label, value]) => ({ label, value: Number(value) }))} centerLabel="Requests" centerValue={String(requests.length)} />
+            <DonutChart segments={Object.entries(requests.reduce((acc: Record<string, number>, r: MaintenanceRequest) => { const key = titleCase(String(r.priority || 'medium')); acc[key] = (acc[key] || 0) + 1; return acc; }, {})).map(([label, value]) => ({ label, value: Number(value) }))} centerLabel="Priority" centerValue={String(requests.filter((r) => r.priority === 'high' || r.priority === 'urgent').length)} />
+          </div>
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
 </DashboardLayout>
   );
@@ -1067,6 +1072,10 @@ export function OwnerPayments() {
           </div>
         </Card>
       )}
+          <div className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
+            <DonutChart segments={Object.entries(payments.reduce((acc: Record<string, number>, p: Payment) => { const key = titleCase(String(p.payment_method || 'other')); acc[key] = (acc[key] || 0) + 1; return acc; }, {})).map(([label, value]) => ({ label, value: Number(value) }))} centerLabel="Transactions" centerValue={String(payments.length)} />
+            <TrendChart points={payments.slice().reverse().map((p) => ({ label: new Date(p.created_at).toLocaleDateString(undefined, { day: '2-digit', month: 'short' }), value: p.status === 'successful' && p.verified ? Number(p.amount || 0) : 0 })).slice(-6)} valueLabel="Verified collection activity" prefix="KES " />
+          </div>
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
 </DashboardLayout>
   );

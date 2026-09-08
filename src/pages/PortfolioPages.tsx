@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { useToast } from '@/context/hooks';
 import { useAuth } from '@/context/hooks';
 import { titleCase } from '@/lib/constants';
+import { DonutChart } from '@/components/AnalyticsCharts';
 
 type AssetClass = 'built_property' | 'land' | 'mixed_use' | 'development_project' | 'other';
 type OperationModel = 'long_term_rental' | 'short_stay' | 'sale' | 'lease' | 'land_sale' | 'mixed';
@@ -120,7 +121,11 @@ function PortfolioPage({ ownerOnly = false }: { ownerOnly?: boolean }) {
         <StatCard label="Built properties · page" value={built} icon={<Building2 className="h-5 w-5" />} accent="blue" />
         <StatCard label="Land / plots · page" value={land} icon={<LandPlot className="h-5 w-5" />} accent="accent" />
         <StatCard label="Short-stay · page" value={shortStay} icon={<Hotel className="h-5 w-5" />} accent="red" />
+      </div>      <div className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <DonutChart segments={[{ label: 'Built property', value: built }, { label: 'Land / plots', value: land }, { label: 'Short-stay', value: shortStay }, { label: 'Sales-oriented', value: sale }]} centerLabel="This page" centerValue={String(rows.length)} />
+        <Card className="p-5"><div className="mb-4"><p className="chart-kicker">Portfolio pulse</p><p className="chart-caption">Current page inventory signals</p></div><div className="space-y-4">{[['Built properties',built],['Land / plots',land],['Short-stay',shortStay],['Sale-oriented',sale]].map(([label,value])=><div key={String(label)}><div className="mb-1 flex justify-between text-xs"><span className="font-semibold text-ink-700">{label}</span><span className="text-ink-400">{value}</span></div><div className="h-2 rounded-full bg-ink-100"><div className="h-2 rounded-full bg-brand-600" style={{width:`${rows.length ? Math.min(100, Number(value)/rows.length*100) : 0}%`}} /></div></div>)}</div></Card>
       </div>
+
       <Card className="mb-5 p-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
           <div className="relative flex-1"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" /><input className="input pl-10" placeholder="Search property, location, title or parcel number…" value={query} onChange={(e) => setQuery(e.target.value)} /></div>

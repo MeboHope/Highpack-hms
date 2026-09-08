@@ -1,19 +1,34 @@
-# HighPark Consult PMS — Phase 16 Premium UI/UX + Analytics
+# HighPark Consult PMS — Phase 16 Premium UI/UX & Analytics
+
+This release is a visual/product-design upgrade built on Phase 15 V3. It preserves the existing operational workflows and adds a reusable premium visual language plus analytics surfaces.
 
 ## Included
-- Fixes Admin Settings `permission denied` on save by granting authenticated table write privileges while keeping the existing admin-only RLS policy.
-- Adds a reusable premium analytics layer without introducing a chart-library dependency.
-- Admin Dashboard: verified collection trend + portfolio occupancy mix.
-- Owner Dashboard: expected-vs-collected property comparison + occupancy mix.
-- Tenant Dashboard: verified payment trend + current balance composition.
-- Adds polished analytics cards, micro-interactions, visual hierarchy and chart styling globally.
-- Fixes the Admin Dashboard lease-expiry query to use the schema's `lease_end` column.
+- Premium global dashboard canvas, cards, buttons, tables, forms and interaction states.
+- More polished DashboardLayout with a consistent workspace surface.
+- Analytics visuals on Admin, Owner and Tenant financial/operational workspaces.
+- Visual mixes for payments, expenses, maintenance, portfolio classification, sales pipeline and short-stay bookings.
+- Tenant rent centre visual balance/payment analytics.
+- Universal terminology such as Saved Opportunities instead of house-only wording.
+- Existing pagination and server-side data loading are preserved.
+- Existing M-Pesa STK Push, manual PayBill, bank transfer, Equity dormant mode and KRA dormant mode are preserved.
+- Existing document/compliance, lease lifecycle, short-stay and sales workflows are preserved.
+- Admin Settings write-permission migration remains included.
 
-## Deployment
-1. `npm ci`
-2. `supabase link --project-ref xhcsanlaslsilqnfanrk`
-3. `supabase db push --include-all`
-4. `npm run build`
-5. `npm run lint`
+## Design principle
+Charts are used where they help answer an operational question; detailed ledgers remain tables with pagination. This keeps the application premium without turning every page into a dashboard wall.
 
-No Equity credentials are required for this phase. KRA remains dormant when unconfigured.
+## Validation
+The source package was checked structurally after the UI changes. A full dependency reinstall/build could not be completed in the build container because `npm ci` exceeded the container transport timeout. The user's Phase 15 V3 project had already passed `npm run build` and `npm run lint`; after installing this release locally, run the normal validation commands before deployment.
+
+Recommended validation:
+
+```powershell
+npm ci
+npm run build
+npm run lint
+supabase link --project-ref xhcsanlaslsilqnfanrk
+supabase db push --include-all
+npm run dev
+```
+
+Do not run `npm audit fix --force`.

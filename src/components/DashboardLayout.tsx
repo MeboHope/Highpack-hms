@@ -21,6 +21,7 @@ interface NavItem {
   label: string;
   to: string;
   icon: ReactNode;
+  section?: string;
 }
 
 export function DashboardLayout({
@@ -78,7 +79,7 @@ export function DashboardLayout({
         supabase.from('profiles').select('id,full_name,phone,role').or(`full_name.ilike.${term},phone.ilike.${term}`).limit(5),
       ]);
       const results: Array<{ type: string; title: string; subtitle: string; to: string }> = [];
-      (properties.data || []).forEach((row) => results.push({ type: 'Property', title: String(row.name), subtitle: `${String(row.town || '')}${row.county ? `, ${String(row.county)}` : ''}`, to: `/property/${row.id}` }));
+      (properties.data || []).forEach((row) => results.push({ type: 'Property', title: String(row.name), subtitle: `${String(row.town || '')}${row.county ? `, ${String(row.county)}` : ''}`, to: profile?.role === 'admin' ? `/admin/properties/${row.id}` : `/property/${row.id}` }));
       (units.data || []).forEach((row) => {
         const property = Array.isArray(row.properties) ? row.properties[0] : row.properties;
         results.push({ type: 'Unit', title: `Unit ${String(row.unit_number)}`, subtitle: property?.name ? String(property.name) : 'Property unit', to: '/admin/units' });
@@ -98,18 +99,18 @@ export function DashboardLayout({
   };
 
   return (
-    <div className="app-shell min-h-screen bg-ink-50 flex">
+    <div className="app-shell min-h-screen bg-[radial-gradient(circle_at_top_right,_rgba(193,153,71,0.08),_transparent_28%),#f6f8fb] flex">
       {/* Desktop sidebar */}
-      <aside className="hidden lg:flex w-64 bg-white/95 backdrop-blur-xl border-r border-ink-100 flex-col fixed h-screen z-40 shadow-[8px_0_30px_rgba(13,35,66,0.03)]">
+      <aside className="hidden lg:flex w-72 bg-white/95 backdrop-blur-xl border-r border-ink-100 flex-col fixed h-screen z-40 shadow-[12px_0_40px_rgba(13,35,66,0.05)]">
         {/* Logo */}
-        <div className="px-4 py-5 border-b border-ink-100 flex items-center justify-center bg-gradient-to-b from-white to-brand-50/30">
+        <div className="px-5 py-6 border-b border-ink-100 flex items-center justify-center bg-gradient-to-b from-white via-white to-brand-50/40">
           <Brand compact />
         </div>
 
         {/* User profile */}
-        <div className="p-4 border-b border-ink-100">
+        <div className="p-4 border-b border-ink-100 bg-gradient-to-br from-white to-ink-50/70">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center font-semibold">
+            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-brand-100 to-accent-100 text-brand-800 flex items-center justify-center font-bold shadow-sm ring-1 ring-brand-100">
               {profile?.full_name?.[0]?.toUpperCase() || 'U'}
             </div>
 
@@ -118,7 +119,7 @@ export function DashboardLayout({
                 {profile?.full_name || 'User'}
               </p>
 
-              <p className="text-xs text-ink-400 capitalize">
+              <p className="text-[11px] text-ink-400 capitalize font-medium">
                 {profile?.role || 'user'}
               </p>
             </div>
@@ -127,19 +128,24 @@ export function DashboardLayout({
 
         {/* Navigation */}
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-          {navItems.map((item) => (
+          {navItems.map((item, index) => (
+            <div key={item.to}>
+              {item.section && (index === 0 || item.section !== navItems[index - 1]?.section) && (
+                <p className="px-3 pb-1 pt-4 text-[10px] font-bold uppercase tracking-[0.16em] text-ink-400">{item.section}</p>
+              )}
             <Link
               key={item.to}
               to={item.to}
-              className={`group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
+              className={`group flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-semibold transition-all ${
                 isActive(item.to)
-                  ? 'bg-brand-50 text-brand-800 shadow-sm ring-1 ring-brand-100'
+                  ? 'bg-gradient-to-r from-brand-50 to-accent-50/60 text-brand-900 shadow-sm ring-1 ring-brand-100'
                   : 'text-ink-600 hover:bg-ink-50 hover:text-ink-900'
               }`}
             >
               <span className={isActive(item.to) ? 'text-brand-700' : 'text-ink-400 group-hover:text-brand-600'}>{item.icon}</span>
               {item.label}
             </Link>
+            </div>
           ))}
         </nav>
 
@@ -187,7 +193,11 @@ export function DashboardLayout({
 
             {/* Mobile navigation */}
             <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-              {navItems.map((item) => (
+              {navItems.map((item, index) => (
+                <div key={item.to}>
+                  {item.section && (index === 0 || item.section !== navItems[index - 1]?.section) && (
+                    <p className="px-3 pb-1 pt-4 text-[10px] font-bold uppercase tracking-[0.16em] text-ink-400">{item.section}</p>
+                  )}
                 <Link
                   key={item.to}
                   to={item.to}
@@ -201,6 +211,7 @@ export function DashboardLayout({
                   {item.icon}
                   {item.label}
                 </Link>
+                </div>
               ))}
             </nav>
 
@@ -218,10 +229,10 @@ export function DashboardLayout({
       )}
 
       {/* Main content */}
-      <div className="flex-1 lg:ml-64">
+      <div className="flex-1 lg:ml-72">
         {/* Top bar */}
         <header className="sticky top-0 z-30 bg-white/85 backdrop-blur-xl border-b border-ink-100 shadow-[0_4px_24px_rgba(13,35,66,0.03)]">
-          <div className="flex items-center justify-between px-4 sm:px-6 h-16">
+          <div className="flex items-center justify-between px-4 sm:px-7 h-[72px]">
             <div className="flex items-center gap-3">
               <button
                 className="lg:hidden btn-ghost p-2"
@@ -231,7 +242,7 @@ export function DashboardLayout({
                 <Menu className="w-6 h-6" />
               </button>
 
-              <div><p className="hidden sm:block text-[10px] font-bold uppercase tracking-[0.18em] text-brand-600">HighPark Consult</p><h1 className="text-lg font-bold text-ink-900 capitalize">{title}</h1></div>
+              <div><p className="hidden sm:block text-[10px] font-bold uppercase tracking-[0.2em] text-brand-600">HighPark Consult · Workspace</p><h1 className="text-xl font-bold text-ink-950 capitalize tracking-tight">{title}</h1></div>
             </div>
 
             <div className="flex items-center gap-2">
@@ -265,8 +276,14 @@ export function DashboardLayout({
           </div>
         </div>}
 
-        <main className="p-4 sm:p-6 lg:p-8 max-w-[1500px] mx-auto">
-          <div className="mb-4 hidden items-center gap-2 text-[11px] font-medium text-ink-400 lg:flex"><span>HighPark Consult</span><span>•</span><span className="capitalize">{profile?.role || 'workspace'}</span><span>•</span><span className="text-brand-700">{title}</span></div>
+        <main className="page-surface p-4 sm:p-6 lg:p-8 max-w-[1500px] mx-auto min-h-[calc(100vh-72px)]">
+          <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-ink-100 bg-gradient-to-r from-white via-brand-50/35 to-accent-50/25 px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-brand-600"><span>HighPark Consult</span><span className="text-ink-300">•</span><span>{profile?.role || 'workspace'}</span></div>
+              <div className="mt-1 flex items-center gap-2"><h2 className="truncate text-base font-bold tracking-tight text-ink-950">{title}</h2><span className="hidden rounded-full bg-white px-2 py-1 text-[10px] font-bold text-ink-500 ring-1 ring-ink-100 sm:inline-flex">Live workspace</span></div>
+            </div>
+            <div className="text-xs text-ink-500">Secure, role-based property operations</div>
+          </div>
           {children}
         </main>
       </div>

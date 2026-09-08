@@ -278,3 +278,59 @@ h6 {
   .insight-card { @apply flex items-center gap-3 rounded-2xl border border-ink-100 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-brand-200 hover:shadow-soft; }
   .insight-icon { @apply flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-700; }
 }
+
+
+/* =========================================================
+   PHASE 16 — PREMIUM PRODUCT POLISH
+   ========================================================= */
+@layer components {
+  .page-surface { @apply relative; }
+  .card {
+    @apply rounded-2xl border border-ink-100 bg-white shadow-sm;
+    box-shadow: 0 8px 30px rgba(13,35,66,.045), 0 1px 2px rgba(13,35,66,.04);
+  }
+  .card:hover { box-shadow: 0 14px 36px rgba(13,35,66,.07), 0 2px 4px rgba(13,35,66,.04); }
+  .dashboard-stat-clickable { position: relative; overflow: hidden; }
+  .dashboard-stat-clickable::after {
+    content: '';
+    position: absolute; width: 90px; height: 90px; right: -35px; top: -35px;
+    border-radius: 999px; background: rgba(201,151,46,.07); pointer-events: none;
+  }
+  .btn-ghost { @apply inline-flex items-center justify-center rounded-xl px-3 py-2 text-ink-500 transition hover:bg-ink-50 hover:text-brand-700; }
+  .icon-action { @apply inline-flex h-10 w-10 items-center justify-center rounded-xl border border-ink-200 bg-white text-ink-500 transition hover:border-brand-200 hover:bg-brand-50 hover:text-brand-700; }
+  .premium-table thead th { @apply whitespace-nowrap border-b border-ink-100 bg-ink-50/80 px-4 py-3 text-left text-[10px] font-bold uppercase tracking-[.12em] text-ink-400; }
+  .premium-table tbody td { @apply border-b border-ink-100/80 px-4 py-4 align-middle text-ink-700; }
+  .premium-table tbody tr { @apply transition-colors; }
+  .premium-table tbody tr:hover { background: rgba(247,249,252,.8); }
+  .premium-table tbody tr:last-child td { border-bottom: 0; }
+  .chart-panel { @apply rounded-2xl border border-ink-100 bg-white p-5 shadow-sm; box-shadow: 0 8px 28px rgba(13,35,66,.04); }
+  .chart-panel-head { @apply flex items-start justify-between gap-4; }
+  .chart-kicker { @apply text-[10px] font-bold uppercase tracking-[.14em] text-brand-600; }
+  .chart-caption { @apply mt-1 text-sm font-semibold text-ink-800; }
+  .chart-total { @apply rounded-xl bg-brand-50 px-3 py-2 text-sm font-bold text-brand-800; }
+  .insight-card { @apply flex items-center gap-3 rounded-2xl border border-ink-100 bg-white p-4 shadow-sm; }
+  .insight-icon { @apply flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-700; }
+  .page-toolbar { @apply rounded-2xl border border-ink-100 bg-white/90 p-4 shadow-sm backdrop-blur; }
+  .soft-divider { @apply border-t border-ink-100/80; }
+}
+
+/* Give long dashboard workspaces a subtle, premium canvas without distracting from data. */
+main { position: relative; }
+main::before {
+  content: '';
+  position: fixed; inset: 64px 0 0 auto; width: 42vw; max-width: 620px; z-index: -1; pointer-events: none;
+  background: radial-gradient(circle at 80% 15%, rgba(201,151,46,.055), transparent 38%), radial-gradient(circle at 40% 65%, rgba(49,91,145,.045), transparent 42%);
+}
+
+@media (max-width: 640px) {
+  .chart-panel { padding: 1rem; }
+  .chart-panel-head { flex-direction: column; }
+  .chart-total { align-self: flex-start; }
+}
+
+.workspace-strip {
+  background: linear-gradient(110deg, rgba(255,255,255,.96), rgba(241,246,252,.88) 58%, rgba(255,249,231,.72));
+  box-shadow: 0 8px 28px rgba(13,35,66,.035);
+}
+.portal-section-title { letter-spacing: -.02em; }
+@media (max-width: 640px) { .workspace-strip { padding-top: .75rem; padding-bottom: .75rem; } }

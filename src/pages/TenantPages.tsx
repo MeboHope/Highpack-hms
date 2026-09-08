@@ -268,6 +268,10 @@ export function TenantRent() {
         <StatCard label="Deposit Balance" value={formatKES(depositBalance)} icon={<Receipt className="w-5 h-5" />} />
         <StatCard label="Verified Paid" value={formatKES(verifiedTotal)} icon={<CheckCircle className="w-5 h-5" />} accent="blue" />
       </div>
+      <div className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <DonutChart segments={[{ label: 'Rent / service due', value: Math.round(outstandingRent) }, { label: 'Deposit balance', value: Math.round(depositBalance) }, { label: 'Verified paid', value: Math.round(verifiedTotal) }]} centerLabel="Current position" centerValue={formatKES(outstandingRent + depositBalance)} />
+        <TrendChart points={payments.slice().reverse().map((p) => ({ label: new Date(p.created_at).toLocaleDateString(undefined, { day: '2-digit', month: 'short' }), value: p.status === 'successful' && p.verified ? Number(p.amount || 0) : 0 })).slice(-6)} valueLabel="Your recent verified payments" prefix="KES " />
+      </div>
 
       {loading ? <LoadingPage /> : (
         <>

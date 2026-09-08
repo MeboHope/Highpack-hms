@@ -35,7 +35,7 @@ export function FavoritesPage() {
     <div className="min-h-screen flex flex-col">
       <Header />
       <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
-        <h1 className="text-2xl font-bold text-ink-900 mb-6">My Saved Houses</h1>
+        <h1 className="text-2xl font-bold text-ink-900 mb-6">My Saved Opportunities</h1>
         {loading ? <LoadingPage /> : favorites.length === 0 ? (
           <EmptyState icon={<Heart className="w-8 h-8" />} title="No saved properties yet" description="Click the heart icon on any property to save it here for later." action={<Link to="/properties" className="btn-primary">Browse Properties</Link>} />
         ) : (
