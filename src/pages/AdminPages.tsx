@@ -14,8 +14,10 @@ import { loadDashboardPropertyPerformance, loadManagedExpenses, loadManagedMaint
 import type { Property, Profile, Reservation, Payment, RentInvoice, SystemSettings, TaxRecord, Notification } from '@/lib/supabase';
 import type { AuditLog } from '@/lib/types';
 import type { ManagedExpenseRow } from '@/lib/operationalData';
+import { DonutChart, TrendChart } from '@/components/AnalyticsCharts';
 
 export function AdminDashboard() {
+  const [paymentTrend, setPaymentTrend] = useState<Array<{ label: string; value: number }>>([]);
   const { navigate } = useRouter();
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState(new Date().toISOString().slice(0, 7));
@@ -34,7 +36,7 @@ export function AdminDashboard() {
         supabase.from('reservations').select('id', { count: 'exact', head: true }).in('status', ['requested', 'confirmed', 'rescheduled']),
         supabase.from('payments').select('id', { count: 'exact', head: true }).in('status', ['pending', 'submitted', 'under_review']),
         supabase.from('maintenance_requests').select('id', { count: 'exact', head: true }).not('status', 'in', '(completed,closed,cancelled)'),
-        supabase.from('leases').select('id', { count: 'exact', head: true }).eq('status', 'active').gte('end_date', new Date().toISOString().slice(0, 10)).lte('end_date', new Date(Date.now() + 45 * 86400000).toISOString().slice(0, 10)),
+        supabase.from('leases').select('id', { count: 'exact', head: true }).eq('status', 'active').gte('lease_end', new Date().toISOString().slice(0, 10)).lte('lease_end', new Date(Date.now() + 45 * 86400000).toISOString().slice(0, 10)),
         supabase.rpc('get_admin_financial_command_center', { p_period: period }),
       ]);
       setSummary(performance.map((row) => ({
@@ -50,6 +52,7 @@ export function AdminDashboard() {
       setCustomerCount(customerResult.count || 0);
       setAttention({ reservations: pendingReservations.count || 0, payments: pendingPayments.count || 0, maintenance: openMaintenance.count || 0, expiringLeases: expiringLeases.count || 0 });
       setFinancial((financialResult.data as AdminFinancialData | null) || null);
+      setPaymentTrend(((financialResult.data as AdminFinancialData | null)?.monthly || []).slice(-6).map((m) => ({ label: m.period, value: Number(m.collected || 0) })));
       setLoading(false);
     })();
   }, [period]);
@@ -70,6 +73,11 @@ export function AdminDashboard() {
         <StatCard label="Active Tenants" value={totals.tenants} icon={<UserCheck className="w-5 h-5" />} onClick={() => navigate('/admin/users?role=customer&active=true')} />
         <StatCard label={`Verified Rent · ${period}`} value={formatKES(totals.rent)} icon={<Wallet className="w-5 h-5" />} accent="blue" onClick={() => navigate('/admin/payments')} />
         <StatCard label={`Estimated Tax · ${period}`} value={formatKES(totals.tax)} icon={<Receipt className="w-5 h-5" />} accent="red" onClick={() => navigate(`/admin/tax?period=${period}`)} />
+      </div>
+
+      <div className="mb-7 grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <TrendChart points={paymentTrend} valueLabel="Verified collections" prefix="KES " />
+        <DonutChart segments={[{ label: 'Occupied', value: totals.occupied }, { label: 'Available', value: totals.available }, { label: 'Reserved', value: totals.reserved }]} centerLabel="Units" centerValue={String(totals.units)} />
       </div>
       <Card className="mb-7 overflow-hidden">
         <div className="border-b border-ink-100 bg-gradient-to-r from-white to-brand-50/30 px-5 py-4"><div className="flex items-center justify-between gap-3"><div><h3 className="font-semibold text-ink-900">Needs attention</h3><p className="text-xs text-ink-500">Live operational items that may require an administrator's action.</p></div><span className="badge bg-accent-50 text-accent-700">Action queue</span></div></div>

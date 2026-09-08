@@ -14,6 +14,7 @@ import { getPropertyImages } from '@/lib/images';
 import { downloadPaymentReceiptPdf } from '@/lib/documents';
 import { loadDashboardPropertyPerformance } from '@/lib/operationalData';
 import type { Property, PropertyUnit, Reservation, Lease, Expense, TaxRecord, MaintenanceRequest, Payment } from '@/lib/supabase';
+import { ComparisonBars, DonutChart } from '@/components/AnalyticsCharts';
 
 export function OwnerDashboard() {
   const { profile } = useAuth();
@@ -81,6 +82,11 @@ export function OwnerDashboard() {
         <StatCard label={`Rent Collected · ${period}`} value={formatKES(totals.collectedRent)} icon={<Wallet className="w-5 h-5" />} accent="blue" onClick={() => navigate('/owner/payments')} />
         <StatCard label="Reserved Units" value={totals.reserved} icon={<Calendar className="w-5 h-5" />} accent="accent" onClick={() => navigate('/owner/reservations')} />
         <StatCard label={`Estimated Tax · ${period}`} value={formatKES(totals.tax)} icon={<TrendingUp className="w-5 h-5" />} accent="red" onClick={() => navigate('/owner/tax')} />
+      </div>
+
+      <div className="mb-7 grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <ComparisonBars points={summary.slice(0, 6).map((row) => ({ label: row.name, value: row.collectedRent, secondary: row.expectedRent }))} primaryLabel="Collected" secondaryLabel="Expected" />
+        <DonutChart segments={[{ label: 'Occupied', value: totals.occupied }, { label: 'Available', value: totals.available }, { label: 'Reserved', value: totals.reserved }]} centerLabel="Units" centerValue={String(totals.units)} />
       </div>
 
       <Card className="overflow-hidden">

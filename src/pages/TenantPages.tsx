@@ -12,6 +12,7 @@ import { formatKES, formatDate, titleCase, MAINTENANCE_CATEGORIES } from '@/lib/
 import { getPropertyImages } from '@/lib/images';
 import type { Lease, RentInvoice, MaintenanceRequest, Reservation, Property, PropertyUnit, Payment } from '@/lib/supabase';
 import { downloadInvoicePdf, downloadPaymentReceiptPdf, getInvoiceNumber, getReceiptNumber } from '@/lib/documents';
+import { TrendChart, DonutChart } from '@/components/AnalyticsCharts';
 
 export function TenantDashboard() {
   const { profile } = useAuth();
@@ -58,6 +59,8 @@ export function TenantDashboard() {
   const moveInTotal = lease ? Math.max(0, Number(lease.monthly_rent || 0) + Number(lease.service_charge || 0) + depositBalance) : 0;
   const leaseTermMonths = lease ? Math.max(1, Math.round((new Date(lease.lease_end).getTime() - new Date(lease.lease_start).getTime()) / (1000 * 60 * 60 * 24 * 30.4375))) : 0;
   const leaseValue = lease ? Number(lease.monthly_rent || 0) * leaseTermMonths + Number(lease.service_charge || 0) * leaseTermMonths + Number(lease.deposit || 0) : 0;
+  const paymentTrend = Array.from(new Map(payments.filter((p) => p.status === 'successful' && p.verified).map((p) => { const d = new Date(p.created_at); return [d.toLocaleDateString(undefined, { month: 'short' }), Number(p.amount || 0)] as const; })).entries()).slice(-6).map(([label, value]) => ({ label: String(label), value: Number(value) }));
+  const paidAmount = payments.filter((p) => p.status === 'successful' && p.verified).reduce((sum, p) => sum + Number(p.amount || 0), 0);
 
   return (
     <DashboardLayout navItems={tenantNav} title="Dashboard">
@@ -68,6 +71,11 @@ export function TenantDashboard() {
         <StatCard label="Reservations" value={reservations.length} icon={<Calendar className="w-5 h-5" />} accent="accent" onClick={() => navigate('/tenant/reservations')} />
         <StatCard label="Verified Paid" value={formatKES(payments.filter((p) => p.status === 'successful' && p.verified).reduce((sum, p) => sum + Number(p.amount || 0), 0))} icon={<CheckCircle className="w-5 h-5" />} accent="blue" onClick={() => navigate('/tenant/rent')} />
         <StatCard label="Lease Status" value={lease ? titleCase(lease.status) : 'No lease'} icon={<FileText className="w-5 h-5" />} accent="blue" onClick={() => navigate(lease ? '/tenant/lease' : '/properties')} />
+      </div>
+
+      <div className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <TrendChart points={paymentTrend} valueLabel="Your verified payments" prefix="KES " />
+        <DonutChart segments={[{ label: 'Outstanding rent', value: Math.round(outstandingBalance) }, { label: 'Deposit balance', value: Math.round(depositBalance) }, { label: 'Paid', value: Math.round(paidAmount) }]} centerLabel="KES" centerValue={Math.round(outstandingBalance + depositBalance).toLocaleString()} />
       </div>
 
       {lease && <Card className="mb-6 overflow-hidden border-brand-100">
