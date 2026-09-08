@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Home, Wallet, FileText, Wrench, Bell, Calendar, CheckCircle, Plus, MapPin, BedDouble, Bath, ShieldCheck, Search, ArrowRight, Clock, Eye, Receipt, CreditCard, Download, X, Copy, Upload, Building2 } from 'lucide-react';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { tenantNav } from '@/components/dashboardNav';
-import { StatCard, Card, Badge, EmptyState, LoadingPage } from '@/components/ui';
+import { StatCard, Card, Badge, EmptyState, LoadingPage, Pagination } from '@/components/ui';
 import { Modal } from '@/components/Modal';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/hooks';
@@ -204,33 +204,46 @@ export function TenantRent() {
   const [loading, setLoading] = useState(true);
   const [payInvoice, setPayInvoice] = useState<RentInvoice | null>(null);
   const [payDeposit, setPayDeposit] = useState(false);
+  const [invoicePage, setInvoicePage] = useState(1);
+  const [paymentPage, setPaymentPage] = useState(1);
+  const [invoiceTotal, setInvoiceTotal] = useState(0);
+  const [paymentTotal, setPaymentTotal] = useState(0);
+  const [invoiceSummary, setInvoiceSummary] = useState<Array<{ balance: number | null; status: string }>>([]);
+  const [paymentSummary, setPaymentSummary] = useState<Array<{ amount: number | null; status: string; verified: boolean | null; payment_type: string; lease_id: string | null; reservation_id: string | null }>>([]);
+  const pageSize = 20;
 
   const load = async () => {
     if (!profile) return;
     setLoading(true);
-    const [{ data: leaseData }, { data: invoiceData }, { data: paymentData }, { data: settings }] = await Promise.all([
+    const [{ data: leaseData }, { data: invoiceData, count: invCount }, { data: paymentData, count: payCount }, { data: settings }, { data: invoiceSummaryData }, { data: paymentSummaryData }] = await Promise.all([
       supabase.from('leases').select('*').eq('tenant_id', profile.id).eq('status', 'active').order('created_at', { ascending: false }).maybeSingle(),
-      supabase.from('rent_invoices').select('*, properties(name), property_units(unit_number)').eq('tenant_id', profile.id).order('due_date', { ascending: false }),
-      supabase.from('payments').select('*').eq('user_id', profile.id).order('created_at', { ascending: false }),
+      supabase.from('rent_invoices').select('*, properties(name), property_units(unit_number)', { count: 'exact' }).eq('tenant_id', profile.id).order('due_date', { ascending: false }).range((invoicePage - 1) * pageSize, invoicePage * pageSize - 1),
+      supabase.from('payments').select('*, properties(name), property_units(unit_number)', { count: 'exact' }).eq('user_id', profile.id).order('created_at', { ascending: false }).range((paymentPage - 1) * pageSize, paymentPage * pageSize - 1),
       supabase.from('system_settings').select('reservation_fee_policy').eq('id', 1).maybeSingle(),
+      supabase.from('rent_invoices').select('balance,status').eq('tenant_id', profile.id),
+      supabase.from('payments').select('amount,status,verified,payment_type,lease_id,reservation_id').eq('user_id', profile.id),
     ]);
     setLease((leaseData as Lease | null));
     setInvoices((invoiceData as typeof invoices) || []);
     setPayments((paymentData as typeof payments) || []);
+    setInvoiceTotal(invCount || 0);
+    setPaymentTotal(payCount || 0);
     setReservationPolicy(String(settings?.reservation_fee_policy || 'non_refundable'));
+    setInvoiceSummary((invoiceSummaryData as Array<{ balance: number | null; status: string }>) || []);
+    setPaymentSummary((paymentSummaryData as Array<{ amount: number | null; status: string; verified: boolean | null; payment_type: string; lease_id: string | null; reservation_id: string | null }>) || []);
     setLoading(false);
   };
 
-  useEffect(() => { void load(); }, [profile]);
+  useEffect(() => { void load(); }, [profile, invoicePage, paymentPage]);
 
-  const outstandingRent = invoices.filter((i) => i.status !== 'paid').reduce((sum, i) => sum + Number(i.balance || 0), 0);
-  const verifiedDepositPaid = payments.filter((p) => p.lease_id === lease?.id && p.payment_type === 'deposit' && p.status === 'successful' && p.verified).reduce((sum, p) => sum + Number(p.amount || 0), 0);
+  const outstandingRent = (invoiceSummary || []).filter((i) => i.status !== 'paid').reduce((sum, i) => sum + Number(i.balance || 0), 0);
+  const verifiedDepositPaid = (paymentSummary || []).filter((p) => p.lease_id === lease?.id && p.payment_type === 'deposit' && p.status === 'successful' && p.verified).reduce((sum, p) => sum + Number(p.amount || 0), 0);
   const reservationCredit = (reservationPolicy === 'deductible_deposit' || reservationPolicy === 'deductible_rent')
-    ? payments.filter((p) => p.reservation_id === lease?.reservation_id && p.payment_type === 'reservation' && p.status === 'successful' && p.verified).reduce((sum, p) => sum + Number(p.amount || 0), 0)
+    ? (paymentSummary || []).filter((p) => p.reservation_id === lease?.reservation_id && p.payment_type === 'reservation' && p.status === 'successful' && p.verified).reduce((sum, p) => sum + Number(p.amount || 0), 0)
     : 0;
   const depositBalance = lease ? Math.max(0, Number(lease.deposit || 0) - verifiedDepositPaid - (reservationPolicy === 'deductible_deposit' ? reservationCredit : 0)) : 0;
   const moveInTotal = lease ? Math.max(0, Number(lease.monthly_rent || 0) + Number(lease.service_charge || 0) + depositBalance) : 0;
-  const verifiedTotal = payments.filter((p) => p.status === 'successful' && p.verified).reduce((sum, p) => sum + Number(p.amount || 0), 0);
+  const verifiedTotal = (paymentSummary || []).filter((p) => p.status === 'successful' && p.verified).reduce((sum, p) => sum + Number(p.amount || 0), 0);
 
   return (
     <DashboardLayout navItems={tenantNav} title="Rent & Payments">
@@ -261,12 +274,14 @@ export function TenantRent() {
             <Card className="overflow-hidden">
               <div className="border-b border-ink-100 p-5"><h3 className="font-semibold text-ink-900">Rent & service invoices</h3><p className="mt-1 text-sm text-ink-500">Each invoice is tied to your lease and can only be marked paid after verified payment.</p></div>
               <div className="overflow-x-auto"><table className="premium-table w-full min-w-[980px] text-sm"><thead><tr><th>Invoice</th><th>Period</th><th>Property / Unit</th><th>Amount</th><th>Balance</th><th>Due Date</th><th>Status</th><th>Actions</th></tr></thead><tbody>{invoices.map((inv) => <tr key={inv.id}><td><p className="font-mono text-xs font-semibold text-brand-700">{getInvoiceNumber(inv)}</p></td><td className="font-medium text-ink-900">{inv.period}</td><td><p className="font-medium text-ink-900">{inv.properties?.name || '—'}</p><p className="text-xs text-ink-400">Unit {inv.property_units?.unit_number || '—'}</p></td><td>{formatKES(inv.amount)}</td><td className="font-semibold">{formatKES(inv.balance)}</td><td className="text-ink-500">{formatDate(inv.due_date)}</td><td><Badge status={inv.status} /></td><td><div className="flex gap-2"><button type="button" onClick={() => downloadInvoicePdf({ invoice: inv, propertyName: inv.properties?.name || 'Property', unitNumber: inv.property_units?.unit_number || null, tenantName: profile?.full_name || 'Tenant' })} className="btn-secondary px-3 py-2 text-xs"><Download className="h-3.5 w-3.5" /> Invoice</button>{inv.status !== 'paid' && <button type="button" onClick={() => setPayInvoice(inv)} className="btn-primary px-3 py-2 text-xs">Pay</button>}</div></td></tr>)}</tbody></table></div>
+              <Pagination page={invoicePage} totalPages={Math.max(1, Math.ceil(invoiceTotal / pageSize))} totalItems={invoiceTotal} pageSize={pageSize} onPageChange={setInvoicePage} />
             </Card>
           )}
 
           <Card className="mt-6 overflow-hidden">
             <div className="border-b border-ink-100 bg-gradient-to-r from-white to-brand-50/30 p-5"><h3 className="font-semibold text-ink-900">Payment receipts</h3><p className="mt-1 text-sm text-ink-500">Verified payments are official receipts. Pending transactions remain clearly marked until reviewed.</p></div>
             {payments.length === 0 ? <div className="p-5 text-sm text-ink-500">No payment transactions yet.</div> : <div className="overflow-x-auto"><table className="premium-table w-full min-w-[900px] text-sm"><thead><tr><th>Receipt</th><th>Type</th><th>Property / Unit</th><th>Amount</th><th>Method</th><th>Status</th><th>Date</th><th>Action</th></tr></thead><tbody>{payments.map((payment) => <tr key={payment.id}><td><p className="font-mono text-xs font-semibold text-brand-700">{payment.verified ? getReceiptNumber(payment) : 'Pending verification'}</p></td><td className="capitalize">{payment.payment_type.replace('_', ' ')}</td><td><p className="font-medium text-ink-900">{payment.properties?.name || '—'}</p><p className="text-xs text-ink-400">Unit {payment.property_units?.unit_number || '—'}</p></td><td className="font-bold">{formatKES(payment.amount)}</td><td className="capitalize">{payment.payment_method.replace('_', ' ')}</td><td><Badge status={payment.status} />{payment.verified && <span className="ml-2 badge bg-brand-50 text-brand-700">Verified</span>}</td><td className="text-ink-500">{formatDate(payment.created_at)}</td><td>{payment.verified ? <button type="button" onClick={() => downloadPaymentReceiptPdf({ payment, propertyName: payment.properties?.name || 'Property', unitNumber: payment.property_units?.unit_number || null, tenantName: profile?.full_name || 'Tenant' })} className="btn-secondary px-3 py-2 text-xs"><Download className="h-3.5 w-3.5" /> Receipt</button> : <span className="text-xs text-ink-400">Awaiting verification</span>}</td></tr>)}</tbody></table></div>}
+            {payments.length > 0 && <Pagination page={paymentPage} totalPages={Math.max(1, Math.ceil(paymentTotal / pageSize))} totalItems={paymentTotal} pageSize={pageSize} onPageChange={setPaymentPage} />}
           </Card>
         </>
       )}
@@ -463,7 +478,7 @@ function EquityPaymentForm({ payment, onCancel, onSuccess, onError }: { payment:
     setLoading(true);
     const { data, error } = await supabase.functions.invoke('equity-payment-link', { body: { payment_id: payment.id } });
     setLoading(false);
-    if (error || data?.error) { onError(data?.error || error?.message || 'Could not create the Equity payment link.'); return; }
+    if (error || data?.error) { onError(data?.error || error?.message || 'Could not create the Equity payment request.'); return; }
     onSuccess(data?.message || 'Your Equity payment request has been created.');
   };
   return <div className="space-y-5">

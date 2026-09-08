@@ -24,6 +24,7 @@ import {
   AdminDashboard, AdminProperties, AdminUsers, AdminReservations, AdminPayments, AdminSettings, AdminUnits, AdminTax, AdminExpenses, AdminMaintenance, AdminLeases, AdminActivity,
 } from '@/pages/AdminPages';
 import { AdminDocuments, OwnerDocuments, TenantDocuments } from '@/pages/DocumentPages';
+import { AdminKra } from '@/pages/AdminKra';
 import { AdminPortfolio, OwnerPortfolio } from '@/pages/PortfolioPages';
 import { ShortStayOperations } from '@/pages/ShortStayPages';
 import { AdminSales, OwnerSales } from '@/pages/SalesPages';
@@ -123,6 +124,7 @@ function Routes() {
   if (path === '/admin/expenses') return isAdmin ? <AdminExpenses /> : <AccessDenied />;
   if (path === '/admin/maintenance') return isAdmin ? <AdminMaintenance /> : <AccessDenied />;
   if (path === '/admin/tax' || path.startsWith('/admin/tax?')) return isAdmin ? <AdminTax /> : <AccessDenied />;
+  if (path === '/admin/kra' || path.startsWith('/admin/kra?')) return isAdmin ? <AdminKra /> : <AccessDenied />;
   if (path === '/admin/settings') return isAdmin ? <AdminSettings /> : <AccessDenied />;
   if (path === '/admin/activity') return isAdmin ? <AdminActivity /> : <AccessDenied />;
   if (path === '/admin/documents') return isAdmin ? <AdminDocuments /> : <AccessDenied />;
