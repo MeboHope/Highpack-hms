@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { supabase } from '@/lib/supabase';
 
 interface RouterContextValue {
   path: string;
@@ -36,15 +37,29 @@ export function RouterProvider({ children }: { children: ReactNode }) {
     };
     window.addEventListener('hashchange', onHashChange);
 
+    // Supabase emits PASSWORD_RECOVERY after it exchanges the recovery
+    // callback for a session. This is the authoritative signal that a valid
+    // password-reset session exists, so it also works when the provider or
+    // browser normalises the callback URL differently.
+    const { data: authListener } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setPath('/reset-password');
+        window.scrollTo(0, 0);
+      }
+    });
+
     // The recovery query is only a bootstrap signal. Remove it after the
-    // initial route decision so later hash navigation can work normally.
+    // initial route decision so later navigation can work normally.
     if (new URLSearchParams(window.location.search).get('auth') === 'recovery') {
       const cleanUrl = `${window.location.pathname}${window.location.hash}`;
       window.history.replaceState({}, document.title, cleanUrl || '/');
     }
 
     if (!window.location.hash) window.location.hash = '#/';
-    return () => window.removeEventListener('hashchange', onHashChange);
+    return () => {
+      window.removeEventListener('hashchange', onHashChange);
+      authListener.subscription.unsubscribe();
+    };
   }, []);
 
   const navigate = (to: string) => {

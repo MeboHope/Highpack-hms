@@ -11,7 +11,7 @@ import { useRouter } from '@/context/hooks';
 import { formatKES, formatDate, titleCase } from '@/lib/constants';
 import { downloadPaymentReceiptPdf } from '@/lib/documents';
 import { loadDashboardPropertyPerformance, loadManagedExpenses, loadManagedMaintenance } from '@/lib/operationalData';
-import type { Property, Profile, Reservation, Payment, SystemSettings, TaxRecord, Notification } from '@/lib/supabase';
+import type { Property, Profile, Reservation, Payment, RentInvoice, SystemSettings, TaxRecord, Notification } from '@/lib/supabase';
 import type { AuditLog } from '@/lib/types';
 import type { ManagedExpenseRow } from '@/lib/operationalData';
 
@@ -409,6 +409,7 @@ export function AdminPayments() {
   const [filter, setFilter] = useState('all');
   const [sort, setSort] = useState('newest');
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [showCash, setShowCash] = useState(false);
   const load = async () => {
     setLoading(true);
     let userIds: string[] = [];
@@ -445,15 +446,59 @@ export function AdminPayments() {
   };
   useEffect(() => { setPage(1); }, [query, filter, sort]);
   useEffect(() => { const timer = window.setTimeout(() => void load(), 250); return () => window.clearTimeout(timer); }, [page, query, filter, sort]);
-  const review = async (id: string, action: 'verify' | 'reject') => { setBusyId(id); const { error } = await supabase.rpc('review_payment_by_admin', { p_payment_id: id, p_action: action }); setBusyId(null); if (error) { toast(`Could not ${action} payment: ${error.message}`, 'error'); return; } toast(action === 'verify' ? 'Payment verified and receipt issued.' : 'Payment rejected.', action === 'verify' ? 'success' : 'info'); await load(); };
+  const review = async (id: string, action: 'verify' | 'reject') => {
+    let rejectionReason: string | null = null;
+    if (action === 'reject') {
+      rejectionReason = window.prompt('Enter the reason this payment is being rejected:')?.trim() || null;
+      if (!rejectionReason) { toast('A rejection reason is required.', 'error'); return; }
+    }
+    setBusyId(id);
+    const { error } = await supabase.rpc('review_payment_by_admin', { p_payment_id: id, p_action: action, p_rejection_reason: rejectionReason });
+    setBusyId(null);
+    if (error) { toast(`Could not ${action} payment: ${error.message}`, 'error'); return; }
+    toast(action === 'verify' ? 'Payment verified and receipt issued.' : 'Payment rejected and tenant notified.', action === 'verify' ? 'success' : 'info');
+    await load();
+  };
+  const openProof = async (documentId: string) => {
+    const { data, error } = await supabase.from('documents').select('storage_path,file_name').eq('id', documentId).maybeSingle();
+    if (error || !data) { toast(error?.message || 'Payment proof could not be found.', 'error'); return; }
+    const { data: signed, error: signedError } = await supabase.storage.from('pms-documents').createSignedUrl(data.storage_path, 600);
+    if (signedError || !signed?.signedUrl) { toast(signedError?.message || 'Could not open payment proof.', 'error'); return; }
+    window.open(signed.signedUrl, '_blank', 'noopener,noreferrer');
+  };
   const verifiedTotal = payments.filter(p => p.verified && p.status === 'successful').reduce((s,p)=>s+Number(p.amount||0),0);
   return <DashboardLayout navItems={adminNav} title="Payments">
-    <AdminPageHeader eyebrow="Finance control" title="Payments & verification" description="Search payment records on the server by tenant, property, unit or reference, then review transactions without loading the full ledger." action={<button onClick={() => void load()} className="btn-secondary"><RefreshCw className="h-4 w-4" /> Refresh</button>} />
+    <AdminPageHeader eyebrow="Finance control" title="Payments & verification" description="Search payment records on the server by tenant, property, unit or reference, then review transactions without loading the full ledger." action={<div className="flex gap-2"><button onClick={() => setShowCash(true)} className="btn-primary"><Wallet className="h-4 w-4" /> Record cash</button><button onClick={() => void load()} className="btn-secondary"><RefreshCw className="h-4 w-4" /> Refresh</button></div>} />
     <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4"><StatCard label="Matching payments" value={totalPayments} icon={<Receipt className="h-5 w-5" />} /><StatCard label="Verified revenue · page" value={formatKES(verifiedTotal)} icon={<Wallet className="h-5 w-5" />} accent="blue" /><StatCard label="Awaiting verification · page" value={payments.filter(p => !p.verified && p.status === 'pending').length} icon={<ShieldCheck className="h-5 w-5" />} accent="accent" /><StatCard label="Verified · page" value={payments.filter(p => p.verified).length} icon={<CheckCircle className="h-5 w-5" />} accent="brand" /></div>
     <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-ink-100 bg-white p-4 lg:flex-row"><div className="relative flex-1"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" /><input className="input pl-10" placeholder="Search tenant, property, unit or transaction reference…" value={query} onChange={(e)=>setQuery(e.target.value)} /></div><div className="flex gap-3"><select className="input sm:w-56" value={filter} onChange={(e)=>setFilter(e.target.value)}><option value="all">All payments</option><option value="pending">Awaiting verification</option><option value="verified">Verified</option><option value="successful">Successful</option><option value="failed">Failed</option><option value="cancelled">Cancelled</option><option value="refunded">Refunded</option></select><select className="input sm:w-40" value={sort} onChange={(e)=>setSort(e.target.value)}><option value="newest">Newest first</option><option value="oldest">Oldest first</option></select></div></div>
-    {loading ? <LoadingPage /> : payments.length === 0 ? <EmptyState icon={<Wallet className="h-8 w-8" />} title="No matching payments" description="Try another search or payment status." /> : <Card className="overflow-hidden"><div className="overflow-x-auto"><table className="premium-table w-full min-w-[1180px] text-sm"><thead><tr><th>Tenant</th><th>Property / Unit</th><th>Type</th><th>Amount</th><th>Method</th><th>Status</th><th>Reference</th><th>Date</th><th>Action</th></tr></thead><tbody>{payments.map((p) => <tr key={p.id}><td><p className="font-semibold text-ink-900">{p.profiles?.full_name || 'Unnamed tenant'}</p><p className="text-xs text-ink-400">{p.profiles?.phone || 'No phone'}</p></td><td><p className="font-medium text-ink-900">{p.properties?.name || '—'}</p><p className="text-xs text-ink-400">Unit {p.property_units?.unit_number || '—'}</p></td><td className="capitalize">{p.payment_type}</td><td className="font-bold">{formatKES(p.amount)}</td><td className="capitalize">{String(p.payment_method).replace('_',' ')}</td><td><Badge status={p.status} />{p.verified && <span className="ml-2 badge bg-brand-50 text-brand-700">Verified</span>}</td><td className="max-w-40 truncate font-mono text-xs text-ink-500" title={p.transaction_ref || p.provider_reference || ''}>{p.transaction_ref || p.provider_reference || 'Pending ref'}</td><td className="text-ink-500">{formatDate(p.created_at)}</td><td>{!p.verified && p.status === 'pending' ? <div className="flex gap-2"><button type="button" disabled={busyId === p.id} onClick={()=>void review(p.id,'verify')} className="btn-primary px-3 py-2 text-xs">{busyId===p.id ? 'Working…' : <><CheckCircle className="h-3.5 w-3.5" /> Verify & issue receipt</>}</button><button type="button" disabled={busyId===p.id} onClick={()=>void review(p.id,'reject')} className="icon-action text-red-600" title="Reject payment"><XCircle className="h-4 w-4" /></button></div> : p.verified ? <button type="button" onClick={()=>downloadPaymentReceiptPdf({ payment:p, propertyName:p.properties?.name || 'Property', unitNumber:p.property_units?.unit_number || null, tenantName:p.profiles?.full_name || 'Tenant' })} className="btn-secondary px-3 py-2 text-xs"><Download className="h-3.5 w-3.5" /> Receipt</button> : <span className="text-xs text-ink-400">No action</span>}</td></tr>)}</tbody></table></div></Card>}
+    {loading ? <LoadingPage /> : payments.length === 0 ? <EmptyState icon={<Wallet className="h-8 w-8" />} title="No matching payments" description="Try another search or payment status." /> : <Card className="overflow-hidden"><div className="overflow-x-auto"><table className="premium-table w-full min-w-[1180px] text-sm"><thead><tr><th>Tenant</th><th>Property / Unit</th><th>Type</th><th>Amount</th><th>Method</th><th>Status</th><th>Reference</th><th>Date</th><th>Action</th></tr></thead><tbody>{payments.map((p) => <tr key={p.id}><td><p className="font-semibold text-ink-900">{p.profiles?.full_name || 'Unnamed tenant'}</p><p className="text-xs text-ink-400">{p.profiles?.phone || 'No phone'}</p></td><td><p className="font-medium text-ink-900">{p.properties?.name || '—'}</p><p className="text-xs text-ink-400">Unit {p.property_units?.unit_number || '—'}</p></td><td className="capitalize">{p.payment_type}</td><td className="font-bold">{formatKES(p.amount)}</td><td className="capitalize">{String(p.payment_method).replace('_',' ')}</td><td><Badge status={p.status} />{p.verified && <span className="ml-2 badge bg-brand-50 text-brand-700">Verified</span>}</td><td className="max-w-40 truncate font-mono text-xs text-ink-500" title={p.transaction_ref || p.provider_reference || ''}>{p.transaction_ref || p.provider_reference || 'Pending ref'}</td><td className="text-ink-500">{formatDate(p.created_at)}</td><td>{!p.verified && p.status === 'pending' ? <div className="flex flex-wrap gap-2"><button type="button" disabled={busyId === p.id} onClick={()=>void review(p.id,'verify')} className="btn-primary px-3 py-2 text-xs">{busyId===p.id ? 'Working…' : <><CheckCircle className="h-3.5 w-3.5" /> Verify & issue receipt</>}</button>{p.proof_document_id && <button type="button" onClick={()=>void openProof(p.proof_document_id!)} className="btn-secondary px-3 py-2 text-xs"><Eye className="h-3.5 w-3.5" /> Proof</button>}<button type="button" disabled={busyId===p.id} onClick={()=>void review(p.id,'reject')} className="icon-action text-red-600" title="Reject payment"><XCircle className="h-4 w-4" /></button></div> : p.verified ? <div className="flex flex-wrap gap-2"><button type="button" onClick={()=>downloadPaymentReceiptPdf({ payment:p, propertyName:p.properties?.name || 'Property', unitNumber:p.property_units?.unit_number || null, tenantName:p.profiles?.full_name || 'Tenant' })} className="btn-secondary px-3 py-2 text-xs"><Download className="h-3.5 w-3.5" /> Receipt</button>{p.proof_document_id && <button type="button" onClick={()=>void openProof(p.proof_document_id!)} className="btn-secondary px-3 py-2 text-xs"><Eye className="h-3.5 w-3.5" /> Proof</button>}</div> : <span className="text-xs text-ink-400">No action</span>}</td></tr>)}</tbody></table></div></Card>}
     <Pagination page={page} totalPages={totalPages} totalItems={totalPayments} pageSize={20} onPageChange={setPage} />
+    {showCash && <RecordCashPaymentModal onClose={() => setShowCash(false)} onSaved={() => { setShowCash(false); void load(); }} />}
   </DashboardLayout>;
+}
+
+function RecordCashPaymentModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+  const { toast } = useToast();
+  const [invoices, setInvoices] = useState<Array<RentInvoice & { profiles?: { full_name: string | null } | null; properties?: { name: string } | null; property_units?: { unit_number: string } | null }>>([]);
+  const [invoiceId, setInvoiceId] = useState('');
+  const [amount, setAmount] = useState('');
+  const [reference, setReference] = useState('');
+  const [notes, setNotes] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  useEffect(() => { (async () => { const { data, error } = await supabase.from('rent_invoices').select('*, profiles:tenant_id(full_name), properties:property_id(name), property_units:unit_id(unit_number)').gt('balance', 0).order('due_date', { ascending: true }).limit(200); if (error) toast(error.message, 'error'); setInvoices((data as typeof invoices) || []); setLoading(false); })(); }, []);
+  const selected = invoices.find(x => x.id === invoiceId);
+  useEffect(() => { if (selected) setAmount(String(selected.balance)); }, [invoiceId]);
+  const save = async () => { if (!selected) { toast('Select an outstanding rent invoice.', 'error'); return; } const n=Number(amount); if (!Number.isFinite(n)||n<=0||n>Number(selected.balance)) { toast('Enter a valid cash amount not exceeding the invoice balance.', 'error'); return; } setSaving(true); const { error } = await supabase.rpc('record_cash_rent_payment', { p_invoice_id: selected.id, p_amount: n, p_transaction_ref: reference.trim() || null, p_received_at: new Date().toISOString(), p_notes: notes.trim() || null }); setSaving(false); if (error) { toast(error.message, 'error'); return; } toast('Cash payment recorded, verified and receipt issued.', 'success'); onSaved(); };
+  return <Modal open onClose={onClose} title="Record Cash Payment" size="md"><div className="space-y-4">
+    <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4"><p className="font-semibold text-amber-950">Physical cash collection</p><p className="mt-1 text-sm text-amber-900">Record only cash physically received by an authorized HighPark administrator. The PMS creates the receipt and audit trail; it does not hold the money.</p></div>
+    {loading ? <LoadingPage /> : <><div><label className="label">Outstanding rent invoice</label><select className="input" value={invoiceId} onChange={e=>setInvoiceId(e.target.value)}><option value="">Select tenant / invoice</option>{invoices.map(i=><option key={i.id} value={i.id}>{i.profiles?.full_name || 'Tenant'} · {i.properties?.name || 'Property'} · Unit {i.property_units?.unit_number || '—'} · {i.period} · {formatKES(Number(i.balance))} due</option>)}</select></div>
+    {selected && <div className="rounded-xl border border-ink-100 bg-ink-50 p-3 text-sm"><p className="font-semibold text-ink-900">Outstanding: {formatKES(Number(selected.balance))}</p><p className="text-xs text-ink-500">{selected.profiles?.full_name || 'Tenant'} · {selected.properties?.name || 'Property'} · Unit {selected.property_units?.unit_number || '—'}</p></div>}
+    <div><label className="label">Cash amount</label><input className="input" type="number" min="0" step="0.01" value={amount} onChange={e=>setAmount(e.target.value)} /></div>
+    <div><label className="label">Internal receipt/reference (optional)</label><input className="input" placeholder="e.g. CASH-20260908-001" value={reference} onChange={e=>setReference(e.target.value)} /></div>
+    <div><label className="label">Notes</label><textarea className="input min-h-24" placeholder="Who received the cash, location, any relevant notes…" value={notes} onChange={e=>setNotes(e.target.value)} /></div>
+    <div className="flex gap-3"><button type="button" onClick={onClose} className="btn-secondary flex-1">Cancel</button><button type="button" disabled={saving} onClick={()=>void save()} className="btn-primary flex-1">{saving?'Recording…':'Record cash & issue receipt'}</button></div></>}
+  </div></Modal>;
 }
 
 function AdminPageHeader({ eyebrow, title, description, action }: { eyebrow: string; title: string; description: string; action?: ReactNode }) {
@@ -751,7 +796,7 @@ export function AdminSettings() {
 
   useEffect(() => {
     (async () => {
-      const fallback: SystemSettings = { id: 1, reservation_fee: 2000, reservation_duration_hours: 48, reservation_fee_policy: 'non_refundable', currency: 'KES', platform_commission_pct: 5, default_tax_rate_pct: 7.5, mpesa_enabled: false, card_enabled: true, bank_transfer_enabled: true, require_property_verification: true, updated_at: new Date().toISOString() };
+      const fallback: SystemSettings = { id: 1, reservation_fee: 2000, reservation_duration_hours: 48, reservation_fee_policy: 'non_refundable', currency: 'KES', platform_commission_pct: 5, default_tax_rate_pct: 7.5, mpesa_enabled: false, card_enabled: true, bank_transfer_enabled: true, require_property_verification: true, equity_bank_name: 'Equity Bank', equity_account_name: 'HIGHPARK CONSULT LIMITED', equity_account_number: '0470281425369', equity_paybill_number: null, equity_paybill_business_number: null, mpesa_paybill: '247242', mpesa_account_prefix: '382000', updated_at: new Date().toISOString() };
       const timeout = new Promise<{ data: null; error: { message: string } }>((resolve) => setTimeout(() => resolve({ data: null, error: { message: 'Settings request timed out. Safe defaults are being shown.' } }), 8000));
       const result = await Promise.race([supabase.from('system_settings').select('*').eq('id', 1).maybeSingle(), timeout]);
       if (result.error) setLoadError(result.error.message);
@@ -774,6 +819,13 @@ export function AdminSettings() {
       card_enabled: settings.card_enabled,
       bank_transfer_enabled: settings.bank_transfer_enabled,
       require_property_verification: settings.require_property_verification,
+      equity_bank_name: settings.equity_bank_name,
+      equity_account_name: settings.equity_account_name,
+      equity_account_number: settings.equity_account_number,
+      equity_paybill_number: settings.equity_paybill_number,
+      equity_paybill_business_number: settings.equity_paybill_business_number,
+      mpesa_paybill: settings.mpesa_paybill,
+      mpesa_account_prefix: settings.mpesa_account_prefix,
     }, { onConflict: 'id' });
     setSaving(false);
     if (error) { toast(`Could not save settings: ${error.message}`, 'error'); return; }
@@ -803,6 +855,18 @@ export function AdminSettings() {
               <div><label className="label">Platform Commission (%)</label><input type="number" step="0.1" className="input" value={settings.platform_commission_pct} onChange={(e) => setSettings({ ...settings, platform_commission_pct: parseFloat(e.target.value) })} /></div>
               <div><label className="label">Default Tax Rate (%)</label><input type="number" step="0.1" className="input" value={settings.default_tax_rate_pct} onChange={(e) => setSettings({ ...settings, default_tax_rate_pct: parseFloat(e.target.value) })} /></div>
             </div>
+          </div>
+
+          <div>
+            <h3 className="font-semibold text-ink-900 mb-4">Bank Transfer Details</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div><label className="label">Bank Name</label><input className="input" value={settings.equity_bank_name || ''} onChange={(e) => setSettings({ ...settings, equity_bank_name: e.target.value })} /></div>
+              <div><label className="label">Account Name</label><input className="input" value={settings.equity_account_name || ''} onChange={(e) => setSettings({ ...settings, equity_account_name: e.target.value })} /></div>
+              <div><label className="label">Account Number</label><input className="input" value={settings.equity_account_number || ''} onChange={(e) => setSettings({ ...settings, equity_account_number: e.target.value })} /></div>
+              <div className="sm:col-span-2 rounded-xl border border-brand-100 bg-brand-50 p-4"><p className="font-semibold text-brand-900">M-Pesa PayBill for rent & deposits</p><p className="mt-1 text-sm text-brand-800">PayBill <span className="font-semibold">{settings.mpesa_paybill || '247242'}</span> · Account prefix <span className="font-semibold">{settings.mpesa_account_prefix || '382000'}</span> + <span className="font-semibold">#House Number</span></p></div>
+              <div><label className="label">M-Pesa PayBill Number</label><input className="input" value={settings.mpesa_paybill || ''} onChange={(e) => setSettings({ ...settings, mpesa_paybill: e.target.value })} /></div><div><label className="label">M-Pesa Account Prefix</label><input className="input" value={settings.mpesa_account_prefix || ''} onChange={(e) => setSettings({ ...settings, mpesa_account_prefix: e.target.value })} /></div>
+            </div>
+            <p className="mt-2 text-xs text-ink-400">These non-secret payment destination details are displayed to tenants during rent/deposit payment. M-Pesa uses PayBill + the house-specific account reference; bank transfer uses only the direct bank account.</p>
           </div>
 
           <div>

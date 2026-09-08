@@ -23,7 +23,7 @@ export type PropertyStatus = 'pending_verification' | 'verified' | 'rejected' | 
 export type UnitStatus = 'available' | 'reserved' | 'occupied' | 'maintenance' | 'unavailable';
 export type ReservationStatus = 'pending' | 'confirmed' | 'expired' | 'cancelled' | 'converted';
 export type PaymentStatus = 'pending' | 'successful' | 'failed' | 'cancelled' | 'refunded' | 'partially_refunded';
-export type PaymentMethod = 'mpesa' | 'card' | 'bank_transfer' | 'cash' | 'other';
+export type PaymentMethod = 'mpesa' | 'card' | 'bank_transfer' | 'cash' | 'equity' | 'other';
 export type PaymentType = 'reservation' | 'rent' | 'deposit' | 'service_charge' | 'other';
 export type LeaseStatus = 'draft' | 'pending_signature' | 'active' | 'expired' | 'terminated' | 'renewed';
 export type MaintenanceStatus = 'submitted' | 'assigned' | 'in_progress' | 'awaiting_parts' | 'completed' | 'closed';
@@ -150,6 +150,20 @@ export interface Payment {
   provider_result_description?: string | null;
   initiated_at?: string | null;
   completed_at?: string | null;
+  bank_transfer_date?: string | null;
+  bank_transfer_channel?: string | null;
+  proof_document_id?: string | null;
+  review_notes?: string | null;
+  equity_payment_link_ref?: string | null;
+  equity_external_ref?: string | null;
+  equity_status_code?: string | null;
+  equity_status_name?: string | null;
+  equity_response?: Record<string, unknown> | null;
+  equity_initiated_at?: string | null;
+  equity_completed_at?: string | null;
+  cash_received_by?: string | null;
+  cash_received_at?: string | null;
+  cash_notes?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -318,6 +332,13 @@ export interface SystemSettings {
   card_enabled: boolean;
   bank_transfer_enabled: boolean;
   require_property_verification: boolean;
+  equity_bank_name?: string | null;
+  equity_account_name?: string | null;
+  equity_account_number?: string | null;
+  equity_paybill_number?: string | null;
+  equity_paybill_business_number?: string | null;
+  mpesa_paybill?: string | null;
+  mpesa_account_prefix?: string | null;
   updated_at: string;
 }
 

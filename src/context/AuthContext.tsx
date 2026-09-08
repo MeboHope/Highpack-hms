@@ -1,6 +1,7 @@
 import { createContext, useCallback, useEffect, useState, type ReactNode } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
+import { getPasswordRecoveryRedirectUrl } from '@/lib/siteUrl';
 import type { Profile } from '@/lib/supabase';
 
 interface AuthContextValue {
@@ -167,7 +168,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const requestPasswordReset = async (email: string) => {
     const cleanEmail = email.trim().toLowerCase();
-    const redirectTo = `${window.location.origin}/?auth=recovery`;
+    const redirectTo = getPasswordRecoveryRedirectUrl();
     const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, { redirectTo });
     return { error: error?.message ?? null };
   };

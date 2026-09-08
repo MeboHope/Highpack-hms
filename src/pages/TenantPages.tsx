@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Home, Wallet, FileText, Wrench, Bell, Calendar, CheckCircle, Plus, MapPin, BedDouble, Bath, ShieldCheck, Search, ArrowRight, Clock, Eye, Receipt, CreditCard, Download, X } from 'lucide-react';
+import { Home, Wallet, FileText, Wrench, Bell, Calendar, CheckCircle, Plus, MapPin, BedDouble, Bath, ShieldCheck, Search, ArrowRight, Clock, Eye, Receipt, CreditCard, Download, X, Copy, Upload, Building2 } from 'lucide-react';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { tenantNav } from '@/components/dashboardNav';
 import { StatCard, Card, Badge, EmptyState, LoadingPage } from '@/components/ui';
@@ -277,146 +277,281 @@ export function TenantRent() {
   );
 }
 
-function PayRentModal({ invoice, onClose }: { invoice: RentInvoice; onClose: () => void }) {
+function BankTransferForm({
+  payment,
+  onSubmitted,
+  onCancel,
+}: {
+  payment: Payment;
+  onSubmitted: () => void;
+  onCancel: () => void;
+}) {
   const { profile } = useAuth();
   const { toast } = useToast();
-  const [method, setMethod] = useState<'mpesa' | 'bank_transfer'>('mpesa');
-  const [phone, setPhone] = useState(profile?.phone || '');
-  const [step, setStep] = useState<'pay' | 'processing' | 'pending' | 'success' | 'error'>('pay');
+  const [reference, setReference] = useState(payment.transaction_ref || '');
+  const [transferDate, setTransferDate] = useState(new Date().toISOString().slice(0, 10));
+  const [channel] = useState<'bank_transfer'>('bank_transfer');
+  const [proof, setProof] = useState<File | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [bankDetails, setBankDetails] = useState({ bank: 'Equity Bank', accountName: 'HIGHPARK CONSULT LIMITED', accountNumber: '0470281425369' });
+
+  useEffect(() => {
+    void (async () => {
+      const { data } = await supabase.from('system_settings').select('equity_bank_name,equity_account_name,equity_account_number').eq('id', 1).maybeSingle();
+      if (data) setBankDetails({ bank: data.equity_bank_name || 'Equity Bank', accountName: data.equity_account_name || 'HIGHPARK CONSULT LIMITED', accountNumber: data.equity_account_number || '0470281425369' });
+    })();
+  }, []);
+
+  const copyValue = async (value: string, label: string) => {
+    try { await navigator.clipboard.writeText(value); toast(`${label} copied.`, 'success'); }
+    catch { toast(`Could not copy the ${label.toLowerCase()}.`, 'error'); }
+  };
+
+  const submit = async () => {
+    if (!profile) return;
+    if (!reference.trim()) { toast('Enter the bank transaction or transfer reference.', 'error'); return; }
+    if (!transferDate) { toast('Select the transfer date.', 'error'); return; }
+    if (transferDate > new Date().toISOString().slice(0, 10)) { toast('Transfer date cannot be in the future.', 'error'); return; }
+    if (proof && proof.size > 10 * 1024 * 1024) { toast('Payment proof must be 10 MB or smaller.', 'error'); return; }
+    setSubmitting(true);
+
+    let documentId: string | null = null;
+    if (proof) {
+      const safeName = proof.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const path = `${profile.id}/payment-proofs/${payment.id}-${Date.now()}-${safeName}`;
+      const { error: uploadError } = await supabase.storage.from('pms-documents').upload(path, proof, { contentType: proof.type, upsert: false });
+      if (uploadError) { setSubmitting(false); toast(`Could not upload proof: ${uploadError.message}`, 'error'); return; }
+
+      const { data: doc, error: docError } = await supabase.from('documents').insert({
+        title: `Payment proof — ${reference.trim()}`,
+        category: 'financial',
+        status: 'pending_review',
+        file_name: proof.name,
+        mime_type: proof.type,
+        file_size: proof.size,
+        storage_path: path,
+        property_id: payment.property_id,
+        lease_id: payment.lease_id,
+        tenant_id: profile.id,
+        uploaded_by: profile.id,
+      }).select('id').single();
+      if (docError || !doc) {
+        await supabase.storage.from('pms-documents').remove([path]);
+        setSubmitting(false);
+        toast(`Could not register payment proof: ${docError?.message || 'Unknown error'}`, 'error');
+        return;
+      }
+      documentId = doc.id;
+    }
+
+    const { error } = await supabase.rpc('submit_bank_transfer_payment', {
+      p_payment_id: payment.id,
+      p_transaction_ref: reference.trim(),
+      p_transfer_date: transferDate,
+      p_channel: channel,
+      p_proof_document_id: documentId,
+    });
+    if (error) {
+      if (documentId) {
+        const { data: doc } = await supabase.from('documents').select('storage_path').eq('id', documentId).maybeSingle();
+        if (doc?.storage_path) await supabase.storage.from('pms-documents').remove([doc.storage_path]);
+        await supabase.from('documents').delete().eq('id', documentId);
+      }
+      setSubmitting(false);
+      toast(`Could not submit the bank transfer: ${error.message}`, 'error');
+      return;
+    }
+    setSubmitting(false);
+    toast('Bank transfer submitted for verification.', 'success');
+    onSubmitted();
+  };
+
+  return <div className="space-y-5">
+    <div className="rounded-2xl border border-brand-100 bg-brand-50 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div><p className="text-xs font-bold uppercase tracking-wider text-brand-700">Payment amount</p><p className="mt-1 text-2xl font-bold text-brand-900">{formatKES(payment.amount)}</p></div>
+        <Building2 className="h-7 w-7 text-brand-600" />
+      </div>
+    </div>
+    <div className="rounded-2xl border border-ink-100 bg-white p-4 shadow-sm">
+      <div className="mb-3 flex items-center justify-between"><div><p className="font-bold text-ink-900">{bankDetails.bank}</p><p className="text-xs text-ink-500">{bankDetails.accountName}</p></div><span className="badge bg-brand-50 text-brand-700">Official account</span></div>
+      <div className="space-y-2 text-sm">
+        {[['Account number', bankDetails.accountNumber]].map(([label, value]) => <div key={label} className="flex items-center justify-between gap-3 rounded-xl bg-ink-50 px-3 py-2"><div><p className="text-xs text-ink-400">{label}</p><p className="font-mono font-semibold text-ink-900">{value}</p></div><button type="button" onClick={() => void copyValue(value, label)} className="icon-action" title={`Copy ${label}`}><Copy className="h-4 w-4" /></button></div>)}
+      </div>
+      <p className="mt-3 text-xs leading-5 text-ink-500">For a direct bank transfer, send the payment to the official account above, then submit the bank transaction reference below for verification.</p>
+    </div>
+    <div className="grid gap-4 sm:grid-cols-2">
+      <div><label className="label">Payment channel</label><select className="input" value={channel} disabled><option value="bank_transfer">Equity bank transfer</option></select></div>
+      <div><label className="label">Transfer date</label><input className="input" type="date" max={new Date().toISOString().slice(0, 10)} value={transferDate} onChange={(e) => setTransferDate(e.target.value)} /></div>
+    </div>
+    <div><label className="label">Transaction / transfer reference</label><input className="input" placeholder="e.g. bank transaction reference" value={reference} onChange={(e) => setReference(e.target.value)} /><p className="mt-1 text-xs text-ink-400">Use the exact reference shown by Equity Bank or the PayBill confirmation.</p></div>
+    <div><label className="label">Proof of payment <span className="font-normal text-ink-400">(optional but recommended)</span></label><label className="flex cursor-pointer items-center gap-3 rounded-2xl border border-dashed border-ink-200 bg-ink-50 p-4 hover:border-brand-300 hover:bg-brand-50"><Upload className="h-5 w-5 text-brand-600" /><div className="min-w-0 flex-1"><p className="font-semibold text-ink-800">{proof ? proof.name : 'Upload receipt or transfer confirmation'}</p><p className="text-xs text-ink-400">PDF, JPG, PNG or WebP · max 10 MB</p></div><input type="file" className="hidden" accept="application/pdf,image/jpeg,image/png,image/webp" onChange={(e) => setProof(e.target.files?.[0] || null)} /></label></div>
+    <div className="rounded-2xl border border-amber-100 bg-amber-50 p-3 text-xs leading-5 text-amber-800"><strong>What happens next?</strong> Your payment remains pending until the finance team verifies the amount, reference and any uploaded proof. Only then will the invoice be marked paid and a receipt issued.</div>
+    <div className="flex gap-3"><button type="button" onClick={onCancel} className="btn-secondary flex-1">Back</button><button type="button" onClick={() => void submit()} disabled={submitting} className="btn-primary flex-1">{submitting ? 'Submitting…' : 'Submit for verification'}</button></div>
+  </div>;
+}
+
+function MpesaStkForm({ payment, phone: initialPhone, onCancel, onSuccess, onError }: { payment: Payment; phone: string; onCancel: () => void; onSuccess: (message: string) => void; onError: (message: string) => void }) {
+  const { toast } = useToast();
+  const [phone, setPhone] = useState(initialPhone || '');
+  const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState('');
-  const [checkoutId, setCheckoutId] = useState('');
+  const [started, setStarted] = useState(false);
+
+  const startPayment = async () => {
+    const selectedPhone = phone.trim();
+    if (!selectedPhone) { onError('Enter the Safaricom number registered for M-Pesa before continuing.'); return; }
+    setSubmitting(true); setMessage('Sending a secure M-Pesa payment prompt to your phone…');
+    const { data, error } = await supabase.functions.invoke('mpesa-stk', { body: { payment_id: payment.id, phone: selectedPhone } });
+    if (error || !data?.accepted) {
+      setSubmitting(false);
+      const detail = data?.error || error?.message || 'Could not start the M-Pesa payment.';
+      onError(detail);
+      return;
+    }
+    setStarted(true); setMessage(data.customer_message || 'Check your phone and enter your M-Pesa PIN to authorize the payment.');
+    toast('M-Pesa prompt sent to your phone.', 'success');
+
+    const startedAt = Date.now();
+    const poll = async () => {
+      const { data: current, error: pollError } = await supabase.from('payments').select('status,verified,mpesa_receipt_number,provider_result_description').eq('id', payment.id).maybeSingle();
+      if (pollError) { console.warn('M-Pesa status check failed', pollError); }
+      if (current?.status === 'successful' && current?.verified) {
+        setSubmitting(false); onSuccess(current.mpesa_receipt_number ? `Payment confirmed successfully. M-Pesa receipt: ${current.mpesa_receipt_number}.` : 'Payment confirmed successfully. Your rent payment has been recorded.'); return;
+      }
+      if (current?.status === 'failed' || current?.status === 'cancelled') {
+        setSubmitting(false); onError(current.provider_result_description || 'The M-Pesa payment was not completed. Please try again.'); return;
+      }
+      if (Date.now() - startedAt >= 90000) {
+        setSubmitting(false); setMessage('The payment prompt is still being processed. You can close this window and check your payment history shortly.'); return;
+      }
+      window.setTimeout(() => { void poll(); }, 2500);
+    };
+    void poll();
+  };
+
+  return <div className="space-y-5">
+    <div className="rounded-2xl border border-brand-100 bg-brand-50 p-5 text-center">
+      <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-white text-brand-600 shadow-sm"><Wallet className="h-7 w-7" /></div>
+      <p className="text-xs font-bold uppercase tracking-wider text-brand-700">M-Pesa secure payment</p>
+      <p className="mt-1 text-3xl font-bold text-brand-900">{formatKES(payment.amount)}</p>
+      <p className="mt-2 text-sm text-brand-800">Choose the Safaricom number that should receive the M-Pesa prompt.</p>
+    </div>
+    {!started ? <>
+      <div className="rounded-2xl border border-ink-100 bg-white p-4 shadow-sm">
+        <label className="label">Safaricom M-Pesa number</label>
+        <input className="input" type="tel" inputMode="tel" autoComplete="tel" placeholder="e.g. 0712345678" value={phone} onChange={(e) => setPhone(e.target.value)} />
+        <p className="mt-1 text-xs leading-5 text-ink-400">Your registered profile phone is pre-filled when available, but you can enter a different Safaricom M-Pesa number for this payment. The M-Pesa PIN is never entered here.</p>
+      </div>
+      <div className="rounded-2xl border border-ink-100 bg-white p-4 shadow-sm">
+        <p className="font-semibold text-ink-900">How it works</p>
+        <ol className="mt-3 space-y-2 text-sm text-ink-600"><li><span className="mr-2 font-bold text-brand-600">1.</span>Tap <strong>Send M-Pesa Prompt</strong>.</li><li><span className="mr-2 font-bold text-brand-600">2.</span>Check your phone for the M-Pesa payment prompt.</li><li><span className="mr-2 font-bold text-brand-600">3.</span>Enter your M-Pesa PIN <strong>on your phone</strong>.</li><li><span className="mr-2 font-bold text-brand-600">4.</span>Your PMS payment status updates automatically.</li></ol>
+      </div>
+      <div className="rounded-2xl border border-blue-100 bg-blue-50 p-3 text-xs leading-5 text-blue-800">You will never enter your M-Pesa PIN on this website. The PIN is entered only in the secure M-Pesa prompt on your phone.</div>
+      <div className="flex gap-3"><button type="button" onClick={onCancel} className="btn-secondary flex-1">Back</button><button type="button" onClick={() => void startPayment()} disabled={submitting} className="btn-primary flex-1">{submitting ? 'Starting…' : `Send M-Pesa Prompt · ${formatKES(payment.amount)}`}</button></div>
+    </> : <div className="text-center py-6">
+      <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-brand-50 text-brand-600"><div className="h-9 w-9 animate-spin rounded-full border-2 border-brand-200 border-t-brand-600" /></div>
+      <h4 className="text-lg font-bold text-ink-900">Check your phone</h4><p className="mt-2 text-sm text-ink-500">{message}</p><p className="mt-3 text-xs text-ink-400">Waiting for Safaricom to confirm the payment…</p>
+      <button type="button" onClick={onCancel} className="btn-secondary mt-6">Close</button>
+    </div>}
+  </div>;
+}
+
+function EquityPaymentForm({ payment, onCancel, onSuccess, onError }: { payment: Payment; onCancel: () => void; onSuccess: (msg: string) => void; onError: (msg: string) => void }) {
+  const [loading, setLoading] = useState(false);
+  const start = async () => {
+    setLoading(true);
+    const { data, error } = await supabase.functions.invoke('equity-payment-link', { body: { payment_id: payment.id } });
+    setLoading(false);
+    if (error || data?.error) { onError(data?.error || error?.message || 'Could not create the Equity payment link.'); return; }
+    onSuccess(data?.message || 'Your Equity payment request has been created.');
+  };
+  return <div className="space-y-5">
+    <div className="rounded-2xl border border-blue-100 bg-blue-50 p-5">
+      <p className="text-xs font-bold uppercase tracking-wider text-blue-700">Equity secure payment</p>
+      <p className="mt-1 text-3xl font-bold text-blue-950">{formatKES(payment.amount)}</p>
+      <p className="mt-2 text-sm text-blue-900">A secure Equity payment request will be created for this exact amount. Follow the payment instructions sent to your registered contact.</p>
+    </div>
+    <div className="rounded-2xl border border-ink-100 bg-white p-4 text-sm text-ink-600">
+      <p className="font-semibold text-ink-900">Automatic reconciliation</p>
+      <p className="mt-1">Once Equity confirms the incoming payment, HighPark will match it to this payment reference and update the invoice automatically.</p>
+    </div>
+    <div className="flex gap-3"><button type="button" onClick={onCancel} className="btn-secondary flex-1">Back</button><button type="button" onClick={() => void start()} disabled={loading} className="btn-primary flex-1">{loading ? 'Creating…' : `Create Equity Payment · ${formatKES(payment.amount)}`}</button></div>
+  </div>;
+}
+
+function PayRentModal({ invoice, onClose }: { invoice: RentInvoice; onClose: () => void }) {
+  const { profile } = useAuth();
+  const [method, setMethod] = useState<'mpesa' | 'bank_transfer' | 'equity'>('mpesa');
+  const [mpesaPayment, setMpesaPayment] = useState<Payment | null>(null);
+  const [step, setStep] = useState<'pay' | 'processing' | 'mpesa' | 'bank' | 'equity' | 'success' | 'error'>('pay');
+  const [message, setMessage] = useState('');
+  const [bankPayment, setBankPayment] = useState<Payment | null>(null);
+  const [equityPayment, setEquityPayment] = useState<Payment | null>(null);
 
   const handlePay = async () => {
     if (!profile) return;
-    if (method === 'mpesa' && !phone.trim()) {
-      toast('Enter the M-Pesa number that should receive the payment prompt.', 'error');
-      return;
-    }
-    setStep('processing');
-    setMessage('Creating a secure payment request…');
-
-    const { data: payment, error } = await supabase.rpc('create_rent_payment', {
-      p_invoice_id: invoice.id,
-      p_payment_method: method,
-    });
-    if (error || !payment) {
-      setStep('error');
-      setMessage(error?.message || 'Could not create the payment request.');
-      return;
-    }
-
-    if (method === 'bank_transfer') {
-      setStep('pending');
-      setMessage('Your bank-transfer payment intent is recorded as pending. Complete the transfer using the account instructions supplied by HighPark Consult, then the finance team will verify it.');
-      return;
-    }
-
-    const { data, error: functionError } = await supabase.functions.invoke('mpesa-stk', {
-      body: { payment_id: payment.id, phone: phone.trim() },
-    });
-    if (functionError || data?.error) {
-      setStep('error');
-      setMessage(data?.error || functionError?.message || 'Could not start the M-Pesa prompt.');
-      return;
-    }
-
-    setCheckoutId(data?.checkout_request_id || '');
-    setStep('pending');
-    setMessage(data?.customer_message || 'A payment prompt has been sent to your phone. Enter your M-Pesa PIN to complete the payment.');
-
-    // Poll only for the provider result. The browser never marks the payment
-    // successful; the Safaricom callback does that server-side.
-    let attempts = 0;
-    const timer = window.setInterval(async () => {
-      attempts += 1;
-      const { data: latest } = await supabase.from('payments').select('status,verified,provider_result_description,mpesa_receipt_number').eq('id', payment.id).single();
-      if (latest?.status === 'successful' && latest.verified) {
-        window.clearInterval(timer);
-        setStep('success');
-        setMessage(`Payment confirmed${latest.mpesa_receipt_number ? ` · Receipt ${latest.mpesa_receipt_number}` : ''}.`);
-      } else if (latest?.status === 'failed' || latest?.status === 'cancelled') {
-        window.clearInterval(timer);
-        setStep('error');
-        setMessage(latest.provider_result_description || 'The M-Pesa payment was not completed.');
-      } else if (attempts >= 15) {
-        window.clearInterval(timer);
-        setStep('pending');
-        setMessage('The payment is still awaiting Safaricom confirmation. You can close this window; the payment centre will update automatically once the callback is received.');
-      }
-    }, 3000);
+    setStep('processing'); setMessage('Creating a secure payment request…');
+    const { data: payment, error } = await supabase.rpc('create_rent_payment', { p_invoice_id: invoice.id, p_payment_method: method });
+    if (error || !payment) { setStep('error'); setMessage(error?.message || 'Could not create the payment request.'); return; }
+    if (method === 'bank_transfer') { setBankPayment(payment as Payment); setStep('bank'); return; }
+    if (method === 'equity') { setEquityPayment(payment as Payment); setStep('equity'); return; }
+    setMpesaPayment(payment as Payment); setStep('mpesa');
   };
 
-  return (
-    <Modal open onClose={onClose} title="Pay Rent" size="md">
-      {step === 'pay' && (
-        <div className="space-y-4">
-          <div className="rounded-2xl border border-brand-100 bg-brand-50 p-4">
-            <div className="flex justify-between mb-2"><span className="text-ink-500">Period</span><span className="font-semibold">{invoice.period}</span></div>
-            <div className="flex justify-between"><span className="text-ink-500">Amount Due</span><span className="font-bold text-xl text-brand-900">{formatKES(invoice.balance)}</span></div>
-          </div>
-          <div>
-            <label className="label">Payment Method</label>
-            <div className="grid grid-cols-2 gap-2">
-              <button type="button" onClick={() => setMethod('mpesa')} className={`rounded-xl border p-3 text-left ${method === 'mpesa' ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-ink-200 text-ink-600'}`}><p className="font-semibold">M-Pesa</p><p className="text-xs opacity-70">Instant STK prompt</p></button>
-              <button type="button" onClick={() => setMethod('bank_transfer')} className={`rounded-xl border p-3 text-left ${method === 'bank_transfer' ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-ink-200 text-ink-600'}`}><p className="font-semibold">Bank transfer</p><p className="text-xs opacity-70">Manual verification</p></button>
-            </div>
-          </div>
-          {method === 'mpesa' && <div><label className="label">M-Pesa Phone</label><input className="input" placeholder="07XX XXX XXX" value={phone} onChange={(e) => setPhone(e.target.value)} /><p className="mt-1 text-xs text-ink-400">The number receives the Safaricom payment prompt. It is normalized securely on the server.</p></div>}
-          {method === 'bank_transfer' && <div className="rounded-xl border border-ink-100 bg-ink-50 p-4 text-sm text-ink-600">A bank transfer intent will be recorded as pending. Bank-account verification and automatic reconciliation are part of a later production integration.</div>}
-          <button type="button" onClick={handlePay} className="btn-primary w-full">{method === 'mpesa' ? `Send M-Pesa Prompt · ${formatKES(invoice.balance)}` : `Create Bank Payment · ${formatKES(invoice.balance)}`}</button>
-        </div>
-      )}
-      {step === 'processing' && (
-        <div className="text-center py-10"><div className="inline-block animate-spin rounded-full border-2 border-ink-200 border-t-brand-500 w-12 h-12 mb-4" /><p className="font-semibold text-ink-900">{message}</p><p className="text-sm text-ink-500 mt-2">Please keep this window open.</p></div>
-      )}
-      {step === 'pending' && (
-        <div className="text-center py-8"><div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-amber-50 text-amber-600"><Wallet className="h-8 w-8" /></div><h4 className="font-bold text-ink-900 text-lg">Payment awaiting confirmation</h4><p className="text-sm text-ink-500 mt-2">{message}</p>{checkoutId && <p className="mt-4 text-xs text-ink-400">Reference: <span className="font-mono">{checkoutId}</span></p>}<button type="button" onClick={onClose} className="btn-primary mt-6">Close</button></div>
-      )}
-      {step === 'success' && (
-        <div className="text-center py-8"><div className="w-16 h-16 rounded-full bg-brand-100 text-brand-600 flex items-center justify-center mx-auto mb-4"><CheckCircle className="w-8 h-8" /></div><h4 className="font-bold text-ink-900 text-lg">Payment confirmed</h4><p className="text-sm text-ink-500 mt-2">{message}</p><button type="button" onClick={onClose} className="btn-primary mt-6">Done</button></div>
-      )}
-      {step === 'error' && (
-        <div className="text-center py-8"><div className="w-16 h-16 rounded-full bg-red-50 text-red-600 flex items-center justify-center mx-auto mb-4"><X className="w-8 h-8" /></div><h4 className="font-bold text-ink-900 text-lg">Payment not completed</h4><p className="text-sm text-ink-500 mt-2">{message}</p><button type="button" onClick={() => setStep('pay')} className="btn-primary mt-6">Try again</button></div>
-      )}
-    </Modal>
-  );
+  return <Modal open onClose={onClose} title={step === 'bank' ? 'Bank Transfer Payment' : step === 'mpesa' ? 'M-Pesa Secure Payment' : step === 'equity' ? 'Equity Secure Payment' : 'Pay Rent'} size="md">
+    {step === 'pay' && <div className="space-y-4">
+      <div className="rounded-2xl border border-brand-100 bg-brand-50 p-4"><div className="flex justify-between mb-2"><span className="text-ink-500">Period</span><span className="font-semibold">{invoice.period}</span></div><div className="flex justify-between"><span className="text-ink-500">Amount Due</span><span className="font-bold text-xl text-brand-900">{formatKES(invoice.balance)}</span></div></div>
+      <div><label className="label">Payment Method</label><div className="grid grid-cols-3 gap-2"><button type="button" onClick={() => setMethod('mpesa')} className={`rounded-xl border p-3 text-left ${method === 'mpesa' ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-ink-200 text-ink-600'}`}><p className="font-semibold">M-Pesa</p><p className="text-xs opacity-70">Secure prompt · enter PIN on phone</p></button><button type="button" onClick={() => setMethod('bank_transfer')} className={`rounded-xl border p-3 text-left ${method === 'bank_transfer' ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-ink-200 text-ink-600'}`}><p className="font-semibold">Bank transfer</p><p className="text-xs opacity-70">Manual fallback</p></button><button type="button" onClick={() => setMethod('equity')} className={`rounded-xl border p-3 text-left ${method === 'equity' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-ink-200 text-ink-600'}`}><p className="font-semibold">Equity</p><p className="text-xs opacity-70">Secure payment link</p></button></div></div>
+      {method === 'mpesa' && <div className="rounded-2xl border border-brand-100 bg-brand-50 p-4"><p className="font-semibold text-brand-900">M-Pesa STK Push</p><p className="mt-1 text-sm text-brand-800">On the next step, enter the Safaricom M-Pesa number that should receive the secure payment prompt. Your registered profile number is only used as a convenient default.</p></div>}
+      {method === 'bank_transfer' && <div className="rounded-2xl border border-brand-100 bg-brand-50 p-4"><p className="font-semibold text-brand-900">Manual bank transfer</p><p className="mt-1 text-sm text-brand-800">Send the payment to HIGHPARK CONSULT LIMITED account 0470281425369, then enter the transaction reference and optionally upload proof.</p></div>}
+      {method === 'equity' && <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4"><p className="font-semibold text-blue-950">Equity secure collection</p><p className="mt-1 text-sm text-blue-900">Create a secure Equity payment request for this invoice. HighPark will reconcile the bank credit automatically.</p></div>}
+      <button type="button" onClick={() => void handlePay()} className="btn-primary w-full">{method === 'mpesa' ? `Continue to M-Pesa · ${formatKES(invoice.balance)}` : method === 'equity' ? `Continue to Equity · ${formatKES(invoice.balance)}` : `Continue to Bank Transfer · ${formatKES(invoice.balance)}`}</button>
+    </div>}
+    {step === 'processing' && <div className="text-center py-10"><div className="inline-block animate-spin rounded-full border-2 border-ink-200 border-t-brand-500 w-12 h-12 mb-4" /><p className="font-semibold text-ink-900">{message}</p><p className="text-sm text-ink-500 mt-2">Please keep this window open.</p></div>}
+    {step === 'mpesa' && mpesaPayment && <MpesaStkForm payment={mpesaPayment} phone={profile?.phone || ''} onCancel={() => setStep('pay')} onSuccess={(msg) => { setStep('success'); setMessage(msg); }} onError={(msg) => { setStep('error'); setMessage(msg); }} />}
+    {step === 'equity' && equityPayment && <EquityPaymentForm payment={equityPayment} onCancel={() => setStep('pay')} onSuccess={(msg) => { setStep('success'); setMessage(msg); }} onError={(msg) => { setStep('error'); setMessage(msg); }} />}
+    {step === 'bank' && bankPayment && <BankTransferForm payment={bankPayment} onCancel={() => setStep('pay')} onSubmitted={() => { setStep('success'); setMessage('Your bank transfer has been submitted for verification. The finance team will review the reference and proof, then issue your receipt.'); }} />}
+    {step === 'success' && <div className="text-center py-8"><div className="w-16 h-16 rounded-full bg-brand-100 text-brand-600 flex items-center justify-center mx-auto mb-4"><CheckCircle className="w-8 h-8" /></div><h4 className="font-bold text-ink-900 text-lg">Payment confirmed</h4><p className="text-sm text-ink-500 mt-2">{message}</p><button type="button" onClick={onClose} className="btn-primary mt-6">Done</button></div>}
+    {step === 'error' && <div className="text-center py-8"><div className="w-16 h-16 rounded-full bg-red-50 text-red-600 flex items-center justify-center mx-auto mb-4"><X className="w-8 h-8" /></div><h4 className="font-bold text-ink-900 text-lg">Payment not completed</h4><p className="text-sm text-ink-500 mt-2">{message}</p><button type="button" onClick={() => setStep('pay')} className="btn-primary mt-6">Try again</button></div>}
+  </Modal>;
 }
 
 function PayDepositModal({ lease, amount, onClose }: { lease: Lease; amount: number; onClose: () => void }) {
   const { profile } = useAuth();
   const { toast } = useToast();
-  const [method, setMethod] = useState<'mpesa' | 'bank_transfer'>('mpesa');
-  const [phone, setPhone] = useState(profile?.phone || '');
+  const [method, setMethod] = useState<'mpesa' | 'bank_transfer' | 'equity'>('mpesa');
+    const [mpesaPayment, setMpesaPayment] = useState<Payment | null>(null);
   const [loading, setLoading] = useState(false);
   const [pending, setPending] = useState(false);
+  const [bankPayment, setBankPayment] = useState<Payment | null>(null);
+  const [equityPayment, setEquityPayment] = useState<Payment | null>(null);
 
   const handlePay = async () => {
     if (!profile) return;
-    if (method === 'mpesa' && !phone.trim()) { toast('Enter the M-Pesa number that should receive the payment prompt.', 'error'); return; }
     setLoading(true);
     const { data: payment, error } = await supabase.rpc('create_deposit_payment', { p_lease_id: lease.id, p_payment_method: method });
     if (error || !payment) { setLoading(false); toast(error?.message || 'Could not initiate deposit payment.', 'error'); return; }
-
-    if (method === 'bank_transfer') {
-      setLoading(false); setPending(true);
-      toast('Deposit payment intent recorded as pending. Bank transfer verification is manual.', 'success');
-      return;
-    }
-
-    const { data, error: functionError } = await supabase.functions.invoke('mpesa-stk', { body: { payment_id: payment.id, phone: phone.trim() } });
-    setLoading(false);
-    if (functionError || data?.error) { toast(data?.error || functionError?.message || 'Could not start the M-Pesa prompt.', 'error'); return; }
-    setPending(true);
-    toast(data?.customer_message || 'M-Pesa prompt sent. Enter your PIN to complete the deposit payment.', 'success');
+    if (method === 'bank_transfer') { setLoading(false); setBankPayment(payment as Payment); return; }
+    if (method === 'equity') { setLoading(false); setEquityPayment(payment as Payment); return; }
+    setLoading(false); setMpesaPayment(payment as Payment);
   };
+
+  if (mpesaPayment) return <Modal open onClose={onClose} title="Security Deposit · M-Pesa Secure Payment" size="md"><MpesaStkForm payment={mpesaPayment} phone={profile?.phone || ''} onCancel={() => setMpesaPayment(null)} onSuccess={(msg) => { setMpesaPayment(null); setPending(true); toast(msg, 'success'); }} onError={(msg) => { setMpesaPayment(null); toast(msg, 'error'); }} /></Modal>;
+
+  if (equityPayment) return <Modal open onClose={onClose} title="Security Deposit · Equity Secure Payment" size="md"><EquityPaymentForm payment={equityPayment} onCancel={() => setEquityPayment(null)} onSuccess={(msg) => { setEquityPayment(null); setPending(true); toast(msg, 'success'); }} onError={(msg) => { setEquityPayment(null); toast(msg, 'error'); }} /></Modal>;
+
+  if (bankPayment) return <Modal open onClose={onClose} title="Security Deposit · Bank Transfer" size="md"><BankTransferForm payment={bankPayment} onCancel={() => setBankPayment(null)} onSubmitted={() => { setBankPayment(null); setPending(true); toast('Deposit bank transfer submitted for verification.', 'success'); }} /></Modal>;
 
   return <Modal open onClose={onClose} title="Pay Security Deposit" size="md">
     {!pending ? <div className="space-y-4">
       <div className="rounded-2xl border border-brand-100 bg-brand-50 p-4"><p className="text-sm text-ink-500">Outstanding security deposit</p><p className="mt-1 text-2xl font-bold text-brand-900">{formatKES(amount)}</p><p className="mt-1 text-xs text-ink-500">The final amount is calculated server-side from verified payments.</p></div>
-      <div><label className="label">Payment Method</label><div className="grid grid-cols-2 gap-2"><button type="button" onClick={() => setMethod('mpesa')} className={`rounded-xl border p-3 text-left ${method === 'mpesa' ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-ink-200 text-ink-600'}`}><p className="font-semibold">M-Pesa</p><p className="text-xs opacity-70">Instant STK prompt</p></button><button type="button" onClick={() => setMethod('bank_transfer')} className={`rounded-xl border p-3 text-left ${method === 'bank_transfer' ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-ink-200 text-ink-600'}`}><p className="font-semibold">Bank transfer</p><p className="text-xs opacity-70">Manual verification</p></button></div></div>
-      {method === 'mpesa' && <div><label className="label">M-Pesa Phone</label><input className="input" placeholder="07XX XXX XXX" value={phone} onChange={(e) => setPhone(e.target.value)} /></div>}
-      <button type="button" onClick={handlePay} className="btn-primary w-full" disabled={loading}>{loading ? 'Starting payment…' : method === 'mpesa' ? `Send M-Pesa Prompt · ${formatKES(amount)}` : `Create Bank Payment · ${formatKES(amount)}`}</button>
-    </div> : <div className="py-8 text-center"><div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-amber-50 text-amber-600"><Wallet className="h-8 w-8" /></div><h4 className="text-lg font-bold text-ink-900">Deposit payment awaiting confirmation</h4><p className="mt-2 text-sm text-ink-500">{method === 'mpesa' ? 'Your M-Pesa request has been sent. The deposit balance will update only after Safaricom confirms the transaction.' : 'Your bank-transfer payment intent is recorded. The finance team will verify the transfer before updating your balance.'}</p><button type="button" onClick={onClose} className="btn-primary mt-6">Close</button></div>}
+      <div><label className="label">Payment Method</label><div className="grid grid-cols-3 gap-2"><button type="button" onClick={() => setMethod('mpesa')} className={`rounded-xl border p-3 text-left ${method === 'mpesa' ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-ink-200 text-ink-600'}`}><p className="font-semibold">M-Pesa</p><p className="text-xs opacity-70">PayBill · house account</p></button><button type="button" onClick={() => setMethod('bank_transfer')} className={`rounded-xl border p-3 text-left ${method === 'bank_transfer' ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-ink-200 text-ink-600'}`}><p className="font-semibold">Bank transfer</p><p className="text-xs opacity-70">Manual fallback</p></button><button type="button" onClick={() => setMethod('equity')} className={`rounded-xl border p-3 text-left ${method === 'equity' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-ink-200 text-ink-600'}`}><p className="font-semibold">Equity</p><p className="text-xs opacity-70">Secure payment link</p></button></div></div>
+      {method === 'mpesa' && <div className="rounded-2xl border border-brand-100 bg-brand-50 p-4"><p className="font-semibold text-brand-900">M-Pesa STK Push</p><p className="mt-1 text-sm text-brand-800">You will choose the Safaricom M-Pesa number that should receive the secure prompt on the next step.</p></div>}
+      {method === 'bank_transfer' && <div className="rounded-2xl border border-brand-100 bg-brand-50 p-4"><p className="font-semibold text-brand-900">Manual bank transfer</p><p className="mt-1 text-sm text-brand-800">HIGHPARK CONSULT LIMITED · Account 0470281425369</p></div>}
+      {method === 'equity' && <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4"><p className="font-semibold text-blue-950">Equity secure collection</p><p className="mt-1 text-sm text-blue-900">Create a secure Equity payment request and reconcile the resulting bank credit automatically.</p></div>}
+      <button type="button" onClick={() => void handlePay()} className="btn-primary w-full" disabled={loading}>{loading ? 'Starting payment…' : method === 'mpesa' ? `Send M-Pesa Prompt · ${formatKES(amount)}` : method === 'equity' ? `Continue to Equity · ${formatKES(amount)}` : `Continue to Bank Transfer · ${formatKES(amount)}`}</button>
+    </div> : <div className="py-8 text-center"><div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-amber-50 text-amber-600"><Wallet className="h-8 w-8" /></div><h4 className="text-lg font-bold text-ink-900">Deposit payment awaiting confirmation</h4><p className="mt-2 text-sm text-ink-500">{method === 'mpesa' ? 'Your M-Pesa payment has been confirmed automatically. Your deposit balance will update from the verified payment.' : method === 'equity' ? 'Your Equity payment request has been created. The deposit balance will update after the bank confirms the payment.' : 'Your bank-transfer payment has been submitted. The finance team will verify it before updating your deposit balance.'}</p><button type="button" onClick={onClose} className="btn-primary mt-6">Close</button></div>}
   </Modal>;
 }
 
