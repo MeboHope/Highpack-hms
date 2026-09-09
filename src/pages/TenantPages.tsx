@@ -13,12 +13,16 @@ import { getPropertyImages } from '@/lib/images';
 import type { Lease, RentInvoice, MaintenanceRequest, Reservation, Property, PropertyUnit, Payment } from '@/lib/supabase';
 import { downloadInvoicePdf, downloadPaymentReceiptPdf, getInvoiceNumber, getReceiptNumber } from '@/lib/documents';
 import { TrendChart, DonutChart } from '@/components/AnalyticsCharts';
+import { getAssetContext } from '@/lib/assetContext';
+import { AssetSwitcher } from '@/components/AssetSwitcher';
 
 export function TenantDashboard() {
   const { profile } = useAuth();
   const { navigate } = useRouter();
   const [loading, setLoading] = useState(true);
   const [lease, setLease] = useState<(Lease & { properties: Property; property_units: PropertyUnit }) | null>(null);
+  const [activeLeases, setActiveLeases] = useState<(Lease & { properties: Property; property_units: PropertyUnit })[]>([]);
+  const [selectedAssetId, setSelectedAssetId] = useState('');
   const [invoices, setInvoices] = useState<RentInvoice[]>([]);
   const [reservations, setReservations] = useState<(Reservation & { property_units: { unit_number: string }; properties: { name: string; town: string; county: string } })[]>([]);
   const [payments, setPayments] = useState<(Payment & { properties: { name: string } | null; property_units: { unit_number: string } | null })[]>([]);
@@ -28,18 +32,25 @@ export function TenantDashboard() {
     if (!profile) return;
     (async () => {
       const [{ data: leaseData }, { data: resData }, { data: paymentData }, { data: settings }] = await Promise.all([
-        supabase.from('leases').select('*, properties(*), property_units(*)').eq('tenant_id', profile.id).eq('status', 'active').order('created_at', { ascending: false }).maybeSingle(),
+        supabase.from('leases').select('*, properties(*), property_units(*)').eq('tenant_id', profile.id).eq('status', 'active').order('created_at', { ascending: false }),
         supabase.from('reservations').select('*, property_units(unit_number), properties(name, town, county)').eq('customer_id', profile.id).order('created_at', { ascending: false }),
         supabase.from('payments').select('*, properties(name), property_units(unit_number)').eq('user_id', profile.id).order('created_at', { ascending: false }),
         supabase.from('system_settings').select('reservation_fee_policy').eq('id', 1).maybeSingle(),
       ]);
-      setLease(leaseData as typeof lease | null);
+      const leases = (leaseData as typeof activeLeases) || [];
+      setActiveLeases(leases);
+      const stored = window.localStorage.getItem('highpark:tenant-active-asset');
+      const requested = new URLSearchParams(window.location.search).get('asset');
+      const nextId = [requested, stored, leases[0]?.id].find((id) => id && leases.some((item) => item.id === id)) || '';
+      const selectedLease = leases.find((item) => item.id === nextId) || leases[0] || null;
+      setSelectedAssetId(nextId);
+      setLease(selectedLease);
       setReservations((resData as typeof reservations) || []);
       setPayments((paymentData as typeof payments) || []);
       setReservationPolicy(String(settings?.reservation_fee_policy || 'non_refundable'));
 
-      if (leaseData) {
-        const { data: invData } = await supabase.from('rent_invoices').select('*').eq('lease_id', leaseData.id).order('due_date', { ascending: false }).limit(5);
+      if (selectedLease) {
+        const { data: invData } = await supabase.from('rent_invoices').select('*').eq('lease_id', selectedLease.id).order('due_date', { ascending: false }).limit(5);
         setInvoices((invData as RentInvoice[]) || []);
       } else {
         setInvoices([]);
@@ -48,7 +59,12 @@ export function TenantDashboard() {
     })();
   }, [profile]);
 
-  if (loading) return <DashboardLayout navItems={tenantNav} title="Dashboard"><LoadingPage /></DashboardLayout>;
+
+  const assetContext = getAssetContext(lease?.properties?.asset_class, lease?.properties?.operation_model);
+  const assetOptions = activeLeases.map((item) => ({ id: item.id, name: item.properties?.name || 'Managed asset', subtitle: item.property_units?.unit_number ? `Unit ${item.property_units.unit_number}` : assetContext.label, meta: item.properties?.town || item.properties?.county }));
+  const switchAsset = (id: string) => { const selected = activeLeases.find((item) => item.id === id); if (!selected) return; window.localStorage.setItem('highpark:tenant-active-asset', id); window.history.replaceState({}, '', `${window.location.pathname}?asset=${encodeURIComponent(id)}`); setSelectedAssetId(id); setLease(selected); void supabase.from('rent_invoices').select('*').eq('lease_id', id).order('due_date', { ascending: false }).limit(5).then(({ data }) => setInvoices((data as RentInvoice[]) || [])); };
+
+  if (loading) return <DashboardLayout navItems={tenantNav} title={assetContext.dashboardTitle}><LoadingPage /></DashboardLayout>;
 
   const outstandingBalance = invoices.filter((i) => i.status !== 'paid').reduce((sum, i) => sum + Number(i.balance || 0), 0);
   const verifiedDepositPaid = payments.filter((p) => p.payment_type === 'deposit' && p.status === 'successful' && p.verified && p.lease_id === lease?.id).reduce((sum, p) => sum + Number(p.amount || 0), 0);
@@ -59,18 +75,33 @@ export function TenantDashboard() {
   const moveInTotal = lease ? Math.max(0, Number(lease.monthly_rent || 0) + Number(lease.service_charge || 0) + depositBalance) : 0;
   const leaseTermMonths = lease ? Math.max(1, Math.round((new Date(lease.lease_end).getTime() - new Date(lease.lease_start).getTime()) / (1000 * 60 * 60 * 24 * 30.4375))) : 0;
   const leaseValue = lease ? Number(lease.monthly_rent || 0) * leaseTermMonths + Number(lease.service_charge || 0) * leaseTermMonths + Number(lease.deposit || 0) : 0;
-  const paymentTrend = Array.from(new Map(payments.filter((p) => p.status === 'successful' && p.verified).map((p) => { const d = new Date(p.created_at); return [d.toLocaleDateString(undefined, { month: 'short' }), Number(p.amount || 0)] as const; })).entries()).slice(-6).map(([label, value]) => ({ label: String(label), value: Number(value) }));
-  const paidAmount = payments.filter((p) => p.status === 'successful' && p.verified).reduce((sum, p) => sum + Number(p.amount || 0), 0);
+  const assetPayments = lease ? payments.filter((p) => p.lease_id === lease.id || p.property_id === lease.property_id) : payments;
+  const assetReservations = lease ? reservations.filter((r) => r.property_id === lease.property_id) : reservations;
+  const paymentTrend = Array.from(new Map(assetPayments.filter((p) => p.status === 'successful' && p.verified).map((p) => { const d = new Date(p.created_at); return [d.toLocaleDateString(undefined, { month: 'short' }), Number(p.amount || 0)] as const; })).entries()).slice(-6).map(([label, value]) => ({ label: String(label), value: Number(value) }));
+  const paidAmount = assetPayments.filter((p) => p.status === 'successful' && p.verified).reduce((sum, p) => sum + Number(p.amount || 0), 0);
+  const assetName = lease?.properties?.name || reservations[0]?.properties?.name || 'Your selected asset';
 
   return (
-    <DashboardLayout navItems={tenantNav} title="Dashboard">
+    <DashboardLayout navItems={tenantNav} title={assetContext.dashboardTitle}>
+      {assetOptions.length > 1 && <div className="mb-4"><AssetSwitcher items={assetOptions} value={selectedAssetId} onChange={switchAsset} /></div>}
+
+      <Card className="mb-6 overflow-hidden border-brand-100 bg-gradient-to-br from-white via-white to-brand-50/60">
+        <div className="flex flex-col gap-5 p-5 sm:p-6 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex min-w-0 items-center gap-4">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-brand-100 text-brand-700"><Building2 className="h-7 w-7" /></div>
+            <div className="min-w-0"><p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand-700">Current asset · {assetContext.label}</p><h2 className="mt-1 truncate text-xl font-bold text-ink-900 sm:text-2xl">{assetName}</h2><p className="mt-1 text-sm text-ink-500">{assetContext.relationshipLabel} workspace · {lease?.property_units?.unit_number ? `Unit ${lease.property_units.unit_number}` : 'Selected opportunity'}</p></div>
+          </div>
+          <div className="flex flex-wrap gap-2"><button onClick={() => navigate(lease ? '/tenant/house' : '/properties')} className="btn-secondary"><Eye className="h-4 w-4" /> View asset</button><button onClick={() => navigate('/tenant/documents')} className="btn-primary"><FileText className="h-4 w-4" /> Documents</button></div>
+        </div>
+      </Card>
+
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6 mb-6">
-        <StatCard label="Monthly Rent" value={lease ? formatKES(lease.monthly_rent) : '—'} icon={<Wallet className="w-5 h-5" />} onClick={() => navigate(lease ? '/tenant/rent' : '/properties')} />
-        <StatCard label="Move-in Amount" value={lease ? formatKES(moveInTotal) : '—'} icon={<CreditCard className="w-5 h-5" />} accent="accent" onClick={() => navigate('/tenant/rent')} />
+        <StatCard label={assetContext.financeLabel} value={lease ? formatKES(lease.monthly_rent) : '—'} icon={<Wallet className="w-5 h-5" />} onClick={() => navigate(lease ? '/tenant/rent' : '/properties')} />
+        <StatCard label={assetContext.stayOrLeaseLabel === 'Booking' ? 'Booking value' : 'Entry amount'} value={lease ? formatKES(moveInTotal) : '—'} icon={<CreditCard className="w-5 h-5" />} accent="accent" onClick={() => navigate('/tenant/rent')} />
         <StatCard label="Outstanding" value={formatKES(outstandingBalance + depositBalance)} icon={<FileText className="w-5 h-5" />} accent="red" onClick={() => navigate('/tenant/rent')} />
-        <StatCard label="Reservations" value={reservations.length} icon={<Calendar className="w-5 h-5" />} accent="accent" onClick={() => navigate('/tenant/reservations')} />
-        <StatCard label="Verified Paid" value={formatKES(payments.filter((p) => p.status === 'successful' && p.verified).reduce((sum, p) => sum + Number(p.amount || 0), 0))} icon={<CheckCircle className="w-5 h-5" />} accent="blue" onClick={() => navigate('/tenant/rent')} />
-        <StatCard label="Lease Status" value={lease ? titleCase(lease.status) : 'No lease'} icon={<FileText className="w-5 h-5" />} accent="blue" onClick={() => navigate(lease ? '/tenant/lease' : '/properties')} />
+        <StatCard label={assetContext.stayOrLeaseLabel === 'Booking' ? 'Bookings' : 'Reservations'} value={assetReservations.length} icon={<Calendar className="w-5 h-5" />} accent="accent" onClick={() => navigate('/tenant/reservations')} />
+        <StatCard label="Verified Paid" value={formatKES(assetPayments.filter((p) => p.status === 'successful' && p.verified).reduce((sum, p) => sum + Number(p.amount || 0), 0))} icon={<CheckCircle className="w-5 h-5" />} accent="blue" onClick={() => navigate('/tenant/rent')} />
+        <StatCard label={assetContext.stayOrLeaseLabel + ' status'} value={lease ? titleCase(lease.status) : 'No lease'} icon={<FileText className="w-5 h-5" />} accent="blue" onClick={() => navigate(lease ? '/tenant/lease' : '/properties')} />
       </div>
 
       <div className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
@@ -79,7 +110,7 @@ export function TenantDashboard() {
       </div>
 
       {lease && <Card className="mb-6 overflow-hidden border-brand-100">
-        <div className="brand-gradient p-5 text-white"><div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-white/70">Payment centre</p><h3 className="mt-1 text-xl font-bold">Your current tenancy balance</h3><p className="mt-1 text-sm text-white/75">Your first rent/service invoice and security-deposit balance are shown from the live lease and payment records.</p></div><button onClick={() => navigate('/tenant/rent')} className="btn-accent shrink-0"><Wallet className="h-4 w-4" /> Open payments</button></div></div>
+        <div className="brand-gradient p-5 text-white"><div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-white/70">Payment centre</p><h3 className="mt-1 text-xl font-bold">Your current asset balance</h3><p className="mt-1 text-sm text-white/75">Your financial position is calculated from the selected asset, its live agreement and verified payment records.</p></div><button onClick={() => navigate('/tenant/rent')} className="btn-accent shrink-0"><Wallet className="h-4 w-4" /> Open payments</button></div></div>
         <div className="grid grid-cols-2 gap-px bg-ink-100 sm:grid-cols-4">
           <div className="bg-white p-4"><p className="text-xs text-ink-400">Move-in amount</p><p className="mt-1 text-lg font-bold text-ink-900">{formatKES(moveInTotal)}</p></div>
           <div className="bg-white p-4"><p className="text-xs text-ink-400">Rent + service due</p><p className="mt-1 text-lg font-bold text-ink-900">{formatKES(outstandingBalance)}</p></div>
@@ -92,14 +123,14 @@ export function TenantDashboard() {
       <Card className="mb-6 overflow-hidden border-brand-100">
         <div className="brand-gradient p-6 text-white">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div><p className="text-sm font-medium text-white/70">Your home journey</p><h2 className="mt-1 text-2xl font-bold">Find, reserve and manage your home in one place.</h2><p className="mt-2 max-w-2xl text-sm text-white/75">Browse verified properties, compare exact units, request a viewing, reserve a house and then manage rent, lease and maintenance here.</p></div>
-            <button onClick={() => navigate('/properties')} className="btn-accent shrink-0"><Search className="h-4 w-4" /> Find a Home <ArrowRight className="h-4 w-4" /></button>
+            <div><p className="text-sm font-medium text-white/70">Your asset journey</p><h2 className="mt-1 text-2xl font-bold">Find, reserve and manage your property relationship in one place.</h2><p className="mt-2 max-w-2xl text-sm text-white/75">Browse assets, review opportunities, manage your agreement, payments, documents and services from one workspace.</p></div>
+            <button onClick={() => navigate('/properties')} className="btn-accent shrink-0"><Search className="h-4 w-4" /> Explore Assets <ArrowRight className="h-4 w-4" /></button>
           </div>
         </div>
         <div className="grid grid-cols-2 gap-px bg-ink-100 sm:grid-cols-4">
           {[
-            { label: 'Browse homes', text: 'Photos, videos & units', to: '/properties', icon: Search },
-            { label: 'Reservations', text: 'Track applications', to: '/tenant/reservations', icon: Calendar },
+            { label: 'Explore assets', text: 'Properties, land & stays', to: '/properties', icon: Search },
+            { label: assetContext.stayOrLeaseLabel === 'Booking' ? 'Bookings' : 'Reservations', text: 'Track your opportunities', to: '/tenant/reservations', icon: Calendar },
             { label: 'Viewings', text: 'Manage appointments', to: '/tenant/viewings', icon: Eye },
             { label: 'Pay rent', text: 'Invoices & balances', to: '/tenant/rent', icon: Wallet },
           ].map((a) => { const Icon = a.icon; return <button key={a.to} onClick={() => navigate(a.to)} className="bg-white p-4 text-left transition hover:bg-brand-50"><Icon className="h-5 w-5 text-brand-600" /><p className="mt-2 text-sm font-semibold text-ink-900">{a.label}</p><p className="text-xs text-ink-500">{a.text}</p></button>; })}
@@ -695,7 +726,7 @@ export function TenantLease() {
             </div>
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div><p className="text-ink-400">Property</p><p className="font-medium">{lease.properties?.name}</p></div>
-              <div><p className="text-ink-400">Unit</p><p className="font-medium">{lease.property_units?.unit_number}</p></div>
+              <div><p className="text-ink-400">Premises / unit</p><p className="font-medium">{lease.property_units?.unit_number}</p></div>
               <div><p className="text-ink-400">Lease Start</p><p className="font-medium">{formatDate(lease.lease_start)}</p></div>
               <div><p className="text-ink-400">Lease End</p><p className="font-medium">{formatDate(lease.lease_end)}</p></div>
               <div><p className="text-ink-400">Monthly Rent</p><p className="font-medium">{formatKES(lease.monthly_rent)}</p></div>
@@ -749,10 +780,10 @@ export function TenantHouse() {
     })();
   }, [profile]);
 
-  if (loading) return <DashboardLayout navItems={tenantNav} title="My House"><LoadingPage /></DashboardLayout>;
+  if (loading) return <DashboardLayout navItems={tenantNav} title="My Asset"><LoadingPage /></DashboardLayout>;
 
   return (
-    <DashboardLayout navItems={tenantNav} title="My House">
+    <DashboardLayout navItems={tenantNav} title="My Asset">
       {lease ? (
         <div className="space-y-6">
           <Card className="overflow-hidden">
@@ -767,8 +798,8 @@ export function TenantHouse() {
               <h2 className="text-2xl font-bold text-ink-900 mb-1">{lease.properties?.name}</h2>
               <p className="text-ink-500 flex items-center gap-1 mb-4"><MapPin className="w-4 h-4" /> {lease.properties?.town}, {lease.properties?.county}</p>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
-                <div><p className="text-ink-400">Unit</p><p className="font-semibold">{lease.property_units?.unit_number}</p></div>
-                <div><p className="text-ink-400">Bedrooms</p><p className="font-semibold flex items-center gap-1"><BedDouble className="w-4 h-4" /> {lease.property_units?.bedrooms || 'Studio'}</p></div>
+                <div><p className="text-ink-400">Premises / unit</p><p className="font-semibold">{lease.property_units?.unit_number}</p></div>
+                <div><p className="text-ink-400">Bedrooms / size</p><p className="font-semibold flex items-center gap-1"><BedDouble className="w-4 h-4" /> {lease.property_units?.bedrooms || 'Studio'}</p></div>
                 <div><p className="text-ink-400">Bathrooms</p><p className="font-semibold flex items-center gap-1"><Bath className="w-4 h-4" /> {lease.property_units?.bathrooms}</p></div>
                 <div><p className="text-ink-400">Furnishing</p><p className="font-semibold">{titleCase(lease.property_units?.furnishing || 'unfurnished')}</p></div>
               </div>

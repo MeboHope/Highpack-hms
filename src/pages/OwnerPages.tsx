@@ -15,12 +15,14 @@ import { downloadPaymentReceiptPdf } from '@/lib/documents';
 import { loadDashboardPropertyPerformance } from '@/lib/operationalData';
 import type { Property, PropertyUnit, Reservation, Lease, Expense, TaxRecord, MaintenanceRequest, Payment } from '@/lib/supabase';
 import { ComparisonBars, DonutChart, TrendChart } from '@/components/AnalyticsCharts';
+import { AssetSwitcher } from '@/components/AssetSwitcher';
 
 export function OwnerDashboard() {
   const { profile } = useAuth();
   const { navigate } = useRouter();
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState(new Date().toISOString().slice(0, 7));
+  const [selectedPropertyId, setSelectedPropertyId] = useState('');
   const [summary, setSummary] = useState<Array<{
     id: string; name: string; propertyType: string; unitTypes: Record<string, number>; units: number; available: number; reserved: number;
     occupied: number; tenants: number; expectedRent: number; collectedRent: number; tax: number; floors: Record<string, { total: number; available: number; occupied: number; reserved: number }>;
@@ -38,8 +40,17 @@ export function OwnerDashboard() {
       .finally(() => setLoading(false));
   }, [profile, period]);
 
+  useEffect(() => {
+    if (!summary.length) return;
+    const stored = window.localStorage.getItem('highpark:owner-active-asset');
+    setSelectedPropertyId((current) => current || (stored && summary.some((row) => row.id === stored) ? stored : summary[0].id));
+  }, [summary]);
+
   if (loading) return <DashboardLayout navItems={ownerNav} title="Dashboard"><LoadingPage /></DashboardLayout>;
 
+  const selectedProperty = summary.find((row) => row.id === selectedPropertyId) || summary[0];
+  const assetOptions = summary.map((row) => ({ id: row.id, name: row.name, subtitle: row.propertyType, meta: `${row.units} inventory` }));
+  const switchProperty = (id: string) => { setSelectedPropertyId(id); window.localStorage.setItem('highpark:owner-active-asset', id); };
   const totals = summary.reduce((acc, row) => ({
     properties: acc.properties + 1,
     units: acc.units + row.units,
@@ -59,7 +70,7 @@ export function OwnerDashboard() {
           <div>
             <p className="text-sm font-medium text-white/75">Portfolio overview</p>
             <h2 className="mt-1 text-2xl font-bold">Good day, {profile?.full_name?.split(' ')[0] || 'Owner'}</h2>
-            <p className="mt-1 max-w-2xl text-sm text-white/80">A single view of your properties, unit mix, tenants, rent collection and tax exposure.</p>
+            <p className="mt-1 max-w-2xl text-sm text-white/80">A single view of your assets, operating mix, occupants, collections, expenses and compliance exposure.</p>
           </div>
           <div className="grid grid-cols-2 gap-3 text-center">
             <div className="rounded-xl bg-white/10 px-5 py-3 backdrop-blur"><p className="text-2xl font-bold">{totals.properties}</p><p className="text-xs text-white/70">Properties</p></div>
@@ -67,6 +78,9 @@ export function OwnerDashboard() {
           </div>
         </div>
       </div>
+
+      {assetOptions.length > 0 && <div className="mb-5"><AssetSwitcher items={assetOptions} value={selectedPropertyId} onChange={switchProperty} label="Active portfolio asset" /></div>}
+      {selectedProperty && <Card className="mb-6 overflow-hidden border-brand-100 bg-gradient-to-r from-white via-brand-50/40 to-white"><div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-brand-700">Selected asset pulse</p><h3 className="mt-1 text-xl font-bold text-ink-900">{selectedProperty.name}</h3><p className="mt-1 text-sm text-ink-500">{selectedProperty.propertyType} · {selectedProperty.units} inventory items · {selectedProperty.occupied} occupied · {selectedProperty.available} available</p></div><div className="grid grid-cols-3 gap-2 text-center"><div className="rounded-xl bg-white px-3 py-2 shadow-sm"><p className="text-sm font-bold text-ink-900">{formatKES(selectedProperty.expectedRent)}</p><p className="text-[10px] text-ink-400">Expected</p></div><div className="rounded-xl bg-white px-3 py-2 shadow-sm"><p className="text-sm font-bold text-blue-700">{formatKES(selectedProperty.collectedRent)}</p><p className="text-[10px] text-ink-400">Collected</p></div><div className="rounded-xl bg-white px-3 py-2 shadow-sm"><p className="text-sm font-bold text-brand-700">{selectedProperty.units ? Math.round(selectedProperty.occupied / selectedProperty.units * 100) : 0}%</p><p className="text-[10px] text-ink-400">Occupancy</p></div></div></div></Card>}
 
       <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-ink-100 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
         <div><p className="text-sm font-semibold text-ink-900">Dashboard reporting period</p><p className="text-xs text-ink-500">Rent and tax figures below are scoped to this month; occupancy is live.</p></div>
@@ -77,7 +91,7 @@ export function OwnerDashboard() {
         <StatCard label="Total Units" value={totals.units} icon={<Home className="w-5 h-5" />} onClick={() => navigate('/owner/properties')} />
         <StatCard label="Occupied" value={totals.occupied} icon={<Users className="w-5 h-5" />} accent="blue" onClick={() => navigate('/owner/properties')} />
         <StatCard label="Vacant" value={totals.available} icon={<Home className="w-5 h-5" />} accent="ink" onClick={() => navigate('/owner/properties')} />
-        <StatCard label="Active Tenants" value={totals.tenants} icon={<Users className="w-5 h-5" />} accent="accent" onClick={() => navigate('/owner/tenants')} />
+        <StatCard label="Active Occupants" value={totals.tenants} icon={<Users className="w-5 h-5" />} accent="accent" onClick={() => navigate('/owner/tenants')} />
         <StatCard label="Expected Rent / mo" value={formatKES(totals.expectedRent)} icon={<Wallet className="w-5 h-5" />} onClick={() => navigate('/owner/payments')} />
         <StatCard label={`Rent Collected · ${period}`} value={formatKES(totals.collectedRent)} icon={<Wallet className="w-5 h-5" />} accent="blue" onClick={() => navigate('/owner/payments')} />
         <StatCard label="Reserved Units" value={totals.reserved} icon={<Calendar className="w-5 h-5" />} accent="accent" onClick={() => navigate('/owner/reservations')} />
@@ -102,7 +116,7 @@ export function OwnerDashboard() {
                 <div className="mt-3"><div className="mb-1 flex justify-between text-[11px] text-ink-500"><span>Occupancy</span><span className="font-semibold text-ink-700">{occupancy}%</span></div><div className="h-1.5 rounded-full bg-ink-100"><div className="h-1.5 rounded-full bg-brand-500" style={{width:`${occupancy}%`}} /></div></div>
               </div></div>
               <div className="mt-4 grid grid-cols-4 gap-2">{[[row.units,'Units','text-ink-900'],[row.available,'Vacant','text-brand-700'],[row.reserved,'Reserved','text-accent-700'],[row.occupied,'Occupied','text-blue-700']].map(([value,label,cls]) => <div key={String(label)} className="rounded-xl bg-ink-50 p-2.5"><p className={`text-lg font-bold ${cls}`}>{value}</p><p className="text-[10px] uppercase tracking-wide text-ink-400">{label}</p></div>)}</div>
-              <div className="mt-3 grid grid-cols-3 gap-3 border-t border-ink-100 pt-3 text-xs"><div><p className="text-ink-400">Tenants</p><p className="mt-0.5 font-semibold text-ink-900">{row.tenants}</p></div><div><p className="text-ink-400">Rent collected</p><p className="mt-0.5 font-semibold text-ink-900">{formatKES(row.collectedRent)}</p></div><div><p className="text-ink-400">Est. tax</p><p className="mt-0.5 font-semibold text-brand-700">{formatKES(row.tax)}</p></div></div>
+              <div className="mt-3 grid grid-cols-3 gap-3 border-t border-ink-100 pt-3 text-xs"><div><p className="text-ink-400">Tenants</p><p className="mt-0.5 font-semibold text-ink-900">{row.tenants}</p></div><div><p className="text-ink-400">Collected</p><p className="mt-0.5 font-semibold text-ink-900">{formatKES(row.collectedRent)}</p></div><div><p className="text-ink-400">Est. tax</p><p className="mt-0.5 font-semibold text-brand-700">{formatKES(row.tax)}</p></div></div>
               {row.propertyType.toLowerCase().includes('apartment') && <div className="mt-3 rounded-xl bg-brand-50/60 p-3"><p className="mb-2 text-xs font-semibold text-brand-900">Floor availability</p><div className="grid grid-cols-2 gap-2 sm:grid-cols-3">{Object.entries(row.floors).sort((a,b)=>a[0].localeCompare(b[0],undefined,{numeric:true})).map(([floor,x]) => <div key={floor} className="rounded-lg border border-brand-100 bg-white px-2.5 py-2"><p className="text-[11px] font-semibold text-ink-800">{floor}</p><p className="text-[11px] text-brand-700"><strong>{x.available}</strong> available / {x.total}</p></div>)}</div></div>}
             </button>; })}
           </div>}
@@ -119,7 +133,7 @@ export function OwnerDashboard() {
         <Card className="p-6">
           <h3 className="font-semibold text-ink-900 mb-4">Collection health</h3>
           <div className="space-y-4">
-            <div><div className="mb-1 flex justify-between text-sm"><span className="text-ink-500">Rent collection</span><span className="font-semibold">{totals.expectedRent ? Math.min(100, Math.round((totals.collectedRent / totals.expectedRent) * 100)) : 0}%</span></div><div className="h-2 rounded-full bg-ink-100"><div className="h-2 rounded-full bg-brand-500" style={{ width: `${totals.expectedRent ? Math.min(100, (totals.collectedRent / totals.expectedRent) * 100) : 0}%` }} /></div></div>
+            <div><div className="mb-1 flex justify-between text-sm"><span className="text-ink-500">Collection performance</span><span className="font-semibold">{totals.expectedRent ? Math.min(100, Math.round((totals.collectedRent / totals.expectedRent) * 100)) : 0}%</span></div><div className="h-2 rounded-full bg-ink-100"><div className="h-2 rounded-full bg-brand-500" style={{ width: `${totals.expectedRent ? Math.min(100, (totals.collectedRent / totals.expectedRent) * 100) : 0}%` }} /></div></div>
             <div className="grid grid-cols-2 gap-3"><div className="rounded-xl bg-brand-50 p-4"><p className="text-xs text-brand-700">Collected</p><p className="mt-1 text-lg font-bold text-brand-900">{formatKES(totals.collectedRent)}</p></div><div className="rounded-xl bg-red-50 p-4"><p className="text-xs text-red-700">Estimated tax</p><p className="mt-1 text-lg font-bold text-red-900">{formatKES(totals.tax)}</p></div></div>
           </div>
         </Card>
@@ -511,7 +525,7 @@ function AddUnitModal({ propertyId, onClose }: { propertyId: string; onClose: ()
         <div className="grid grid-cols-2 gap-4">
           <div><label className="label">Unit Number</label><input className="input" required value={form.unit_number} onChange={(e) => setForm({ ...form, unit_number: e.target.value })} placeholder="A01" /></div>
           <div><label className="label">Floor</label><input type="number" className="input" value={form.floor} onChange={(e) => setForm({ ...form, floor: e.target.value })} /></div>
-          <div><label className="label">House Type</label><select className="input" value={form.house_type} onChange={(e) => setForm({ ...form, house_type: e.target.value })}>{PROPERTY_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}</select></div>
+          <div><label className="label">Unit / space type</label><select className="input" value={form.house_type} onChange={(e) => setForm({ ...form, house_type: e.target.value })}>{PROPERTY_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}</select></div>
           <div><label className="label">Furnishing</label><select className="input" value={form.furnishing} onChange={(e) => setForm({ ...form, furnishing: e.target.value })}><option value="furnished">Furnished</option><option value="semi_furnished">Semi-Furnished</option><option value="unfurnished">Unfurnished</option></select></div>
           <div><label className="label">Bedrooms</label><input type="number" className="input" min="0" value={form.bedrooms} onChange={(e) => setForm({ ...form, bedrooms: e.target.value })} /></div>
           <div><label className="label">Bathrooms</label><input type="number" className="input" min="1" value={form.bathrooms} onChange={(e) => setForm({ ...form, bathrooms: e.target.value })} /></div>
@@ -925,7 +939,7 @@ export function OwnerMaintenance() {
 
   return (
     <DashboardLayout navItems={ownerNav} title="Maintenance">
-      <div className="mb-6 rounded-2xl brand-gradient p-6 text-white shadow-soft-lg"><p className="text-sm font-semibold text-white/75">Property service desk</p><h2 className="mt-1 text-2xl font-bold">Maintenance & service requests</h2><p className="mt-1 max-w-2xl text-sm text-white/80">Every tenant-reported issue is tied to its property and unit. Update the status here and the tenant is notified.</p></div>
+      <div className="mb-6 rounded-2xl brand-gradient p-6 text-white shadow-soft-lg"><p className="text-sm font-semibold text-white/75">Property service desk</p><h2 className="mt-1 text-2xl font-bold">Maintenance & service requests</h2><p className="mt-1 max-w-2xl text-sm text-white/80">Every client-reported issue is tied to its asset and operational space. Update the status here and the client is notified.</p></div>
       <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4"><StatCard label="All Requests" value={requests.length} icon={<Wrench className="h-5 w-5" />} /><StatCard label="Open" value={requests.filter((r) => !['completed','closed'].includes(r.status)).length} icon={<Clock className="h-5 w-5" />} accent="accent" /><StatCard label="In Progress" value={requests.filter((r) => ['assigned','in_progress','awaiting_parts'].includes(r.status)).length} icon={<TrendingUp className="h-5 w-5" />} accent="blue" /><StatCard label="Completed" value={requests.filter((r) => ['completed','closed'].includes(r.status)).length} icon={<CheckCircle className="h-5 w-5" />} accent="brand" /></div>
       {loading ? <LoadingPage /> : requests.length === 0 ? (
         <EmptyState icon={<Wrench className="w-8 h-8" />} title="No maintenance requests" description="Tenant maintenance requests will appear here." />
@@ -987,9 +1001,9 @@ export function OwnerTenants() {
 
   return (
     <DashboardLayout navItems={ownerNav} title="Tenants">
-      <h2 className="text-xl font-bold text-ink-900 mb-6">Active Tenants</h2>
+      <h2 className="text-xl font-bold text-ink-900 mb-6">Active Occupants</h2>
       {loading ? <LoadingPage /> : leases.length === 0 ? (
-        <EmptyState icon={<Users className="w-8 h-8" />} title="No tenants yet" description="When reservations convert to tenancies, your tenants will appear here." />
+        <EmptyState icon={<Users className="w-8 h-8" />} title="No occupants yet" description="Occupants and clients associated with your managed assets will appear here." />
       ) : (
         <Card className="overflow-hidden">
           <div className="overflow-x-auto">
@@ -1048,7 +1062,7 @@ export function OwnerPayments() {
         <StatCard label="Verified" value={payments.filter((p) => p.verified).length} icon={<CheckCircle className="w-5 h-5" />} accent="accent" />
       </div>
       {loading ? <LoadingPage /> : payments.length === 0 ? (
-        <EmptyState icon={<Wallet className="w-8 h-8" />} title="No payments yet" description="Payment transactions will appear here once tenants start paying rent." />
+        <EmptyState icon={<Wallet className="w-8 h-8" />} title="No payments yet" description="Payment transactions will appear here as clients settle rent, charges, bookings or other obligations." />
       ) : (
         <Card className="overflow-hidden">
           <div className="overflow-x-auto">
@@ -1104,7 +1118,7 @@ export function OwnerReports() {
         ids.length ? supabase.from('expenses').select('property_id,category,amount,expense_date').in('property_id', ids) : Promise.resolve({ data: [] as Array<{ property_id: string; category: string; amount: number; expense_date: string }> }),
         ids.length ? supabase.from('leases').select('property_id,status,tenant_id').in('property_id', ids) : Promise.resolve({ data: [] as Array<{ property_id: string; status: string; tenant_id: string }> }),
       ]);
-      const rows: string[][] = [['Property','Type','Units','Occupied','Vacant','Reserved','Active Tenants','Rent Collected','Expenses']];
+      const rows: string[][] = [['Property','Type','Units','Occupied','Vacant','Reserved','Active Occupants','Rent Collected','Expenses']];
       (props || []).forEach(p => { const us=(units||[]).filter(x=>x.property_id===p.id); const ps=(payments||[]).filter(x=>x.property_id===p.id && x.status==='successful' && x.verified); const es=(expenses||[]).filter(x=>x.property_id===p.id); rows.push([p.name,p.property_type,String(us.length),String(us.filter(x=>x.status==='occupied').length),String(us.filter(x=>x.status==='available').length),String(us.filter(x=>x.status==='reserved').length),String((leases||[]).filter(x=>x.property_id===p.id && x.status==='active').length),String(ps.reduce((a,x)=>a+Number(x.amount||0),0)),String(es.reduce((a,x)=>a+Number(x.amount||0),0))]); });
       const names: Record<string,string> = { income:'Rental Income Report', expense:'Expense Report', occupancy:'Occupancy Report', tax:'Tax & Compliance Report', reservation:'Reservation Report', tenant:'Tenant Report' }; const title=names[kind] || 'Portfolio Report'; const lines=rows.map(r=>r.join(' | ')); download(`${title.toLowerCase().replace(/[^a-z0-9]+/g,'-')}.csv`, csv(rows), 'text/csv'); makePdf(title, lines); toast(`${title} downloaded as CSV and PDF.`, 'success');
     } catch (e) { toast(e instanceof Error ? e.message : 'Could not generate report.', 'error'); } finally { setBusy(false); }

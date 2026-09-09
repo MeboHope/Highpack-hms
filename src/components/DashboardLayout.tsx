@@ -42,6 +42,7 @@ export function DashboardLayout({
   const [globalQuery, setGlobalQuery] = useState('');
   const [globalResults, setGlobalResults] = useState<Array<{ type: string; title: string; subtitle: string; to: string }>>([]);
   const [globalSearching, setGlobalSearching] = useState(false);
+  const [workspaceAsset, setWorkspaceAsset] = useState<{ name: string; subtitle: string } | null>(null);
 
   const handleSignOut = async () => {
     await signOut();
@@ -64,6 +65,29 @@ export function DashboardLayout({
     window.addEventListener('keydown', onShortcut);
     return () => window.removeEventListener('keydown', onShortcut);
   }, [profile?.role]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadWorkspaceAsset = async () => {
+      if (profile?.role === 'customer') {
+        const leaseId = new URLSearchParams(window.location.search).get('asset') || window.localStorage.getItem('highpark:tenant-active-asset');
+        if (!leaseId) { if (!cancelled) setWorkspaceAsset(null); return; }
+        const { data } = await supabase.from('leases').select('id, properties(name, asset_class, operation_model), property_units(unit_number)').eq('id', leaseId).eq('tenant_id', profile.id).maybeSingle();
+        if (!cancelled && data) { const property = Array.isArray(data.properties) ? data.properties[0] : data.properties; const unit = Array.isArray(data.property_units) ? data.property_units[0] : data.property_units; setWorkspaceAsset({ name: String(property?.name || 'Selected asset'), subtitle: `${String(property?.asset_class || 'managed asset').replace(/_/g, ' ')}${unit?.unit_number ? ` · Unit ${String(unit.unit_number)}` : ''}` }); }
+        return;
+      }
+      if (profile?.role === 'owner') {
+        const propertyId = new URLSearchParams(window.location.search).get('asset') || window.localStorage.getItem('highpark:owner-active-asset');
+        if (!propertyId) { if (!cancelled) setWorkspaceAsset(null); return; }
+        const { data } = await supabase.from('properties').select('id,name,asset_class,town,county').eq('id', propertyId).eq('owner_id', profile.id).maybeSingle();
+        if (!cancelled && data) setWorkspaceAsset({ name: String(data.name || 'Selected asset'), subtitle: `${String(data.asset_class || 'managed asset').replace(/_/g, ' ')}${data.town ? ` · ${String(data.town)}` : ''}` });
+        return;
+      }
+      if (!cancelled) setWorkspaceAsset(null);
+    };
+    void loadWorkspaceAsset();
+    return () => { cancelled = true; };
+  }, [profile?.id, profile?.role, path]);
 
   useEffect(() => {
     if (!globalSearchOpen || profile?.role !== 'admin') return;
@@ -97,6 +121,10 @@ export function DashboardLayout({
     setGlobalResults([]);
     navigate(to);
   };
+
+  const roleLabel = profile?.role === 'admin' ? 'Administration' : profile?.role === 'owner' ? 'Asset owner' : 'Client workspace';
+  const routeLabel = path.startsWith('/owner') ? 'Owner workspace' : path.startsWith('/admin') ? 'Administration workspace' : path.startsWith('/tenant') ? 'Client workspace' : 'Marketplace';
+  const browseLabel = profile?.role === 'admin' ? 'View public marketplace' : 'Explore assets';
 
   return (
     <div className="app-shell min-h-screen bg-[radial-gradient(circle_at_top_right,_rgba(193,153,71,0.08),_transparent_28%),#f6f8fb] flex">
@@ -156,7 +184,7 @@ export function DashboardLayout({
             className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-ink-600 hover:bg-ink-50"
           >
             <Search className="w-5 h-5" />
-            Browse Properties
+            {browseLabel}
           </Link>
 
           <button
@@ -279,10 +307,10 @@ export function DashboardLayout({
         <main className="page-surface p-4 sm:p-6 lg:p-8 max-w-[1500px] mx-auto min-h-[calc(100vh-72px)]">
           <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-ink-100 bg-gradient-to-r from-white via-brand-50/35 to-accent-50/25 px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-brand-600"><span>HighPark Consult</span><span className="text-ink-300">•</span><span>{profile?.role || 'workspace'}</span></div>
+              <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-brand-600"><span>HighPark Consult</span><span className="text-ink-300">•</span><span>{roleLabel}</span></div>
               <div className="mt-1 flex items-center gap-2"><h2 className="truncate text-base font-bold tracking-tight text-ink-950">{title}</h2><span className="hidden rounded-full bg-white px-2 py-1 text-[10px] font-bold text-ink-500 ring-1 ring-ink-100 sm:inline-flex">Live workspace</span></div>
             </div>
-            <div className="text-xs text-ink-500">Secure, role-based property operations</div>
+            <div className="flex flex-wrap items-center justify-end gap-2 text-xs font-medium text-ink-500">{workspaceAsset && <span className="hidden max-w-[280px] truncate rounded-lg bg-white px-2.5 py-1.5 font-semibold text-brand-800 ring-1 ring-brand-100 sm:inline-flex">Asset: {workspaceAsset.name}</span>}<span className="hidden md:inline">{routeLabel}</span><span className="h-1.5 w-1.5 rounded-full bg-green-500" /><span className="text-green-700">Live workspace</span></div>
           </div>
           {children}
         </main>

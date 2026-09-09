@@ -38,13 +38,13 @@ export const ownerNav = [
     icon: <Calendar className="w-5 h-5" />,
   },
   {
-    label: 'Tenants',
+    label: 'Occupants & Clients',
     section: 'Operations',
     to: '/owner/tenants',
     icon: <Users className="w-5 h-5" />,
   },
   {
-    label: 'Rent & Payments',
+    label: 'Collections & Payments',
     section: 'Finance',
     to: '/owner/payments',
     icon: <Wallet className="w-5 h-5" />,
@@ -54,12 +54,6 @@ export const ownerNav = [
     section: 'Finance',
     to: '/owner/expenses',
     icon: <Receipt className="w-5 h-5" />,
-  },
-  {
-    label: 'Viewings',
-    section: 'Operations',
-    to: '/tenant/viewings',
-    icon: <Calendar className="w-5 h-5" />,
   },
   {
     label: 'Maintenance',
@@ -101,7 +95,7 @@ export const tenantNav = [
     icon: <LayoutDashboard className="w-5 h-5" />,
   },
   {
-    label: 'Find a Home',
+    label: 'Explore Assets',
     section: 'My tenancy',
     to: '/properties',
     icon: <Search className="w-5 h-5" />,
@@ -113,7 +107,7 @@ export const tenantNav = [
     icon: <Calendar className="w-5 h-5" />,
   },
   {
-    label: 'My House',
+    label: 'My Asset',
     section: 'My tenancy',
     to: '/tenant/house',
     icon: <Home className="w-5 h-5" />,
