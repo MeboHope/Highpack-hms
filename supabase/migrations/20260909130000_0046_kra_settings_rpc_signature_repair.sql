@@ -1,0 +1,99 @@
+-- KRA settings RPC hardening.
+-- Some earlier environments may contain an old overload that accepts an integer.
+-- PostgREST can select that overload and attempt to cast the JSON settings object to integer.
+-- Remove stale overloads, then publish the authoritative JSONB RPC signature.
+
+DO $$
+DECLARE
+  r record;
+BEGIN
+  FOR r IN
+    SELECT oid::regprocedure::text AS signature
+    FROM pg_proc
+    WHERE pronamespace = 'public'::regnamespace
+      AND proname = 'save_admin_kra_etims_settings'
+      AND oidvectortypes(proargtypes) <> 'jsonb'
+  LOOP
+    EXECUTE 'DROP FUNCTION IF EXISTS ' || r.signature;
+  END LOOP;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.save_admin_kra_etims_settings(p_settings jsonb)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v jsonb;
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM public.profiles
+    WHERE id = auth.uid() AND role = 'admin'
+  ) THEN
+    RAISE EXCEPTION 'Admin access required';
+  END IF;
+
+  INSERT INTO public.kra_etims_settings (
+    id, enabled, environment, taxpayer_pin, branch_id, device_serial,
+    default_item_code, default_item_classification_code, default_item_name,
+    default_package_unit_code, default_quantity_unit_code, default_tax_type_code,
+    default_tax_rate, payment_type_code, receipt_type_code, sales_type_code,
+    registration_name, registration_id, updated_at
+  )
+  VALUES (
+    1,
+    COALESCE((p_settings->>'enabled')::boolean, false),
+    COALESCE(NULLIF(p_settings->>'environment', ''), 'sandbox'),
+    NULLIF(p_settings->>'taxpayer_pin', ''),
+    COALESCE(NULLIF(p_settings->>'branch_id', ''), '00'),
+    NULLIF(p_settings->>'device_serial', ''),
+    NULLIF(p_settings->>'default_item_code', ''),
+    NULLIF(p_settings->>'default_item_classification_code', ''),
+    COALESCE(NULLIF(p_settings->>'default_item_name', ''), 'Property management / rental service'),
+    COALESCE(NULLIF(p_settings->>'default_package_unit_code', ''), 'NT'),
+    COALESCE(NULLIF(p_settings->>'default_quantity_unit_code', ''), 'U'),
+    NULLIF(p_settings->>'default_tax_type_code', ''),
+    CASE
+      WHEN NULLIF(p_settings->>'default_tax_rate', '') IS NULL THEN NULL
+      ELSE (p_settings->>'default_tax_rate')::numeric
+    END,
+    COALESCE(NULLIF(p_settings->>'payment_type_code', ''), '01'),
+    COALESCE(NULLIF(p_settings->>'receipt_type_code', ''), 'S'),
+    COALESCE(NULLIF(p_settings->>'sales_type_code', ''), 'N'),
+    NULLIF(p_settings->>'registration_name', ''),
+    NULLIF(p_settings->>'registration_id', ''),
+    now()
+  )
+  ON CONFLICT (id) DO UPDATE SET
+    enabled = excluded.enabled,
+    environment = excluded.environment,
+    taxpayer_pin = excluded.taxpayer_pin,
+    branch_id = excluded.branch_id,
+    device_serial = excluded.device_serial,
+    default_item_code = excluded.default_item_code,
+    default_item_classification_code = excluded.default_item_classification_code,
+    default_item_name = excluded.default_item_name,
+    default_package_unit_code = excluded.default_package_unit_code,
+    default_quantity_unit_code = excluded.default_quantity_unit_code,
+    default_tax_type_code = excluded.default_tax_type_code,
+    default_tax_rate = excluded.default_tax_rate,
+    payment_type_code = excluded.payment_type_code,
+    receipt_type_code = excluded.receipt_type_code,
+    sales_type_code = excluded.sales_type_code,
+    registration_name = excluded.registration_name,
+    registration_id = excluded.registration_id,
+    updated_at = now();
+
+  SELECT to_jsonb(k) INTO v
+  FROM public.kra_etims_settings k
+  WHERE id = 1;
+
+  RETURN COALESCE(v, jsonb_build_object('id', 1));
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.save_admin_kra_etims_settings(jsonb) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.save_admin_kra_etims_settings(jsonb) TO authenticated;
+NOTIFY pgrst, 'reload schema';

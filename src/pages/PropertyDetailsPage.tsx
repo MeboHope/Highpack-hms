@@ -312,8 +312,8 @@ export function PropertyDetailsPage({ propertyId }: { propertyId: string }) {
                       <p className="text-xl font-bold text-brand-700">{formatKES(unit.monthly_rent)}<span className="text-sm font-normal text-ink-400">/mo</span></p>
                       <p className="text-xs text-ink-400">Deposit: {formatKES(unit.security_deposit)}</p>
                       {unit.status === 'available' ? (
-                        <button onClick={() => { if (!profile) { toast('Please sign in to reserve', 'info'); navigate('/login'); return; } setShowReserve(unit.id); }} className="btn-primary text-sm">
-                          Reserve for {formatKES(unit.reservation_fee)}
+                        <button onClick={() => { if (!profile) { toast('Please sign in to enquire', 'info'); navigate('/login'); return; } setShowContact(true); }} className="btn-secondary text-sm">
+                          Enquire about this space
                         </button>
                       ) : (
                         <span className="badge bg-ink-100 text-ink-500">{titleCase(unit.status)}</span>
@@ -324,6 +324,15 @@ export function PropertyDetailsPage({ propertyId }: { propertyId: string }) {
               </div>
             )}
           </div>}
+
+          {isLand && (
+            <div className="card border-accent-200 bg-accent-50/50 p-6">
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-accent-700">Land opportunity</p>
+              <h3 className="mt-1 text-lg font-bold text-ink-900">View, enquire and proceed through due diligence</h3>
+              <p className="mt-2 text-sm leading-6 text-ink-600">This land listing is enquiry-led. Clients are not asked to pay a reservation fee online. Use the enquiry or contact options to request viewing, title information, survey details, access information and next steps.</p>
+              <button onClick={() => setShowContact(true)} className="btn-primary mt-4 w-full"><MessageSquare className="h-4 w-4" /> Send land enquiry</button>
+            </div>
+          )}
 
           {/* Location */}
           <div className="card p-6">
@@ -352,18 +361,23 @@ export function PropertyDetailsPage({ propertyId }: { propertyId: string }) {
             <div className="space-y-3">
               <button
                 onClick={() => {
-                  if (!profile) { toast('Please sign in to reserve', 'info'); navigate('/login'); return; }
-                  const firstAvailable = availableUnits[0];
-                  if (firstAvailable) setShowReserve(firstAvailable.id);
+                  if (!profile) { toast('Please sign in to enquire', 'info'); navigate('/login'); return; }
+                  if (!isLand && !isSale && !isStay) {
+                    const firstAvailable = availableUnits[0];
+                    if (firstAvailable) setShowReserve(firstAvailable.id);
+                    else setShowContact(true);
+                  } else {
+                    setShowContact(true);
+                  }
                 }}
                 className="btn-primary w-full"
-                disabled={isLand || isSale || isStay || availableUnits.length === 0}
+                disabled={!isLand && !isSale && !isStay ? availableUnits.length === 0 : false}
               >
-                {isSale ? 'Enquire About Purchase' : isStay ? 'Enquire About Stay' : 'Reserve This Property'}
+                {isLand ? 'Enquire About This Land' : isSale ? 'Enquire About Purchase' : isStay ? 'Enquire About Stay' : 'Reserve This Property'}
               </button>
-              <button onClick={() => setShowViewing(true)} className="btn-secondary w-full">
+              {!isLand && <button onClick={() => setShowViewing(true)} className="btn-secondary w-full">
                 <Calendar className="w-4 h-4" /> Schedule Viewing
-              </button>
+              </button>}
               <button onClick={() => setShowContact(true)} className="btn-secondary w-full">
                 <Phone className="w-4 h-4" /> Contact Agent
               </button>

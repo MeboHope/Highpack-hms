@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Building2, Home, Calendar, Users, Wallet, Receipt, Wrench, TrendingUp, FileText, Plus, MapPin, BedDouble, Bath, Trash2, Eye, CheckCircle, XCircle, Download, Calculator, Layers3, Clock, ImagePlus, Video, Music2 } from 'lucide-react';
+import { Building2, Home, Calendar, Users, Wallet, Receipt, Wrench, TrendingUp, FileText, Plus, MapPin, BedDouble, Bath, Trash2, Eye, Pencil, CheckCircle, XCircle, Download, Calculator, Layers3, Clock, ImagePlus, Video, Music2 } from 'lucide-react';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { ownerNav } from '@/components/dashboardNav';
 import { StatCard, Card, Badge, EmptyState, LoadingPage, Pagination } from '@/components/ui';
@@ -16,6 +16,15 @@ import { loadDashboardPropertyPerformance } from '@/lib/operationalData';
 import type { Property, PropertyUnit, Reservation, Lease, Expense, TaxRecord, MaintenanceRequest, Payment } from '@/lib/supabase';
 import { ComparisonBars, DonutChart, TrendChart } from '@/components/AnalyticsCharts';
 import { AssetSwitcher } from '@/components/AssetSwitcher';
+
+
+const ASSET_PROPERTY_TYPES: Record<string, string[]> = {
+  built_property: ['Residential apartment / flat', 'Detached house', 'Townhouse', 'Villa', 'Commercial building', 'Office', 'Retail / shop', 'Warehouse', 'Industrial facility', 'Student accommodation', 'Institutional property'],
+  land: ['Residential plot', 'Commercial plot', 'Agricultural land', 'Industrial land', 'Development land', 'Mixed-use land', 'Ranch / large tract', 'Beach / waterfront land'],
+  mixed_use: ['Mixed-use building', 'Mixed-use development', 'Commercial-residential complex', 'Retail and office centre', 'Apartment and retail complex'],
+  development_project: ['Residential development', 'Commercial development', 'Mixed-use development', 'Estate / gated community', 'Subdivision project', 'Redevelopment project'],
+  other: ['Special-purpose property', 'Institutional asset', 'Infrastructure asset', 'Other real-estate asset'],
+};
 
 export function OwnerDashboard() {
   const { profile } = useAuth();
@@ -153,6 +162,7 @@ export function OwnerProperties() {
   const [showAdd, setShowAdd] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [mediaProperty, setMediaProperty] = useState<Property | null>(null);
+  const [editProperty, setEditProperty] = useState<Property | null>(null);
 
   const load = async () => {
     if (!profile) return;
@@ -192,10 +202,11 @@ export function OwnerProperties() {
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="font-semibold text-ink-900 truncate group-hover:text-brand-700">{p.name}</h3>
                 </div>
-                <p className="text-sm text-ink-500 flex items-center gap-1 mb-3"><MapPin className="w-3.5 h-3.5" /> {p.town}, {p.county}</p><div className="mb-4 grid grid-cols-3 gap-2"><button type="button" onClick={() => navigate(`/owner/units/${p.id}`)} className="stat-chip"><strong>{p.number_of_units || 0}</strong><span>Units</span></button><button type="button" onClick={() => navigate(`/owner/units/${p.id}`)} className="stat-chip"><strong>{p.number_of_floors || 1}</strong><span>Floors</span></button><button type="button" onClick={() => navigate(`/owner/units/${p.id}`)} className="stat-chip"><strong>{p.property_type === 'Apartment' ? 'View' : 'Open'}</strong><span>Structure</span></button></div>
+                <p className="text-sm text-ink-500 flex items-center gap-1 mb-3"><MapPin className="w-3.5 h-3.5" /> {p.town}, {p.county}</p><div className="mb-4 grid grid-cols-3 gap-2">{p.asset_class === 'land' ? <><div className="stat-chip"><strong>{p.total_land_area || 0}</strong><span>{p.land_area_unit || 'acres'}</span></div><div className="stat-chip"><strong>{p.parcel_number || '—'}</strong><span>Parcel</span></div><div className="stat-chip"><strong>Enquire</strong><span>Market</span></div></> : <><button type="button" onClick={() => navigate(`/owner/units/${p.id}`)} className="stat-chip"><strong>{p.number_of_units || 0}</strong><span>Units</span></button><button type="button" onClick={() => navigate(`/owner/units/${p.id}`)} className="stat-chip"><strong>{p.number_of_floors || 1}</strong><span>Floors</span></button><button type="button" onClick={() => navigate(`/owner/units/${p.id}`)} className="stat-chip"><strong>{p.property_type === 'Apartment' ? 'View' : 'Open'}</strong><span>Structure</span></button></>}</div>
                 <div className="flex gap-2">
                   <button onClick={() => navigate(`/property/${p.id}`)} className="btn-secondary text-sm flex-1"><Eye className="w-4 h-4" /> View</button>
-                  <button onClick={() => navigate(`/owner/units/${p.id}`)} className="btn-secondary text-sm flex-1"><Home className="w-4 h-4" /> Units</button>
+                  {p.asset_class !== 'land' && <button onClick={() => navigate(`/owner/units/${p.id}`)} className="btn-secondary text-sm flex-1"><Home className="w-4 h-4" /> Units</button>}
+                  <button onClick={() => setEditProperty(p)} className="btn-secondary text-sm flex-1"><Pencil className="w-4 h-4" /> Edit</button>
                   <button onClick={() => setMediaProperty(p)} className="btn-secondary text-sm flex-1">Media</button>
                   <button onClick={() => setDeleteId(p.id)} className="btn-ghost text-red-500"><Trash2 className="w-4 h-4" /></button>
                 </div>
@@ -208,9 +219,150 @@ export function OwnerProperties() {
       {showAdd && <AddPropertyModal onClose={() => { setShowAdd(false); load(); }} />}
       <ConfirmDialog open={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={handleDelete} title="Delete Property" message="Are you sure? This will also delete all units, reservations, and leases associated with this property. This cannot be undone." confirmLabel="Delete" danger />
       {mediaProperty && <PropertyMediaModal property={mediaProperty} onClose={() => { setMediaProperty(null); load(); }} />}
+      {editProperty && <EditPropertyModal property={editProperty} onClose={() => { setEditProperty(null); load(); }} />}
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
 </DashboardLayout>
   );
+}
+
+function EditPropertyModal({ property, onClose }: { property: Property; onClose: () => void }) {
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
+  const [form, setForm] = useState({
+    name: property.name || '', description: property.description || '', asset_class: property.asset_class, operation_model: property.operation_model,
+    property_type: property.property_type || '', ownership_type: property.ownership_type || '', title_number: property.title_number || '', parcel_number: property.parcel_number || '',
+    total_land_area: property.total_land_area == null ? '' : String(property.total_land_area), land_area_unit: property.land_area_unit || 'acres', zoning: property.zoning || '',
+    year_built: property.year_built == null ? '' : String(property.year_built), county: property.county || 'Nairobi', sub_county: property.sub_county || '', town: property.town || '',
+    estate: property.estate || '', street: property.street || '', address: property.address || '', latitude: property.latitude == null ? '' : String(property.latitude),
+    longitude: property.longitude == null ? '' : String(property.longitude), map_url: property.map_url || '', number_of_units: property.number_of_units || 0, number_of_floors: property.number_of_floors || 0,
+    security_info: property.security_info || '', parking: Boolean(property.parking), water_availability: Boolean(property.water_availability), electricity: Boolean(property.electricity),
+    internet: Boolean(property.internet), pets_allowed: Boolean(property.pets_allowed), land_use: 'Residential', land_boundaries: '', land_utilities: '', land_access: '', asking_price: '', reservation_amount: '', negotiable: true,
+    nightly_rate: '', weekend_rate: '', cleaning_fee: '', max_guests: '2', minimum_nights: '1', maximum_nights: '30',
+  });
+  const [amenities, setAmenities] = useState<string[]>(property.amenities || []);
+  const [photos, setPhotos] = useState<File[]>([]);
+  const [videos, setVideos] = useState<File[]>([]);
+  const [audio, setAudio] = useState<File[]>([]);
+  const [existing, setExisting] = useState({ photos: property.photos || [], videos: property.videos || [], audio: property.audio || [] });
+  const isLand = form.asset_class === 'land';
+  const isDevelopment = form.asset_class === 'development_project';
+  const isShortStay = form.operation_model === 'short_stay' || form.operation_model === 'mixed';
+  const isSale = ['sale', 'land_sale', 'mixed'].includes(form.operation_model);
+  const propertyTypeOptions = ASSET_PROPERTY_TYPES[form.asset_class] || ASSET_PROPERTY_TYPES.other;
+  const update = (key: string, value: string | number | boolean) => setForm((current) => ({ ...current, [key]: value }));
+  const toggle = (key: string) => update(key, !(form as Record<string, unknown>)[key]);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      const [land, sale, stay] = await Promise.all([
+        supabase.from('land_parcels').select('*').eq('property_id', property.id).maybeSingle(),
+        supabase.from('sale_listings').select('*').eq('property_id', property.id).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+        supabase.from('short_stay_listings').select('*').eq('property_id', property.id).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+      ]);
+      if (!active) return;
+      const l = land.data as Record<string, unknown> | null;
+      const sl = sale.data as Record<string, unknown> | null;
+      const st = stay.data as Record<string, unknown> | null;
+      setForm((current) => ({ ...current,
+        land_use: typeof l?.land_use === 'string' ? String(l.land_use).replace(/^./, (c) => c.toUpperCase()) : current.land_use,
+        land_boundaries: typeof l?.boundaries === 'string' ? l.boundaries : current.land_boundaries,
+        land_utilities: typeof l?.utilities === 'string' ? l.utilities : current.land_utilities,
+        land_access: typeof l?.access_description === 'string' ? l.access_description : current.land_access,
+        asking_price: sl?.asking_price != null ? String(sl.asking_price) : l?.asking_price != null ? String(l.asking_price) : current.asking_price,
+        reservation_amount: sl?.reservation_amount != null ? String(sl.reservation_amount) : current.reservation_amount,
+        negotiable: sl?.negotiable == null ? current.negotiable : Boolean(sl.negotiable),
+        nightly_rate: st?.nightly_rate != null ? String(st.nightly_rate) : current.nightly_rate,
+        weekend_rate: st?.weekend_rate != null ? String(st.weekend_rate) : current.weekend_rate,
+        cleaning_fee: st?.cleaning_fee != null ? String(st.cleaning_fee) : current.cleaning_fee,
+        max_guests: st?.max_guests != null ? String(st.max_guests) : current.max_guests,
+        minimum_nights: st?.minimum_nights != null ? String(st.minimum_nights) : current.minimum_nights,
+        maximum_nights: st?.maximum_nights != null ? String(st.maximum_nights) : current.maximum_nights,
+      }));
+    })();
+    return () => { active = false; };
+  }, [property.id]);
+
+  useEffect(() => {
+    setForm((current) => {
+      const nextOperation = current.asset_class === 'land' ? 'land_sale' : current.operation_model === 'land_sale' ? 'sale' : current.operation_model;
+      const nextType = propertyTypeOptions.includes(current.property_type) ? current.property_type : (propertyTypeOptions[0] || current.property_type);
+      if (nextOperation === current.operation_model && nextType === current.property_type) return current;
+      return { ...current, operation_model: nextOperation, property_type: nextType };
+    });
+  }, [form.asset_class, propertyTypeOptions]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault(); setLoading(true);
+    const { error } = await supabase.from('properties').update({
+      name: form.name.trim(), description: form.description.trim() || null, asset_class: form.asset_class, operation_model: form.operation_model, property_type: form.property_type,
+      ownership_type: form.ownership_type || null, title_number: form.title_number.trim() || null, parcel_number: form.parcel_number.trim() || null,
+      total_land_area: form.total_land_area ? Number(form.total_land_area) : null, land_area_unit: form.land_area_unit, zoning: form.zoning.trim() || null,
+      year_built: form.year_built ? Number(form.year_built) : null, county: form.county, sub_county: form.sub_county.trim() || null, town: form.town.trim(),
+      estate: form.estate.trim() || null, street: form.street.trim() || null, address: form.address.trim() || null, latitude: form.latitude ? Number(form.latitude) : null, longitude: form.longitude ? Number(form.longitude) : null,
+      map_url: form.map_url.trim() || null, number_of_units: isLand ? 0 : Number(form.number_of_units) || 0, number_of_floors: isLand ? 0 : Number(form.number_of_floors) || 0,
+      amenities, parking: form.parking, security_info: form.security_info.trim() || null, water_availability: form.water_availability, electricity: form.electricity, internet: form.internet, pets_allowed: form.pets_allowed,
+    }).eq('id', property.id);
+    if (error) { setLoading(false); toast(error.message, 'error'); return; }
+
+    if (isLand) {
+      const landPayload = { property_id: property.id, parcel_number: form.parcel_number.trim() || null, title_number: form.title_number.trim() || null, land_use: form.land_use.toLowerCase(), tenure: form.ownership_type || 'freehold', acreage: form.total_land_area ? Number(form.total_land_area) : null, area_unit: form.land_area_unit, zoning: form.zoning.trim() || null, asking_price: Number(form.asking_price) || 0, sale_status: 'available', boundaries: form.land_boundaries.trim() || null, utilities: form.land_utilities.trim() || null, access_description: form.land_access.trim() || null };
+      const { data: existingLand } = await supabase.from('land_parcels').select('id').eq('property_id', property.id).maybeSingle();
+      const result = existingLand ? await supabase.from('land_parcels').update(landPayload).eq('property_id', property.id) : await supabase.from('land_parcels').insert(landPayload);
+      if (result.error) toast(`Land register update failed: ${result.error.message}`, 'error');
+    }
+    if (isSale && Number(form.asking_price) > 0) {
+      const { data: existingSale } = await supabase.from('sale_listings').select('id').eq('property_id', property.id).order('created_at', { ascending: false }).limit(1).maybeSingle();
+      const payload = { property_id: property.id, sale_type: isLand ? 'land' : isDevelopment ? 'development' : 'property', asking_price: Number(form.asking_price), reservation_amount: isLand ? 0 : Number(form.reservation_amount) || 0, negotiable: form.negotiable, marketing_summary: form.description.trim() || null };
+      const result = existingSale ? await supabase.from('sale_listings').update(payload).eq('id', existingSale.id) : await supabase.from('sale_listings').insert({ ...payload, listing_status: 'draft', created_by: property.owner_id });
+      if (result.error) toast(`Sale listing update failed: ${result.error.message}`, 'error');
+    }
+    if (isShortStay && Number(form.nightly_rate) > 0) {
+      const { data: existingStay } = await supabase.from('short_stay_listings').select('id').eq('property_id', property.id).order('created_at', { ascending: false }).limit(1).maybeSingle();
+      const payload = { property_id: property.id, listing_name: form.name.trim(), nightly_rate: Number(form.nightly_rate), weekend_rate: Number(form.weekend_rate) || Number(form.nightly_rate), cleaning_fee: Number(form.cleaning_fee) || 0, max_guests: Number(form.max_guests) || 2, minimum_nights: Number(form.minimum_nights) || 1, maximum_nights: Number(form.maximum_nights) || 30 };
+      const result = existingStay ? await supabase.from('short_stay_listings').update(payload).eq('id', existingStay.id) : await supabase.from('short_stay_listings').insert({ ...payload, listing_name: form.name.trim(), listing_status: 'draft', booking_mode: 'entire_place', direct_booking_enabled: true, created_by: property.owner_id });
+      if (result.error) toast(`Short-stay setup update failed: ${result.error.message}`, 'error');
+    }
+
+    const appendMedia = async (files: File[], current: string[], setter: (v: string[]) => void, field: 'photos' | 'videos' | 'audio') => {
+      const added: string[] = [];
+      for (const file of files) { const url = await uploadPropertyMedia(property.owner_id || 'owner', property.id, file); if (url) added.push(url); else toast(`Could not upload ${file.name}`, 'error'); }
+      if (added.length) { const next = [...current, ...added]; setter(next); await supabase.from('properties').update({ [field]: next }).eq('id', property.id); }
+    };
+    await appendMedia(photos, existing.photos, (v) => setExisting((x) => ({ ...x, photos: v })), 'photos');
+    await appendMedia(videos, existing.videos, (v) => setExisting((x) => ({ ...x, videos: v })), 'videos');
+    await appendMedia(audio, existing.audio, (v) => setExisting((x) => ({ ...x, audio: v })), 'audio');
+    setLoading(false); toast('Property updated successfully.', 'success'); onClose();
+  };
+
+  return <Modal open onClose={onClose} title={`Edit ${property.name}`} size="lg">
+    <form onSubmit={handleSubmit} className="space-y-6">
+      <section><h4 className="mb-3 font-semibold text-ink-900">Asset identity</h4><div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <label className="field sm:col-span-2"><span className="field-label">Asset name</span><input required className="input" value={form.name} onChange={(e) => update('name', e.target.value)} /></label>
+        <label className="field"><span className="field-label">Asset class</span><select className="input" value={form.asset_class} onChange={(e) => update('asset_class', e.target.value)}>{ASSET_CLASS_OPTIONS.map((x) => <option key={x.value} value={x.value}>{x.label}</option>)}</select></label>
+        <label className="field"><span className="field-label">Operation</span><select className="input" value={form.operation_model} onChange={(e) => update('operation_model', e.target.value)}>{OPERATION_MODEL_OPTIONS.map((x) => <option key={x.value} value={x.value}>{x.label}</option>)}</select></label>
+        <label className="field sm:col-span-2"><span className="field-label">Property / asset type</span><select className="input" value={form.property_type} onChange={(e) => update('property_type', e.target.value)}>{propertyTypeOptions.map((t) => <option key={t} value={t}>{t}</option>)}</select></label>
+        <label className="field"><span className="field-label">Ownership / tenure</span><input className="input" value={form.ownership_type} onChange={(e) => update('ownership_type', e.target.value)} /></label>
+        <label className="field"><span className="field-label">Title number</span><input className="input" value={form.title_number} onChange={(e) => update('title_number', e.target.value)} /></label>
+        <label className="field"><span className="field-label">Parcel number</span><input className="input" value={form.parcel_number} onChange={(e) => update('parcel_number', e.target.value)} /></label>
+        <label className="field"><span className="field-label">Zoning</span><input className="input" value={form.zoning} onChange={(e) => update('zoning', e.target.value)} /></label>
+      </div></section>
+      <section><h4 className="mb-3 font-semibold text-ink-900">Location</h4><div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <label className="field"><span className="field-label">County</span><select className="input" value={form.county} onChange={(e) => update('county', e.target.value)}>{KENYAN_COUNTIES.map((c) => <option key={c}>{c}</option>)}</select></label>
+        <label className="field"><span className="field-label">Sub-county</span><input className="input" value={form.sub_county} onChange={(e) => update('sub_county', e.target.value)} /></label>
+        <label className="field"><span className="field-label">Town / city</span><input required className="input" value={form.town} onChange={(e) => update('town', e.target.value)} /></label>
+        <label className="field"><span className="field-label">Estate / neighborhood</span><input className="input" value={form.estate} onChange={(e) => update('estate', e.target.value)} /></label>
+        <label className="field"><span className="field-label">Street / road</span><input className="input" value={form.street} onChange={(e) => update('street', e.target.value)} /></label>
+        <label className="field"><span className="field-label">Full address</span><input className="input" value={form.address} onChange={(e) => update('address', e.target.value)} /></label>
+        <label className="field sm:col-span-2"><span className="field-label">Map / directions URL</span><input className="input" value={form.map_url} onChange={(e) => update('map_url', e.target.value)} /></label>
+      </div></section>
+      {isLand ? <section><h4 className="mb-3 font-semibold text-ink-900">Land details</h4><div className="grid grid-cols-1 gap-4 sm:grid-cols-2"><label className="field"><span className="field-label">Land use</span><select className="input" value={form.land_use} onChange={(e) => update('land_use', e.target.value)}>{LAND_USE_OPTIONS.map((x) => <option key={x}>{x}</option>)}</select></label><label className="field"><span className="field-label">Area</span><input type="number" min="0" className="input" value={form.total_land_area} onChange={(e) => update('total_land_area', e.target.value)} /></label><label className="field"><span className="field-label">Area unit</span><input className="input" value={form.land_area_unit} onChange={(e) => update('land_area_unit', e.target.value)} /></label><label className="field"><span className="field-label">Asking price (KES)</span><input type="number" min="0" className="input" value={form.asking_price} onChange={(e) => update('asking_price', e.target.value)} /></label><label className="field sm:col-span-2"><span className="field-label">Boundaries / beacons</span><textarea className="input" value={form.land_boundaries} onChange={(e) => update('land_boundaries', e.target.value)} /></label><label className="field"><span className="field-label">Access</span><textarea className="input" value={form.land_access} onChange={(e) => update('land_access', e.target.value)} /></label><label className="field"><span className="field-label">Utilities</span><textarea className="input" value={form.land_utilities} onChange={(e) => update('land_utilities', e.target.value)} /></label></div><p className="mt-3 rounded-xl bg-accent-50 p-3 text-xs text-accent-900">Land remains enquiry-led; no client reservation fee is collected.</p></section> : <section><h4 className="mb-3 font-semibold text-ink-900">Operating details</h4><div className="grid grid-cols-1 gap-4 sm:grid-cols-3"><label className="field"><span className="field-label">Units / spaces</span><input type="number" min="0" className="input" value={form.number_of_units} onChange={(e) => update('number_of_units', Number(e.target.value) || 0)} /></label><label className="field"><span className="field-label">Floors</span><input type="number" min="0" className="input" value={form.number_of_floors} onChange={(e) => update('number_of_floors', Number(e.target.value) || 0)} /></label><label className="field"><span className="field-label">Year built</span><input type="number" className="input" value={form.year_built} onChange={(e) => update('year_built', e.target.value)} /></label></div></section>}
+      {isSale && !isLand && <section><h4 className="mb-3 font-semibold text-ink-900">Sale terms</h4><div className="grid grid-cols-1 gap-4 sm:grid-cols-3"><label className="field"><span className="field-label">Asking price (KES)</span><input type="number" className="input" value={form.asking_price} onChange={(e) => update('asking_price', e.target.value)} /></label><label className="field"><span className="field-label">Reservation amount</span><input type="number" className="input" value={form.reservation_amount} onChange={(e) => update('reservation_amount', e.target.value)} /></label><label className="flex items-center gap-2 pt-7 text-sm"><input type="checkbox" checked={form.negotiable} onChange={() => toggle('negotiable')} /> Negotiable</label></div></section>}
+      {isShortStay && <section><h4 className="mb-3 font-semibold text-ink-900">Hospitality rates</h4><div className="grid grid-cols-1 gap-4 sm:grid-cols-3"><label className="field"><span className="field-label">Nightly rate</span><input type="number" className="input" value={form.nightly_rate} onChange={(e) => update('nightly_rate', e.target.value)} /></label><label className="field"><span className="field-label">Weekend rate</span><input type="number" className="input" value={form.weekend_rate} onChange={(e) => update('weekend_rate', e.target.value)} /></label><label className="field"><span className="field-label">Cleaning fee</span><input type="number" className="input" value={form.cleaning_fee} onChange={(e) => update('cleaning_fee', e.target.value)} /></label><label className="field"><span className="field-label">Max guests</span><input type="number" className="input" value={form.max_guests} onChange={(e) => update('max_guests', e.target.value)} /></label><label className="field"><span className="field-label">Minimum nights</span><input type="number" className="input" value={form.minimum_nights} onChange={(e) => update('minimum_nights', e.target.value)} /></label><label className="field"><span className="field-label">Maximum nights</span><input type="number" className="input" value={form.maximum_nights} onChange={(e) => update('maximum_nights', e.target.value)} /></label></div></section>}
+      <section><h4 className="mb-3 font-semibold text-ink-900">Description, amenities & new media</h4><textarea className="input" rows={4} value={form.description} onChange={(e) => update('description', e.target.value)} /><div className="mt-4 flex flex-wrap gap-2">{PROPERTY_AMENITIES.map((a) => <button key={a} type="button" onClick={() => setAmenities(amenities.includes(a) ? amenities.filter((x) => x !== a) : [...amenities, a])} className={`badge cursor-pointer ${amenities.includes(a) ? 'bg-brand-100 text-brand-700' : 'bg-ink-100 text-ink-500'}`}>{a}</button>)}</div><div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3"><div><label className="label">Add photos</label><input className="input" type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={(e) => setPhotos(Array.from(e.target.files || []))} /></div><div><label className="label">Add videos</label><input className="input" type="file" accept="video/mp4,video/webm,video/quicktime" multiple onChange={(e) => setVideos(Array.from(e.target.files || []))} /></div><div><label className="label">Add audio</label><input className="input" type="file" accept="audio/mpeg,audio/wav,audio/ogg,audio/mp4,audio/x-m4a" multiple onChange={(e) => setAudio(Array.from(e.target.files || []))} /></div></div></section>
+      <div className="flex justify-end gap-3 border-t border-ink-100 pt-4"><button type="button" onClick={onClose} className="btn-secondary">Cancel</button><button disabled={loading} className="btn-primary">{loading ? 'Saving changes…' : 'Save changes'}</button></div>
+    </form>
+  </Modal>;
 }
 
 function AddPropertyModal({ onClose }: { onClose: () => void }) {
@@ -231,8 +383,26 @@ function AddPropertyModal({ onClose }: { onClose: () => void }) {
   const [loading, setLoading] = useState(false);
 
   const isLand = form.asset_class === 'land';
+  const isDevelopment = form.asset_class === 'development_project';
   const isShortStay = form.operation_model === 'short_stay' || form.operation_model === 'mixed';
   const isSale = ['sale', 'land_sale', 'mixed'].includes(form.operation_model);
+  const isLandSale = isLand && form.operation_model === 'land_sale';
+  const isBuilt = form.asset_class === 'built_property';
+  const showInventory = !isLand && (isBuilt || isDevelopment);
+  const propertyTypeOptions = ASSET_PROPERTY_TYPES[form.asset_class] || ASSET_PROPERTY_TYPES.other;
+
+  useEffect(() => {
+    setForm((current) => {
+      const nextOperation = current.asset_class === 'land'
+        ? 'land_sale'
+        : current.operation_model === 'land_sale'
+          ? 'sale'
+          : current.operation_model;
+      const nextType = propertyTypeOptions.includes(current.property_type) ? current.property_type : (propertyTypeOptions[0] || current.property_type);
+      if (nextOperation === current.operation_model && nextType === current.property_type) return current;
+      return { ...current, operation_model: nextOperation, property_type: nextType };
+    });
+  }, [form.asset_class]);
 
   const update = (key: string, value: string | number | boolean) => setForm((current) => ({ ...current, [key]: value }));
 
@@ -247,8 +417,8 @@ function AddPropertyModal({ onClose }: { onClose: () => void }) {
       land_area_unit: form.land_area_unit, zoning: form.zoning.trim() || null, year_built: form.year_built ? Number(form.year_built) : null,
       county: form.county, sub_county: form.sub_county.trim() || null, town: form.town.trim(), estate: form.estate.trim() || null,
       street: form.street.trim() || null, address: form.address.trim() || null, latitude: form.latitude ? Number(form.latitude) : null,
-      longitude: form.longitude ? Number(form.longitude) : null, map_url: form.map_url.trim() || null, number_of_units: Number(form.number_of_units) || 0,
-      number_of_floors: Number(form.number_of_floors) || 0, amenities, photos: [], videos: [], audio: [], parking: form.parking,
+      longitude: form.longitude ? Number(form.longitude) : null, map_url: form.map_url.trim() || null, number_of_units: showInventory ? (Number(form.number_of_units) || 0) : 0,
+      number_of_floors: showInventory ? (Number(form.number_of_floors) || 0) : 0, amenities, photos: [], videos: [], audio: [], parking: form.parking,
       security_info: form.security_info.trim() || null, water_availability: form.water_availability, electricity: form.electricity,
       internet: form.internet, pets_allowed: form.pets_allowed, owner_id: profile.id, status: 'pending_verification',
     }).select('id').single();
@@ -313,7 +483,7 @@ function AddPropertyModal({ onClose }: { onClose: () => void }) {
             <label className="field"><span className="field-label">Asset class</span><select className="input" value={form.asset_class} onChange={(e) => update('asset_class', e.target.value)}>{ASSET_CLASS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</select></label>
             <label className="field"><span className="field-label">Primary operating model</span><select className="input" value={form.operation_model} onChange={(e) => update('operation_model', e.target.value)}>{OPERATION_MODEL_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</select></label>
             <label className="field"><span className="field-label">Asset / listing name</span><input required className="input" value={form.name} onChange={(e) => update('name', e.target.value)} placeholder="e.g. Ocean View Commercial Centre" /></label>
-            <label className="field"><span className="field-label">Property / asset type</span><select className="input" value={form.property_type} onChange={(e) => update('property_type', e.target.value)}>{PROPERTY_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}</select></label>
+            <label className="field"><span className="field-label">Property / asset type</span><select className="input" value={form.property_type} onChange={(e) => update('property_type', e.target.value)}>{propertyTypeOptions.map((t) => <option key={t} value={t}>{t}</option>)}</select></label>
           </div>
         </section>
 
@@ -331,9 +501,11 @@ function AddPropertyModal({ onClose }: { onClose: () => void }) {
 
         <section><h4 className="mb-3 font-semibold text-ink-900">3. Location & access</h4><div className="grid grid-cols-1 gap-4 sm:grid-cols-2"><label className="field"><span className="field-label">County</span><select className="input" value={form.county} onChange={(e) => update('county', e.target.value)}>{KENYAN_COUNTIES.map((c) => <option key={c}>{c}</option>)}</select></label><label className="field"><span className="field-label">Sub-county</span><input className="input" value={form.sub_county} onChange={(e) => update('sub_county', e.target.value)} /></label><label className="field"><span className="field-label">Town / city</span><input required className="input" value={form.town} onChange={(e) => update('town', e.target.value)} /></label><label className="field"><span className="field-label">Estate / neighborhood</span><input className="input" value={form.estate} onChange={(e) => update('estate', e.target.value)} /></label><label className="field"><span className="field-label">Street / road</span><input className="input" value={form.street} onChange={(e) => update('street', e.target.value)} /></label><label className="field"><span className="field-label">Full address</span><input className="input" value={form.address} onChange={(e) => update('address', e.target.value)} /></label><label className="field"><span className="field-label">Latitude</span><input type="number" step="0.000001" className="input" value={form.latitude} onChange={(e) => update('latitude', e.target.value)} /></label><label className="field"><span className="field-label">Longitude</span><input type="number" step="0.000001" className="input" value={form.longitude} onChange={(e) => update('longitude', e.target.value)} /></label><label className="field sm:col-span-2"><span className="field-label">Map / directions URL</span><input type="url" className="input" value={form.map_url} onChange={(e) => update('map_url', e.target.value)} placeholder="https://maps.google.com/..." /></label></div></section>
 
-        {!isLand && <section><h4 className="mb-3 font-semibold text-ink-900">4. Built-asset operating details</h4><div className="grid grid-cols-1 gap-4 sm:grid-cols-3"><label className="field"><span className="field-label">Units / spaces</span><input type="number" min="0" className="input" value={form.number_of_units} onChange={(e) => update('number_of_units', Number(e.target.value) || 0)} /></label><label className="field"><span className="field-label">Floors</span><input type="number" min="0" className="input" value={form.number_of_floors} onChange={(e) => update('number_of_floors', Number(e.target.value) || 0)} /></label><label className="field"><span className="field-label">Security information</span><input className="input" value={form.security_info} onChange={(e) => update('security_info', e.target.value)} placeholder="Guarding, CCTV, access control…" /></label></div><div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-5">{[['parking','Parking'],['water_availability','Water'],['electricity','Electricity'],['internet','Internet'],['pets_allowed','Pets']].map(([key,label])=><label key={key} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={Boolean((form as Record<string, unknown>)[key])} onChange={() => toggle(key)} />{label}</label>)}</div></section>}
+        {showInventory && <section><h4 className="mb-3 font-semibold text-ink-900">4. {isDevelopment ? 'Development / project details' : 'Built-asset operating details'}</h4><div className="grid grid-cols-1 gap-4 sm:grid-cols-3"><label className="field"><span className="field-label">Units / spaces</span><input type="number" min="0" className="input" value={form.number_of_units} onChange={(e) => update('number_of_units', Number(e.target.value) || 0)} /></label><label className="field"><span className="field-label">Floors</span><input type="number" min="0" className="input" value={form.number_of_floors} onChange={(e) => update('number_of_floors', Number(e.target.value) || 0)} /></label><label className="field"><span className="field-label">Security information</span><input className="input" value={form.security_info} onChange={(e) => update('security_info', e.target.value)} placeholder="Guarding, CCTV, access control…" /></label></div><div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-5">{[['parking','Parking'],['water_availability','Water'],['electricity','Electricity'],['internet','Internet'],['pets_allowed','Pets']].map(([key,label])=><label key={key} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={Boolean((form as Record<string, unknown>)[key])} onChange={() => toggle(key)} />{label}</label>)}</div></section>}
 
         {isSale && !isLand && <section><h4 className="mb-3 font-semibold text-ink-900">5. Sale readiness</h4><div className="grid grid-cols-1 gap-4 sm:grid-cols-3"><label className="field"><span className="field-label">Asking price (KES)</span><input type="number" min="0" className="input" value={form.asking_price} onChange={(e) => update('asking_price', e.target.value)} /></label><label className="field"><span className="field-label">Reservation amount</span><input type="number" min="0" className="input" value={form.reservation_amount} onChange={(e) => update('reservation_amount', e.target.value)} /></label><label className="flex items-center gap-2 pt-7 text-sm"><input type="checkbox" checked={form.negotiable} onChange={() => toggle('negotiable')} /> Price is negotiable</label></div></section>}
+
+        {isLandSale && <section><h4 className="mb-3 font-semibold text-ink-900">5. Land sale readiness</h4><div className="rounded-2xl border border-accent-200 bg-accent-50/60 p-4 text-sm text-accent-900"><strong>Land is enquiry-led.</strong> No reservation fee will be collected from clients. Capture the asking price and market the parcel for viewing and enquiry only.</div><div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2"><label className="field"><span className="field-label">Asking price (KES)</span><input type="number" min="0" className="input" value={form.asking_price} onChange={(e) => update('asking_price', e.target.value)} /></label><label className="flex items-center gap-2 pt-7 text-sm"><input type="checkbox" checked={form.negotiable} onChange={() => toggle('negotiable')} /> Price is negotiable</label></div></section>}
 
         {isShortStay && <section><h4 className="mb-3 font-semibold text-ink-900">6. Short-stay / hospitality setup</h4><div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"><label className="field"><span className="field-label">Nightly rate (KES)</span><input type="number" min="0" className="input" value={form.nightly_rate} onChange={(e) => update('nightly_rate', e.target.value)} /></label><label className="field"><span className="field-label">Weekend rate</span><input type="number" min="0" className="input" value={form.weekend_rate} onChange={(e) => update('weekend_rate', e.target.value)} /></label><label className="field"><span className="field-label">Cleaning fee</span><input type="number" min="0" className="input" value={form.cleaning_fee} onChange={(e) => update('cleaning_fee', e.target.value)} /></label><label className="field"><span className="field-label">Maximum guests</span><input type="number" min="1" className="input" value={form.max_guests} onChange={(e) => update('max_guests', e.target.value)} /></label><label className="field"><span className="field-label">Minimum nights</span><input type="number" min="1" className="input" value={form.minimum_nights} onChange={(e) => update('minimum_nights', e.target.value)} /></label><label className="field"><span className="field-label">Maximum nights</span><input type="number" min="1" className="input" value={form.maximum_nights} onChange={(e) => update('maximum_nights', e.target.value)} /></label></div></section>}
 
@@ -525,7 +697,7 @@ function AddUnitModal({ propertyId, onClose }: { propertyId: string; onClose: ()
         <div className="grid grid-cols-2 gap-4">
           <div><label className="label">Unit Number</label><input className="input" required value={form.unit_number} onChange={(e) => setForm({ ...form, unit_number: e.target.value })} placeholder="A01" /></div>
           <div><label className="label">Floor</label><input type="number" className="input" value={form.floor} onChange={(e) => setForm({ ...form, floor: e.target.value })} /></div>
-          <div><label className="label">Unit / space type</label><select className="input" value={form.house_type} onChange={(e) => setForm({ ...form, house_type: e.target.value })}>{PROPERTY_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}</select></div>
+          <div><label className="label">Unit / space type</label><select className="input" value={form.house_type} onChange={(e) => setForm({ ...form, house_type: e.target.value })}>{PROPERTY_TYPES.map((t: string) => <option key={t} value={t}>{t}</option>)}</select></div>
           <div><label className="label">Furnishing</label><select className="input" value={form.furnishing} onChange={(e) => setForm({ ...form, furnishing: e.target.value })}><option value="furnished">Furnished</option><option value="semi_furnished">Semi-Furnished</option><option value="unfurnished">Unfurnished</option></select></div>
           <div><label className="label">Bedrooms</label><input type="number" className="input" min="0" value={form.bedrooms} onChange={(e) => setForm({ ...form, bedrooms: e.target.value })} /></div>
           <div><label className="label">Bathrooms</label><input type="number" className="input" min="1" value={form.bathrooms} onChange={(e) => setForm({ ...form, bathrooms: e.target.value })} /></div>

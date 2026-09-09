@@ -401,16 +401,22 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   transform-origin: left center;
   animation: hp-chart-bar-rise 800ms cubic-bezier(.22,1,.36,1) forwards;
 }
+.chart-progress-bar {
+  transform-origin: left center;
+  animation: hp-chart-bar-rise 850ms cubic-bezier(.22,1,.36,1) both;
+}
 .chart-donut-segment {
   animation: hp-chart-donut-sweep 950ms cubic-bezier(.22,1,.36,1) forwards;
 }
+.chart-progress-bar { animation-delay: 140ms; }
 @media (prefers-reduced-motion: reduce) {
   .chart-trend-line,
   .chart-area-fill,
   .chart-point,
   .chart-bar-secondary,
   .chart-bar-primary,
-  .chart-donut-segment {
+  .chart-donut-segment,
+  .chart-progress-bar {
     animation: none !important;
     opacity: 1 !important;
     stroke-dashoffset: 0 !important;

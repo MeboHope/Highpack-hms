@@ -28,8 +28,25 @@ import { AdminKra } from '@/pages/AdminKra';
 import { AdminPortfolio, OwnerPortfolio } from '@/pages/PortfolioPages';
 import { ShortStayOperations } from '@/pages/ShortStayPages';
 import { AdminSales, OwnerSales } from '@/pages/SalesPages';
-import type { JSX } from 'react';
+import React, { type JSX } from 'react';
 import highparkLogo from '@/assets/highpark-logo-clean.png';
+import { PropertyAIChat } from '@/components/PropertyAIChat';
+
+class AppErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean; message: string }> {
+  state = { hasError: false, message: '' };
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, message: error?.message || 'An unexpected application error occurred.' };
+  }
+  componentDidCatch(error: Error) {
+    console.error('HighPark application render error:', error);
+  }
+  render() {
+    if (this.state.hasError) {
+      return <div className="min-h-screen bg-ink-50 px-6 py-16 text-center"><div className="mx-auto max-w-xl rounded-3xl border border-red-100 bg-white p-8 shadow-soft-lg"><div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-2xl bg-red-50 text-red-600">!</div><h1 className="text-2xl font-bold text-ink-900">HighPark Consult could not load this page</h1><p className="mt-3 text-sm leading-6 text-ink-500">A page component encountered an unexpected error. Refresh the page and try again.</p><details className="mt-5 text-left"><summary className="cursor-pointer text-xs font-semibold text-ink-500">Technical details</summary><pre className="mt-2 overflow-auto rounded-xl bg-ink-50 p-3 text-xs text-red-700">{this.state.message}</pre></details><button type="button" onClick={() => window.location.reload()} className="btn-primary mt-6">Refresh page</button></div></div>;
+    }
+    return this.props.children;
+  }
+}
 
 function PublicLayout({ children }: { children: JSX.Element }) {
   return (
@@ -37,6 +54,7 @@ function PublicLayout({ children }: { children: JSX.Element }) {
       <Header />
       <main className="flex-1">{children}</main>
       <Footer />
+      <PropertyAIChat />
     </div>
   );
 }
@@ -150,13 +168,15 @@ function App() {
   return (
     <div className="app-shell">
       <div className="site-watermark" aria-hidden="true"><img src={highparkLogo} alt="" /></div>
-      <RouterProvider>
+      <AppErrorBoundary>
+        <RouterProvider>
         <AuthProvider>
           <ToastProvider>
             <Routes />
           </ToastProvider>
         </AuthProvider>
-      </RouterProvider>
+        </RouterProvider>
+      </AppErrorBoundary>
     </div>
   );
 }
