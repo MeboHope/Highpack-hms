@@ -60,7 +60,7 @@ export function TenantDashboard() {
   }, [profile]);
 
 
-  const assetContext = getAssetContext(lease?.properties?.asset_class, lease?.properties?.operation_model);
+  const assetContext = getAssetContext(lease?.properties?.asset_class, lease?.properties?.operation_model, lease?.properties?.property_type);
   const assetOptions = activeLeases.map((item) => ({ id: item.id, name: item.properties?.name || 'Managed asset', subtitle: item.property_units?.unit_number ? `Unit ${item.property_units.unit_number}` : assetContext.label, meta: item.properties?.town || item.properties?.county }));
   const switchAsset = (id: string) => { const selected = activeLeases.find((item) => item.id === id); if (!selected) return; window.localStorage.setItem('highpark:tenant-active-asset', id); window.history.replaceState({}, '', `${window.location.pathname}?asset=${encodeURIComponent(id)}`); setSelectedAssetId(id); setLease(selected); void supabase.from('rent_invoices').select('*').eq('lease_id', id).order('due_date', { ascending: false }).limit(5).then(({ data }) => setInvoices((data as RentInvoice[]) || [])); };
 

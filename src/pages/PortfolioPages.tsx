@@ -8,6 +8,7 @@ import { useToast } from '@/context/hooks';
 import { useAuth } from '@/context/hooks';
 import { titleCase } from '@/lib/constants';
 import { DonutChart } from '@/components/AnalyticsCharts';
+import { getPropertyPresentation } from '@/lib/propertyPresentation';
 
 type AssetClass = 'built_property' | 'land' | 'mixed_use' | 'development_project' | 'other';
 type OperationModel = 'long_term_rental' | 'short_stay' | 'sale' | 'lease' | 'land_sale' | 'mixed';
@@ -143,7 +144,7 @@ function PortfolioPage({ ownerOnly = false }: { ownerOnly?: boolean }) {
               <td><Badge>{titleCase(r.asset_class)}</Badge></td>
               <td><Badge>{titleCase(r.operation_model)}</Badge></td>
               <td><div className="flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5 text-ink-400" />{r.town}, {r.county}</div></td>
-              <td><p>{r.total_land_area ? `${r.total_land_area} ${r.land_area_unit || 'acres'}` : '—'}</p><p className="text-xs text-ink-400">{r.title_number || r.parcel_number || 'No title / parcel ref'}</p></td>
+              <td>{(() => { const view = getPropertyPresentation(r.asset_class, r.operation_model, r.property_type); return view.kind === 'land' || view.kind === 'development' ? <><p>{r.total_land_area ? `${r.total_land_area} ${r.land_area_unit || 'acres'}` : '—'}</p><p className="text-xs text-ink-400">{r.title_number || r.parcel_number || r.zoning || 'No land reference'}</p></> : <><p>{view.kind === 'short_stay' ? 'Hospitality' : view.kind === 'sale' ? 'Sale asset' : `${r.year_built || '—'}${r.year_built ? ' build year' : ''}`}</p><p className="text-xs text-ink-400">{r.ownership_type || 'Ownership not specified'}</p></>; })()}</td>
               <td><Badge status={r.status}>{titleCase(r.status)}</Badge></td>
               <td><button type="button" className="icon-action" title="Configure asset" onClick={() => setSelected({ ...r })}><Tag className="h-4 w-4" /></button></td>
             </tr>)}

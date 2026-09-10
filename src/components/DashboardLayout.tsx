@@ -72,8 +72,8 @@ export function DashboardLayout({
       if (profile?.role === 'customer') {
         const leaseId = new URLSearchParams(window.location.search).get('asset') || window.localStorage.getItem('highpark:tenant-active-asset');
         if (!leaseId) { if (!cancelled) setWorkspaceAsset(null); return; }
-        const { data } = await supabase.from('leases').select('id, properties(name, asset_class, operation_model), property_units(unit_number)').eq('id', leaseId).eq('tenant_id', profile.id).maybeSingle();
-        if (!cancelled && data) { const property = Array.isArray(data.properties) ? data.properties[0] : data.properties; const unit = Array.isArray(data.property_units) ? data.property_units[0] : data.property_units; setWorkspaceAsset({ name: String(property?.name || 'Selected asset'), subtitle: `${String(property?.asset_class || 'managed asset').replace(/_/g, ' ')}${unit?.unit_number ? ` · Unit ${String(unit.unit_number)}` : ''}` }); }
+        const { data } = await supabase.from('leases').select('id, properties(name, property_type, asset_class, operation_model), property_units(unit_number)').eq('id', leaseId).eq('tenant_id', profile.id).maybeSingle();
+        if (!cancelled && data) { const property = Array.isArray(data.properties) ? data.properties[0] : data.properties; const unit = Array.isArray(data.property_units) ? data.property_units[0] : data.property_units; setWorkspaceAsset({ name: String(property?.name || 'Selected asset'), subtitle: `${String(property?.property_type || property?.asset_class || 'managed asset')}${unit?.unit_number ? ` · Unit ${String(unit.unit_number)}` : ''}` }); }
         return;
       }
       if (profile?.role === 'owner') {

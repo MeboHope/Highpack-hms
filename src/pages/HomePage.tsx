@@ -23,11 +23,12 @@ import {
 } from '@/lib/constants';
 import { SkeletonCard } from '@/components/ui';
 import { getPropertyImage } from '@/lib/images';
+import { getPropertyPresentation } from '@/lib/propertyPresentation';
 import highparkLogo from '@/assets/highpark-logo-clean.png';
 
 interface PropertyWithUnits {
   id: string; name: string; county: string; town: string; estate: string | null; property_type: string; asset_class: string; operation_model: string;
-  ownership_type: string | null; title_number: string | null; parcel_number: string | null; total_land_area: number | null; land_area_unit: string | null;
+  ownership_type: string | null; title_number: string | null; parcel_number: string | null; total_land_area: number | null; land_area_unit: string | null; plot_count: number | null; plot_dimensions: string | null;
   photos: string[]; available_units: number; min_monthly_rent: number | null; sale_listing_count: number; sale_min_price: number | null;
   short_stay_listing_count: number; short_stay_min_rate: number | null;
 }
@@ -171,6 +172,7 @@ export function HomePage() {
         operation_model: String(row.operation_model ?? 'long_term_rental'), ownership_type: row.ownership_type == null ? null : String(row.ownership_type),
         title_number: row.title_number == null ? null : String(row.title_number), parcel_number: row.parcel_number == null ? null : String(row.parcel_number),
         total_land_area: row.total_land_area == null ? null : Number(row.total_land_area), land_area_unit: row.land_area_unit == null ? null : String(row.land_area_unit),
+        plot_count: row.plot_count == null ? null : Number(row.plot_count), plot_dimensions: row.plot_dimensions == null ? null : String(row.plot_dimensions),
         photos: Array.isArray(row.photos) ? row.photos.filter((x): x is string => typeof x === 'string') : [], available_units: Number(row.available_units || 0),
         min_monthly_rent: row.min_monthly_rent == null ? null : Number(row.min_monthly_rent), sale_listing_count: Number(row.sale_listing_count || 0),
         sale_min_price: row.sale_min_price == null ? null : Number(row.sale_min_price), short_stay_listing_count: Number(row.short_stay_listing_count || 0),
@@ -649,12 +651,13 @@ export function HomePage() {
 
 function FeaturedPropertyCard({ property }: { property: PropertyWithUnits }) {
   const image = property.photos?.[0] || getPropertyImage(property.property_type);
-  const isLand = property.asset_class === 'land';
+  const view = getPropertyPresentation(property.asset_class, property.operation_model, property.property_type);
+  const isLand = view.kind === 'land';
   const isSale = property.sale_listing_count > 0 || ['sale','land_sale'].includes(property.operation_model);
   const isStay = property.short_stay_listing_count > 0 || property.operation_model === 'short_stay';
   const opportunity = property.min_monthly_rent ? `${formatKES(property.min_monthly_rent)}/mo` : property.sale_min_price ? `From ${formatKES(property.sale_min_price)}` : property.short_stay_min_rate ? `${formatKES(property.short_stay_min_rate)}/night` : 'Enquire for details';
   return <Link to={`/property/${property.id}`} className="card group overflow-hidden transition-all hover:-translate-y-1 hover:shadow-soft-lg">
     <div className="relative h-48 overflow-hidden bg-ink-100"><img src={image} alt={property.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" /><div className="absolute left-3 top-3 flex flex-wrap gap-1.5"><span className="badge bg-brand-600 text-white"><ShieldCheck className="h-3 w-3" /> Verified</span>{isSale&&<span className="badge bg-accent-100 text-accent-800">For sale</span>}{isStay&&<span className="badge bg-white/95 text-brand-700">Short stay</span>}</div></div>
-    <div className="p-4"><h3 className="truncate font-semibold text-ink-900">{property.name}</h3><p className="mt-1 flex items-center gap-1 text-sm text-ink-500"><MapPin className="h-3.5 w-3.5" /> {property.estate ? `${property.estate}, ` : ''}{property.town}, {property.county}</p><div className="mt-3 flex flex-wrap gap-1.5"><span className="badge bg-ink-100 text-ink-600">{property.asset_class.replace(/_/g,' ')}</span><span className="badge bg-brand-50 text-brand-700">{property.property_type}</span>{isLand&&property.total_land_area&&<span className="badge bg-accent-50 text-accent-700">{property.total_land_area} {property.land_area_unit || 'acres'}</span>}</div><div className="mt-4 flex items-center justify-between border-t border-ink-100 pt-3"><div><p className="text-lg font-bold text-brand-700">{opportunity}</p>{property.available_units>0&&<p className="text-xs text-ink-400">{property.available_units} rentable space{property.available_units===1?'':'s'} available</p>}</div><span className="text-sm font-medium text-brand-600 group-hover:underline">View Details →</span></div></div>
+    <div className="p-4"><h3 className="truncate font-semibold text-ink-900">{property.name}</h3><p className="mt-1 flex items-center gap-1 text-sm text-ink-500"><MapPin className="h-3.5 w-3.5" /> {property.estate ? `${property.estate}, ` : ''}{property.town}, {property.county}</p><div className="mt-3 flex flex-wrap gap-1.5"><span className="badge bg-ink-100 text-ink-600">{view.label}</span><span className="badge bg-brand-50 text-brand-700">{property.property_type}</span>{isLand&&property.total_land_area&&<span className="badge bg-accent-50 text-accent-700">{property.total_land_area} {property.land_area_unit || 'acres'}</span>}</div><div className="mt-4 flex items-center justify-between border-t border-ink-100 pt-3"><div><p className="text-lg font-bold text-brand-700">{isLand ? 'Enquire for land price' : opportunity}</p>{isLand ? <p className="text-xs text-ink-400">{property.plot_count || 0} plots · {property.plot_dimensions || 'dimensions on enquiry'}</p> : property.available_units>0&&<p className="text-xs text-ink-400">{property.available_units} {view.inventoryLabel.toLowerCase()} available</p>}</div><span className="text-sm font-medium text-brand-600 group-hover:underline">View Details →</span></div></div>
   </Link>;
 }

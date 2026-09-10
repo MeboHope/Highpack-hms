@@ -12,7 +12,8 @@ import { formatKES, formatDate, titleCase, PROPERTY_TYPES, KENYAN_COUNTIES, PROP
 import { uploadPropertyMedia, deletePropertyMedia } from '@/lib/media';
 import { getPropertyImages } from '@/lib/images';
 import { downloadPaymentReceiptPdf } from '@/lib/documents';
-import { loadDashboardPropertyPerformance } from '@/lib/operationalData';
+import { loadDashboardPropertyPerformance, type DashboardPropertyPerformance } from '@/lib/operationalData';
+import { getPropertyPresentation } from '@/lib/propertyPresentation';
 import type { Property, PropertyUnit, Reservation, Lease, Expense, TaxRecord, MaintenanceRequest, Payment } from '@/lib/supabase';
 import { ComparisonBars, DonutChart, TrendChart } from '@/components/AnalyticsCharts';
 import { AssetSwitcher } from '@/components/AssetSwitcher';
@@ -52,10 +53,7 @@ export function OwnerDashboard() {
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState(new Date().toISOString().slice(0, 7));
   const [selectedPropertyId, setSelectedPropertyId] = useState('');
-  const [summary, setSummary] = useState<Array<{
-    id: string; name: string; propertyType: string; unitTypes: Record<string, number>; units: number; available: number; reserved: number;
-    occupied: number; tenants: number; expectedRent: number; collectedRent: number; tax: number; floors: Record<string, { total: number; available: number; occupied: number; reserved: number }>;
-  }>>([]);
+  const [summary, setSummary] = useState<DashboardPropertyPerformance[]>([]);
 
   useEffect(() => {
     if (!profile) return;
@@ -78,19 +76,22 @@ export function OwnerDashboard() {
   if (loading) return <DashboardLayout navItems={ownerNav} title="Dashboard"><LoadingPage /></DashboardLayout>;
 
   const selectedProperty = summary.find((row) => row.id === selectedPropertyId) || summary[0];
-  const assetOptions = summary.map((row) => ({ id: row.id, name: row.name, subtitle: row.propertyType, meta: `${row.units} inventory` }));
+  const assetOptions = summary.map((row) => ({ id: row.id, name: row.name, subtitle: row.propertyType, meta: row.displayKind === 'land' ? `${row.plotCount || 0} plots` : `${row.units} ${row.inventoryLabel.toLowerCase()}` }));
   const switchProperty = (id: string) => { setSelectedPropertyId(id); window.localStorage.setItem('highpark:owner-active-asset', id); };
+  const operationalRows = summary.filter((row) => getPropertyPresentation(row.assetClass, row.operationModel, row.propertyType).showOccupancy);
   const totals = summary.reduce((acc, row) => ({
     properties: acc.properties + 1,
-    units: acc.units + row.units,
-    occupied: acc.occupied + row.occupied,
-    available: acc.available + row.available,
-    reserved: acc.reserved + row.reserved,
-    tenants: acc.tenants + row.tenants,
-    expectedRent: acc.expectedRent + row.expectedRent,
-    collectedRent: acc.collectedRent + row.collectedRent,
+    units: acc.units + (getPropertyPresentation(row.assetClass, row.operationModel, row.propertyType).showUnitInventory ? row.units : 0),
+    occupied: acc.occupied + (getPropertyPresentation(row.assetClass, row.operationModel, row.propertyType).showOccupancy ? row.occupied : 0),
+    available: acc.available + (getPropertyPresentation(row.assetClass, row.operationModel, row.propertyType).showOccupancy ? row.available : 0),
+    reserved: acc.reserved + (getPropertyPresentation(row.assetClass, row.operationModel, row.propertyType).showOccupancy ? row.reserved : 0),
+    tenants: acc.tenants + (getPropertyPresentation(row.assetClass, row.operationModel, row.propertyType).showTenantMetrics ? row.tenants : 0),
+    expectedRent: acc.expectedRent + (getPropertyPresentation(row.assetClass, row.operationModel, row.propertyType).showRentMetrics ? row.expectedRent : 0),
+    collectedRent: acc.collectedRent + (getPropertyPresentation(row.assetClass, row.operationModel, row.propertyType).showRentMetrics ? row.collectedRent : 0),
     tax: acc.tax + row.tax,
-  }), { properties: 0, units: 0, occupied: 0, available: 0, reserved: 0, tenants: 0, expectedRent: 0, collectedRent: 0, tax: 0 });
+    plots: acc.plots + (row.displayKind === 'land' ? (row.plotCount || 0) : 0),
+    saleListings: acc.saleListings + row.saleListings,
+  }), { properties: 0, units: 0, occupied: 0, available: 0, reserved: 0, tenants: 0, expectedRent: 0, collectedRent: 0, tax: 0, plots: 0, saleListings: 0 });
 
   return (
     <DashboardLayout navItems={ownerNav} title="Dashboard">
@@ -103,60 +104,60 @@ export function OwnerDashboard() {
           </div>
           <div className="grid grid-cols-2 gap-3 text-center">
             <div className="rounded-xl bg-white/10 px-5 py-3 backdrop-blur"><p className="text-2xl font-bold">{totals.properties}</p><p className="text-xs text-white/70">Properties</p></div>
-            <div className="rounded-xl bg-white/10 px-5 py-3 backdrop-blur"><p className="text-2xl font-bold">{totals.units}</p><p className="text-xs text-white/70">Units</p></div>
+            <div className="rounded-xl bg-white/10 px-5 py-3 backdrop-blur"><p className="text-2xl font-bold">{totals.units}</p><p className="text-xs text-white/70">Rentable spaces</p></div>
           </div>
         </div>
       </div>
 
       {assetOptions.length > 0 && <div className="mb-5"><AssetSwitcher items={assetOptions} value={selectedPropertyId} onChange={switchProperty} label="Active portfolio asset" /></div>}
-      {selectedProperty && <Card className="mb-6 overflow-hidden border-brand-100 bg-gradient-to-r from-white via-brand-50/40 to-white"><div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-brand-700">Selected asset pulse</p><h3 className="mt-1 text-xl font-bold text-ink-900">{selectedProperty.name}</h3><p className="mt-1 text-sm text-ink-500">{selectedProperty.propertyType} · {selectedProperty.units} inventory items · {selectedProperty.occupied} occupied · {selectedProperty.available} available</p></div><div className="grid grid-cols-3 gap-2 text-center"><div className="rounded-xl bg-white px-3 py-2 shadow-sm"><p className="text-sm font-bold text-ink-900">{formatKES(selectedProperty.expectedRent)}</p><p className="text-[10px] text-ink-400">Expected</p></div><div className="rounded-xl bg-white px-3 py-2 shadow-sm"><p className="text-sm font-bold text-blue-700">{formatKES(selectedProperty.collectedRent)}</p><p className="text-[10px] text-ink-400">Collected</p></div><div className="rounded-xl bg-white px-3 py-2 shadow-sm"><p className="text-sm font-bold text-brand-700">{selectedProperty.units ? Math.round(selectedProperty.occupied / selectedProperty.units * 100) : 0}%</p><p className="text-[10px] text-ink-400">Occupancy</p></div></div></div></Card>}
+      {selectedProperty && (() => { const view = getPropertyPresentation(selectedProperty.assetClass, selectedProperty.operationModel, selectedProperty.propertyType); return <Card className="mb-6 overflow-hidden border-brand-100 bg-gradient-to-r from-white via-brand-50/40 to-white"><div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-brand-700">Selected asset pulse</p><h3 className="mt-1 text-xl font-bold text-ink-900">{selectedProperty.name}</h3><p className="mt-1 text-sm text-ink-500">{selectedProperty.propertyType} · {view.label}</p></div><div className="grid grid-cols-2 gap-2 text-center sm:grid-cols-3">{view.kind === 'land' ? <><div className="rounded-xl bg-white px-3 py-2 shadow-sm"><p className="text-sm font-bold text-ink-900">{selectedProperty.plotCount || 0}</p><p className="text-[10px] text-ink-400">Plots</p></div><div className="rounded-xl bg-white px-3 py-2 shadow-sm"><p className="text-sm font-bold text-brand-700">{selectedProperty.landArea ?? '—'} {selectedProperty.landAreaUnit || ''}</p><p className="text-[10px] text-ink-400">Land area</p></div><div className="rounded-xl bg-white px-3 py-2 shadow-sm"><p className="text-sm font-bold text-ink-900">{selectedProperty.saleMinPrice ? formatKES(selectedProperty.saleMinPrice) : 'Enquire'}</p><p className="text-[10px] text-ink-400">Asking price</p></div></> : view.showOccupancy ? <><div className="rounded-xl bg-white px-3 py-2 shadow-sm"><p className="text-sm font-bold text-ink-900">{selectedProperty.units}</p><p className="text-[10px] text-ink-400">{view.inventoryLabel}</p></div><div className="rounded-xl bg-white px-3 py-2 shadow-sm"><p className="text-sm font-bold text-blue-700">{selectedProperty.occupied}</p><p className="text-[10px] text-ink-400">{view.occupiedLabel}</p></div><div className="rounded-xl bg-white px-3 py-2 shadow-sm"><p className="text-sm font-bold text-brand-700">{selectedProperty.units ? Math.round(selectedProperty.occupied / selectedProperty.units * 100) : 0}%</p><p className="text-[10px] text-ink-400">Occupancy</p></div></> : <><div className="rounded-xl bg-white px-3 py-2 shadow-sm"><p className="text-sm font-bold text-ink-900">{view.kind === 'sale' ? selectedProperty.saleListings : view.kind === 'development' ? selectedProperty.units : selectedProperty.shortStayListings}</p><p className="text-[10px] text-ink-400">{view.inventoryLabel}</p></div><div className="rounded-xl bg-white px-3 py-2 shadow-sm"><p className="text-sm font-bold text-brand-700">{selectedProperty.saleMinPrice ? formatKES(selectedProperty.saleMinPrice) : selectedProperty.shortStayMinRate ? `${formatKES(selectedProperty.shortStayMinRate)}/night` : 'Enquire'}</p><p className="text-[10px] text-ink-400">Commercial signal</p></div></>}</div></div></Card>; })()}
 
       <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-ink-100 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-        <div><p className="text-sm font-semibold text-ink-900">Dashboard reporting period</p><p className="text-xs text-ink-500">Rent and tax figures below are scoped to this month; occupancy is live.</p></div>
+        <div><p className="text-sm font-semibold text-ink-900">Dashboard reporting period</p><p className="text-xs text-ink-500">Financial figures are scoped to this month; operational metrics are shown only for asset types that support them.</p></div>
         <input type="month" className="input sm:w-52" value={period} onChange={(e) => setPeriod(e.target.value)} />
       </div>
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4 mb-7">
-        <StatCard label="Total Units" value={totals.units} icon={<Home className="w-5 h-5" />} onClick={() => navigate('/owner/properties')} />
-        <StatCard label="Occupied" value={totals.occupied} icon={<Users className="w-5 h-5" />} accent="blue" onClick={() => navigate('/owner/properties')} />
-        <StatCard label="Vacant" value={totals.available} icon={<Home className="w-5 h-5" />} accent="ink" onClick={() => navigate('/owner/properties')} />
-        <StatCard label="Active Occupants" value={totals.tenants} icon={<Users className="w-5 h-5" />} accent="accent" onClick={() => navigate('/owner/tenants')} />
-        <StatCard label="Expected Rent / mo" value={formatKES(totals.expectedRent)} icon={<Wallet className="w-5 h-5" />} onClick={() => navigate('/owner/payments')} />
-        <StatCard label={`Rent Collected · ${period}`} value={formatKES(totals.collectedRent)} icon={<Wallet className="w-5 h-5" />} accent="blue" onClick={() => navigate('/owner/payments')} />
-        <StatCard label="Reserved Units" value={totals.reserved} icon={<Calendar className="w-5 h-5" />} accent="accent" onClick={() => navigate('/owner/reservations')} />
-        <StatCard label={`Estimated Tax · ${period}`} value={formatKES(totals.tax)} icon={<TrendingUp className="w-5 h-5" />} accent="red" onClick={() => navigate('/owner/tax')} />
+        <StatCard label="Portfolio assets" value={totals.properties} icon={<Building2 className="w-5 h-5" />} onClick={() => navigate('/owner/properties')} />
+        <StatCard label="Rentable spaces" value={totals.units} icon={<Home className="w-5 h-5" />} accent="accent" onClick={() => navigate('/owner/properties')} />
+        <StatCard label="Occupied spaces" value={totals.occupied} icon={<Users className="w-5 h-5" />} accent="blue" onClick={() => navigate('/owner/properties')} />
+        <StatCard label="Land / plots" value={totals.plots} icon={<Layers3 className="w-5 h-5" />} accent="ink" onClick={() => navigate('/owner/properties')} />
+        <StatCard label="Active occupants" value={totals.tenants} icon={<Users className="w-5 h-5" />} accent="accent" onClick={() => navigate('/owner/tenants')} />
+        <StatCard label={`Rent collected · ${period}`} value={formatKES(totals.collectedRent)} icon={<Wallet className="w-5 h-5" />} accent="blue" onClick={() => navigate('/owner/payments')} />
+        <StatCard label="Active sale listings" value={totals.saleListings} icon={<Receipt className="w-5 h-5" />} accent="accent" onClick={() => navigate('/owner/properties')} />
+        <StatCard label={`Estimated tax · ${period}`} value={formatKES(totals.tax)} icon={<TrendingUp className="w-5 h-5" />} accent="red" onClick={() => navigate('/owner/tax')} />
       </div>
 
-      <div className="mb-7 grid grid-cols-1 gap-6 xl:grid-cols-2">
-        <ComparisonBars points={summary.slice(0, 6).map((row) => ({ label: row.name, value: row.collectedRent, secondary: row.expectedRent }))} primaryLabel="Collected" secondaryLabel="Expected" />
-        <DonutChart segments={[{ label: 'Occupied', value: totals.occupied }, { label: 'Available', value: totals.available }, { label: 'Reserved', value: totals.reserved }]} centerLabel="Units" centerValue={String(totals.units)} />
-      </div>
+      {operationalRows.length > 0 && <div className="mb-7 grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <ComparisonBars points={operationalRows.slice(0, 6).map((row) => ({ label: row.name, value: row.collectedRent, secondary: row.expectedRent }))} primaryLabel="Collected" secondaryLabel="Expected" />
+        <DonutChart segments={[{ label: 'Occupied', value: totals.occupied }, { label: 'Available', value: totals.available }, { label: 'Reserved', value: totals.reserved }]} centerLabel="Rentable spaces" centerValue={String(totals.units)} />
+      </div>}
 
       <Card className="overflow-hidden">
         <div className="flex flex-col gap-3 border-b border-ink-100 p-5 sm:flex-row sm:items-center sm:justify-between">
-          <div><h3 className="font-semibold text-ink-900">Property-by-property performance</h3><p className="text-sm text-ink-500">A visual operating snapshot for every property. Click a card to inspect units and floors.</p></div>
+          <div><h3 className="font-semibold text-ink-900">Property-by-property performance</h3><p className="text-sm text-ink-500">A visual operating snapshot for every asset, using only metrics relevant to its asset class and operating model.</p></div>
           <span className="badge bg-brand-50 text-brand-700">Live portfolio data</span>
         </div>
-        {summary.length === 0 ? <EmptyState icon={<Building2 className="w-8 h-8" />} title="No properties yet" description="Add your first property to start tracking its units and income." /> :
+        {summary.length === 0 ? <EmptyState icon={<Building2 className="w-8 h-8" />} title="No properties yet" description="Add your first asset to start tracking its appropriate operating information." /> :
           <div className="grid grid-cols-1 gap-5 p-5 xl:grid-cols-2">
-            {summary.map((row) => { const occupancy = row.units ? Math.round((row.occupied / row.units) * 100) : 0; return <button key={row.id} type="button" onClick={() => navigate(`/owner/units/${row.id}`)} className="group text-left rounded-2xl border border-ink-100 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-brand-200 hover:shadow-soft-lg focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+            {summary.map((row) => { const view = getPropertyPresentation(row.assetClass, row.operationModel, row.propertyType); const occupancy = row.units ? Math.round((row.occupied / row.units) * 100) : 0; return <button key={row.id} type="button" onClick={() => view.showUnitInventory ? navigate(`/owner/units/${row.id}`) : navigate(`/property/${row.id}`)} className="group text-left rounded-2xl border border-ink-100 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-brand-200 hover:shadow-soft-lg focus:outline-none focus:ring-2 focus:ring-brand-500/20">
               <div className="flex items-start gap-4"><img src={getPropertyImages(row.propertyType)[0]} alt="" className="h-24 w-24 shrink-0 rounded-xl object-cover" /><div className="min-w-0 flex-1">
-                <div className="flex items-start justify-between gap-3"><div><h4 className="font-bold text-ink-900 group-hover:text-brand-700">{row.name}</h4><div className="mt-1 flex flex-wrap gap-1.5"><span className="badge bg-ink-100 text-ink-600">{row.propertyType}</span>{Object.entries(row.unitTypes).map(([type,count]) => <span key={type} className="badge bg-brand-50 text-brand-700">{type} · {count}</span>)}</div></div><span className="text-xs font-semibold text-brand-700">View details →</span></div>
-                <div className="mt-3"><div className="mb-1 flex justify-between text-[11px] text-ink-500"><span>Occupancy</span><span className="font-semibold text-ink-700">{occupancy}%</span></div><div className="h-1.5 rounded-full bg-ink-100"><div className="h-1.5 rounded-full bg-brand-500" style={{width:`${occupancy}%`}} /></div></div>
+                <div className="flex items-start justify-between gap-3"><div><h4 className="font-bold text-ink-900 group-hover:text-brand-700">{row.name}</h4><div className="mt-1 flex flex-wrap gap-1.5"><span className="badge bg-ink-100 text-ink-600">{row.propertyType}</span><span className="badge bg-brand-50 text-brand-700">{view.label}</span></div></div><span className="text-xs font-semibold text-brand-700">View details →</span></div>
+                {view.showOccupancy && <div className="mt-3"><div className="mb-1 flex justify-between text-[11px] text-ink-500"><span>Occupancy</span><span className="font-semibold text-ink-700">{occupancy}%</span></div><div className="h-1.5 rounded-full bg-ink-100"><div className="h-1.5 rounded-full bg-brand-500" style={{width:`${occupancy}%`}} /></div></div>}
               </div></div>
-              <div className="mt-4 grid grid-cols-4 gap-2">{[[row.units,'Units','text-ink-900'],[row.available,'Vacant','text-brand-700'],[row.reserved,'Reserved','text-accent-700'],[row.occupied,'Occupied','text-blue-700']].map(([value,label,cls]) => <div key={String(label)} className="rounded-xl bg-ink-50 p-2.5"><p className={`text-lg font-bold ${cls}`}>{value}</p><p className="text-[10px] uppercase tracking-wide text-ink-400">{label}</p></div>)}</div>
-              <div className="mt-3 grid grid-cols-3 gap-3 border-t border-ink-100 pt-3 text-xs"><div><p className="text-ink-400">Tenants</p><p className="mt-0.5 font-semibold text-ink-900">{row.tenants}</p></div><div><p className="text-ink-400">Collected</p><p className="mt-0.5 font-semibold text-ink-900">{formatKES(row.collectedRent)}</p></div><div><p className="text-ink-400">Est. tax</p><p className="mt-0.5 font-semibold text-brand-700">{formatKES(row.tax)}</p></div></div>
-              {row.propertyType.toLowerCase().includes('apartment') && <div className="mt-3 rounded-xl bg-brand-50/60 p-3"><p className="mb-2 text-xs font-semibold text-brand-900">Floor availability</p><div className="grid grid-cols-2 gap-2 sm:grid-cols-3">{Object.entries(row.floors).sort((a,b)=>a[0].localeCompare(b[0],undefined,{numeric:true})).map(([floor,x]) => <div key={floor} className="rounded-lg border border-brand-100 bg-white px-2.5 py-2"><p className="text-[11px] font-semibold text-ink-800">{floor}</p><p className="text-[11px] text-brand-700"><strong>{x.available}</strong> available / {x.total}</p></div>)}</div></div>}
+              {view.kind === 'land' ? <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4"><div className="rounded-xl bg-accent-50 p-2.5"><p className="text-lg font-bold text-accent-700">{row.plotCount || 0}</p><p className="text-[10px] uppercase tracking-wide text-ink-400">Plots</p></div><div className="rounded-xl bg-ink-50 p-2.5"><p className="text-sm font-bold text-ink-900">{row.landArea ?? '—'}</p><p className="text-[10px] uppercase tracking-wide text-ink-400">{row.landAreaUnit || 'Area'}</p></div><div className="rounded-xl bg-ink-50 p-2.5"><p className="truncate text-sm font-bold text-ink-900">{row.plotDimensions || '—'}</p><p className="text-[10px] uppercase tracking-wide text-ink-400">Dimensions</p></div><div className="rounded-xl bg-brand-50 p-2.5"><p className="truncate text-sm font-bold text-brand-700">{row.parcelNumber || row.titleNumber || '—'}</p><p className="text-[10px] uppercase tracking-wide text-ink-400">Title / parcel</p></div></div> : view.kind === 'sale' || view.kind === 'development' ? <div className="mt-4 grid grid-cols-2 gap-2"><div className="rounded-xl bg-ink-50 p-2.5"><p className="text-lg font-bold text-ink-900">{row.saleListings || 0}</p><p className="text-[10px] uppercase tracking-wide text-ink-400">Active sale listings</p></div><div className="rounded-xl bg-brand-50 p-2.5"><p className="text-sm font-bold text-brand-700">{row.saleMinPrice ? formatKES(row.saleMinPrice) : 'Enquire'}</p><p className="text-[10px] uppercase tracking-wide text-ink-400">Asking from</p></div></div> : view.kind === 'short_stay' ? <div className="mt-4 grid grid-cols-2 gap-2"><div className="rounded-xl bg-ink-50 p-2.5"><p className="text-lg font-bold text-ink-900">{row.shortStayListings || 0}</p><p className="text-[10px] uppercase tracking-wide text-ink-400">Active listings</p></div><div className="rounded-xl bg-brand-50 p-2.5"><p className="text-sm font-bold text-brand-700">{row.shortStayMinRate ? `${formatKES(row.shortStayMinRate)}/night` : 'Enquire'}</p><p className="text-[10px] uppercase tracking-wide text-ink-400">From / night</p></div></div> : <div className="mt-4 grid grid-cols-4 gap-2">{[[row.units,view.inventoryLabel,'text-ink-900'],[row.available,view.availableLabel,'text-brand-700'],[row.reserved,view.reservedLabel,'text-accent-700'],[row.occupied,view.occupiedLabel,'text-blue-700']].map(([value,label,cls]) => <div key={String(label)} className="rounded-xl bg-ink-50 p-2.5"><p className={`text-lg font-bold ${cls}`}>{value}</p><p className="text-[10px] uppercase tracking-wide text-ink-400">{label}</p></div>)}</div>}
+              {view.showTenantMetrics && <div className="mt-3 grid grid-cols-3 gap-3 border-t border-ink-100 pt-3 text-xs"><div><p className="text-ink-400">Tenants</p><p className="mt-0.5 font-semibold text-ink-900">{row.tenants}</p></div><div><p className="text-ink-400">Collected</p><p className="mt-0.5 font-semibold text-ink-900">{formatKES(row.collectedRent)}</p></div><div><p className="text-ink-400">Est. tax</p><p className="mt-0.5 font-semibold text-brand-700">{formatKES(row.tax)}</p></div></div>}
+              {view.showFloorAvailability && Object.keys(row.floors).length > 0 && <div className="mt-3 rounded-xl bg-brand-50/60 p-3"><p className="mb-2 text-xs font-semibold text-brand-900">Floor availability</p><div className="grid grid-cols-2 gap-2 sm:grid-cols-3">{Object.entries(row.floors).sort((a,b)=>a[0].localeCompare(b[0],undefined,{numeric:true})).map(([floor,x]) => <div key={floor} className="rounded-lg border border-brand-100 bg-white px-2.5 py-2"><p className="text-[11px] font-semibold text-ink-800">{floor}</p><p className="text-[11px] text-brand-700"><strong>{x.available}</strong> available / {x.total}</p></div>)}</div></div>}
             </button>; })}
           </div>}
       </Card>
 
-      <div className="mt-7 grid grid-cols-1 gap-6 lg:grid-cols-2">
+      {operationalRows.length > 0 && <div className="mt-7 grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card className="p-6">
-          <div className="mb-4"><h3 className="font-semibold text-ink-900">Unit type mix</h3><p className="text-xs text-ink-500">Across all your properties.</p></div>
+          <div className="mb-4"><h3 className="font-semibold text-ink-900">Unit / space type mix</h3><p className="text-xs text-ink-500">Across properties that use rentable inventory.</p></div>
           <div className="grid grid-cols-2 gap-3">
-            {Object.entries(summary.reduce<Record<string, number>>((acc, row) => { Object.entries(row.unitTypes).forEach(([type, count]) => { acc[type] = (acc[type] || 0) + count; }); return acc; }, {})).sort((a,b) => b[1]-a[1]).map(([type,count]) => <div key={type} className="rounded-xl border border-ink-100 bg-ink-50 p-3"><p className="text-sm font-semibold text-ink-800">{type}</p><p className="mt-1 text-xl font-bold text-brand-700">{count}</p><p className="text-[11px] text-ink-500">units</p></div>)}
-            {summary.length === 0 && <p className="text-sm text-ink-500">Your unit mix will appear here.</p>}
+            {Object.entries(operationalRows.reduce<Record<string, number>>((acc, row) => { Object.entries(row.unitTypes).forEach(([type, count]) => { acc[type] = (acc[type] || 0) + count; }); return acc; }, {})).sort((a,b) => b[1]-a[1]).map(([type,count]) => <div key={type} className="rounded-xl border border-ink-100 bg-ink-50 p-3"><p className="text-sm font-semibold text-ink-800">{type}</p><p className="mt-1 text-xl font-bold text-brand-700">{count}</p><p className="text-[11px] text-ink-500">units</p></div>)}
+            {operationalRows.length === 0 && <p className="text-sm text-ink-500">No rentable inventory is configured.</p>}
           </div>
         </Card>
         <Card className="p-6">
@@ -166,7 +167,7 @@ export function OwnerDashboard() {
             <div className="grid grid-cols-2 gap-3"><div className="rounded-xl bg-brand-50 p-4"><p className="text-xs text-brand-700">Collected</p><p className="mt-1 text-lg font-bold text-brand-900">{formatKES(totals.collectedRent)}</p></div><div className="rounded-xl bg-red-50 p-4"><p className="text-xs text-red-700">Estimated tax</p><p className="mt-1 text-lg font-bold text-red-900">{formatKES(totals.tax)}</p></div></div>
           </div>
         </Card>
-      </div>
+      </div>}
     </DashboardLayout>
   );
 }
@@ -222,7 +223,7 @@ export function OwnerProperties() {
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="font-semibold text-ink-900 truncate group-hover:text-brand-700">{p.name}</h3>
                 </div>
-                <p className="text-sm text-ink-500 flex items-center gap-1 mb-3"><MapPin className="w-3.5 h-3.5" /> {p.town}, {p.county}</p><div className="mb-4 grid grid-cols-3 gap-2">{p.asset_class === 'land' ? <><div className="stat-chip"><strong>{p.total_land_area || 0}</strong><span>{p.land_area_unit || 'acres'}</span></div><div className="stat-chip"><strong>{p.parcel_number || '—'}</strong><span>Parcel</span></div><div className="stat-chip"><strong>Enquire</strong><span>Market</span></div></> : <><button type="button" onClick={() => navigate(`/owner/units/${p.id}`)} className="stat-chip"><strong>{p.number_of_units || 0}</strong><span>Units</span></button><button type="button" onClick={() => navigate(`/owner/units/${p.id}`)} className="stat-chip"><strong>{p.number_of_floors || 1}</strong><span>Floors</span></button><button type="button" onClick={() => navigate(`/owner/units/${p.id}`)} className="stat-chip"><strong>{p.property_type === 'Apartment' ? 'View' : 'Open'}</strong><span>Structure</span></button></>}</div>
+                <p className="text-sm text-ink-500 flex items-center gap-1 mb-3"><MapPin className="w-3.5 h-3.5" /> {p.town}, {p.county}</p><div className="mb-4 grid grid-cols-3 gap-2">{(() => { const view = getPropertyPresentation(p.asset_class, p.operation_model, p.property_type); return view.kind === 'land' ? <><div className="stat-chip"><strong>{p.plot_count || 0}</strong><span>Plots</span></div><div className="stat-chip"><strong>{p.total_land_area || '—'}</strong><span>{p.land_area_unit || 'Area'}</span></div><div className="stat-chip"><strong>{p.parcel_number || p.title_number || '—'}</strong><span>Title / parcel</span></div></> : view.kind === 'short_stay' ? <><div className="stat-chip"><strong>Stay</strong><span>Operation</span></div><div className="stat-chip"><strong>Hospitality</strong><span>Operation</span></div><div className="stat-chip"><strong>View</strong><span>Listing</span></div></> : view.kind === 'development' ? <><div className="stat-chip"><strong>{p.total_land_area || '—'}</strong><span>{p.land_area_unit || 'Area'}</span></div><div className="stat-chip"><strong>{p.zoning || '—'}</strong><span>Zoning</span></div><div className="stat-chip"><strong>Project</strong><span>Stage</span></div></> : view.kind === 'sale' ? <><div className="stat-chip"><strong>Sale</strong><span>Mode</span></div><div className="stat-chip"><strong>{p.ownership_type || '—'}</strong><span>Ownership</span></div><div className="stat-chip"><strong>View</strong><span>Listing</span></div></> : <><button type="button" onClick={() => navigate(`/owner/units/${p.id}`)} className="stat-chip"><strong>{p.number_of_units || 0}</strong><span>{view.inventoryLabel}</span></button><button type="button" onClick={() => navigate(`/owner/units/${p.id}`)} className="stat-chip"><strong>{p.number_of_floors || 1}</strong><span>Floors</span></button><button type="button" onClick={() => navigate(`/owner/units/${p.id}`)} className="stat-chip"><strong>Open</strong><span>Structure</span></button></>; })()}</div>
                 <div className="flex gap-2">
                   <button onClick={() => navigate(`/property/${p.id}`)} className="btn-secondary text-sm flex-1"><Eye className="w-4 h-4" /> View</button>
                   {propertyUsesUnitInventory(p.asset_class, p.property_type) && <button onClick={() => navigate(`/owner/units/${p.id}`)} className="btn-secondary text-sm flex-1"><Home className="w-4 h-4" /> {inventoryLabelFor(p.asset_class, p.property_type)}</button>}

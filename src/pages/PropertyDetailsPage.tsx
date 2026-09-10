@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { MapPin, BedDouble, Bath, ShieldCheck, Heart, Share2, Phone, Calendar, ChevronLeft, ChevronRight, Car, Wifi, Droplets, Zap, PawPrint, CheckCircle, X, MessageSquare, Music2, Layers3, Ruler } from 'lucide-react';
+import { MapPin, BedDouble, Bath, ShieldCheck, Heart, Share2, Phone, Calendar, Users, Wallet, Tag, ChevronLeft, ChevronRight, Car, Wifi, Droplets, Zap, PawPrint, CheckCircle, X, MessageSquare, Music2, Layers3, Ruler, FileText } from 'lucide-react';
 import { Link } from '@/context/RouterContext';
 import { useRouter } from '@/context/hooks';
 import { supabase } from '@/lib/supabase';
@@ -10,6 +10,7 @@ import { useAuth } from '@/context/hooks';
 import { useToast } from '@/context/hooks';
 import { getPropertyImages } from '@/lib/images';
 import { buildGoogleMapsDirectionsUrl, buildGoogleMapsEmbedUrl, extractCoordinatesFromMapUrl, resolveMapUrlCoordinates } from '@/lib/map';
+import { getPropertyPresentation } from '@/lib/propertyPresentation';
 import type { Property, PropertyUnit, Profile } from '@/lib/supabase';
 
 interface PropertyWithOwner extends Property {
@@ -30,6 +31,9 @@ export function PropertyDetailsPage({ propertyId }: { propertyId: string }) {
   const [showViewing, setShowViewing] = useState(false);
   const [showContact, setShowContact] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
+  const [landParcel, setLandParcel] = useState<Record<string, unknown> | null>(null);
+  const [saleListing, setSaleListing] = useState<Record<string, unknown> | null>(null);
+  const [shortStayListing, setShortStayListing] = useState<Record<string, unknown> | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -65,6 +69,15 @@ export function PropertyDetailsPage({ propertyId }: { propertyId: string }) {
         if (resolved) resolvedData = { ...resolvedData, latitude: resolved.latitude, longitude: resolved.longitude };
       }
       setProperty(resolvedData);
+
+      const [{ data: landRows }, { data: saleRows }, { data: stayRows }] = await Promise.all([
+        supabase.from('land_parcels').select('*').eq('property_id', propertyId).order('created_at', { ascending: false }).limit(1),
+        supabase.from('sale_listings').select('*').eq('property_id', propertyId).eq('listing_status', 'active').order('created_at', { ascending: false }).limit(1),
+        supabase.from('short_stay_listings').select('*').eq('property_id', propertyId).eq('listing_status', 'active').order('created_at', { ascending: false }).limit(1),
+      ]);
+      setLandParcel((landRows?.[0] as Record<string, unknown> | undefined) || null);
+      setSaleListing((saleRows?.[0] as Record<string, unknown> | undefined) || null);
+      setShortStayListing((stayRows?.[0] as Record<string, unknown> | undefined) || null);
 
       const mappedUnits = matching.filter((row) => row.unit_id).map((row) => ({
         id: row.unit_id, property_id: row.property_id, unit_number: row.unit_number, floor: row.floor,
@@ -135,19 +148,24 @@ export function PropertyDetailsPage({ propertyId }: { propertyId: string }) {
 
   const availableUnits = units.filter((u) => u.status === 'available');
   const minRent = units.length > 0 ? Math.min(...units.map((u) => u.monthly_rent)) : 0;
-  const isLand = property.asset_class === 'land' || /land|plot|acre|ranch|farm|parcel/i.test(property.property_type || '');
-  // Prefer the owner's explicit plot count. Only use photo count when no plot count was captured.
-  const landPlotCount = isLand ? (Number(property.plot_count) > 0 ? Number(property.plot_count) : Math.max(property.photos?.length || 0, 1)) : 0;
-  const landArea = property.total_land_area != null ? `${property.total_land_area} ${property.land_area_unit || 'acres'}` : 'On enquiry';
-  const landDimensions = property.plot_dimensions || 'On enquiry';
+  const view = getPropertyPresentation(property.asset_class, property.operation_model, property.property_type);
+  const isLand = view.kind === 'land';
+  // Prefer explicit property/parcel metadata. Photo count is only a legacy fallback.
+  const landPlotCount = isLand ? (Number(landParcel?.plot_count || property.plot_count || 0) > 0 ? Number(landParcel?.plot_count || property.plot_count) : Math.max(property.photos?.length || 0, 1)) : 0;
+  const landAreaValue = landParcel?.acreage != null ? Number(landParcel.acreage) : property.total_land_area;
+  const landAreaUnit = landParcel?.area_unit ? String(landParcel.area_unit) : property.land_area_unit || 'acres';
+  const landArea = landAreaValue != null ? `${landAreaValue} ${landAreaUnit}` : 'On enquiry';
+  const landDimensions = String(landParcel?.plot_dimensions || property.plot_dimensions || 'On enquiry');
   const isSale = ['sale', 'land_sale'].includes(property.operation_model);
   const isStay = property.operation_model === 'short_stay';
+  const stayRate = shortStayListing?.nightly_rate != null ? Number(shortStayListing.nightly_rate) : 0;
+  const salePrice = saleListing?.asking_price != null ? Number(saleListing.asking_price) : 0;
   const mapCoordinates = property.latitude != null && property.longitude != null
     ? { latitude: property.latitude, longitude: property.longitude }
     : extractCoordinatesFromMapUrl(property.map_url);
   const mapEmbedUrl = mapCoordinates ? buildGoogleMapsEmbedUrl(mapCoordinates) : null;
   const exactLocationUrl = property.map_url || (mapCoordinates ? buildGoogleMapsDirectionsUrl(mapCoordinates) : null);
-  const headline = isSale ? 'Sale opportunity — enquire' : isStay ? 'Short-stay opportunity — enquire' : minRent > 0 ? `${formatKES(minRent)}/month` : 'Price on enquiry';
+  const headline = isLand ? (salePrice > 0 ? formatKES(salePrice) : 'Land sale — enquire') : isSale ? (salePrice > 0 ? formatKES(salePrice) : 'Sale opportunity — enquire') : isStay ? (stayRate > 0 ? `${formatKES(stayRate)}/night` : 'Short-stay opportunity — enquire') : minRent > 0 ? `${formatKES(minRent)}/month` : 'Price on enquiry';
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -237,17 +255,27 @@ export function PropertyDetailsPage({ propertyId }: { propertyId: string }) {
               { icon: <Layers3 className="w-5 h-5" />, label: 'Plots available', value: landPlotCount },
               { icon: <Ruler className="w-5 h-5" />, label: 'Land size', value: landArea },
               { icon: <Ruler className="w-5 h-5" />, label: 'Plot dimensions', value: landDimensions },
-              { icon: <ShieldCheck className="w-5 h-5" />, label: 'Tenure', value: property.ownership_type ? titleCase(property.ownership_type) : 'On enquiry' },
+              { icon: <ShieldCheck className="w-5 h-5" />, label: 'Tenure', value: String(landParcel?.tenure || property.ownership_type ? titleCase(String(landParcel?.tenure || property.ownership_type)) : 'On enquiry') },
+            ] : isStay ? [
+              { icon: <Calendar className="w-5 h-5" />, label: 'Active listings', value: shortStayListing ? 1 : 0 },
+              { icon: <Wallet className="w-5 h-5" />, label: 'From / night', value: stayRate > 0 ? formatKES(stayRate) : 'On enquiry' },
+              { icon: <Users className="w-5 h-5" />, label: 'Maximum guests', value: shortStayListing?.max_guests ?? '—' },
+              { icon: <Car className="w-5 h-5" />, label: 'Parking', value: property.parking ? 'Yes' : 'No' },
+            ] : isSale || view.kind === 'development' ? [
+              { icon: <Tag className="w-5 h-5" />, label: isSale ? 'Asking price' : 'Project type', value: isSale ? (salePrice > 0 ? formatKES(salePrice) : 'On enquiry') : property.property_type },
+              { icon: <Ruler className="w-5 h-5" />, label: 'Land area', value: property.total_land_area != null ? `${property.total_land_area} ${property.land_area_unit || 'acres'}` : '—' },
+              { icon: <ShieldCheck className="w-5 h-5" />, label: 'Ownership', value: property.ownership_type ? titleCase(property.ownership_type) : 'On enquiry' },
+              { icon: <MapPin className="w-5 h-5" />, label: 'Location', value: property.town || '—' },
             ] : [
               { icon: <BedDouble className="w-5 h-5" />, label: 'Bedrooms', value: units[0]?.bedrooms ?? '—' },
               { icon: <Bath className="w-5 h-5" />, label: 'Bathrooms', value: units[0]?.bathrooms ?? '—' },
               { icon: <Car className="w-5 h-5" />, label: 'Parking', value: property.parking ? 'Yes' : 'No' },
-              { icon: <Calendar className="w-5 h-5" />, label: 'Available', value: `${availableUnits.length} units` },
+              { icon: <Calendar className="w-5 h-5" />, label: 'Available', value: `${availableUnits.length} spaces` },
             ]).map((s) => (
               <div key={s.label} className="card p-4 text-center">
                 <div className="w-10 h-10 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center mx-auto mb-2">{s.icon}</div>
                 <p className="text-xs text-ink-500">{s.label}</p>
-                <p className="font-semibold text-ink-900">{s.value}</p>
+                <p className="font-semibold text-ink-900">{String(s.value)}</p>
               </div>
             ))}
           </div>
@@ -267,11 +295,25 @@ export function PropertyDetailsPage({ propertyId }: { propertyId: string }) {
                 <div><p className="text-xs text-ink-400">Plots available</p><p className="mt-1 font-semibold">{landPlotCount}</p></div>
                 <div><p className="text-xs text-ink-400">Land size</p><p className="mt-1 font-semibold">{landArea}</p></div>
                 <div><p className="text-xs text-ink-400">Exact dimensions</p><p className="mt-1 font-semibold">{landDimensions}</p></div>
-                <div><p className="text-xs text-ink-400">Land use</p><p className="mt-1 font-semibold capitalize">{property.zoning || property.property_type || 'On enquiry'}</p></div>
-                <div><p className="text-xs text-ink-400">Title number</p><p className="mt-1 font-semibold">{property.title_number || 'On enquiry'}</p></div>
-                <div><p className="text-xs text-ink-400">Parcel / plot</p><p className="mt-1 font-semibold">{property.parcel_number || 'On enquiry'}</p></div>
-                <div><p className="text-xs text-ink-400">Tenure</p><p className="mt-1 font-semibold">{property.ownership_type ? titleCase(property.ownership_type) : 'On enquiry'}</p></div>
+                <div><p className="text-xs text-ink-400">Land use</p><p className="mt-1 font-semibold capitalize">{String(landParcel?.land_use || property.zoning || property.property_type || 'On enquiry')}</p></div>
+                <div><p className="text-xs text-ink-400">Title number</p><p className="mt-1 font-semibold">{String(landParcel?.title_number || property.title_number || 'On enquiry')}</p></div>
+                <div><p className="text-xs text-ink-400">Parcel / plot</p><p className="mt-1 font-semibold">{String(landParcel?.parcel_number || property.parcel_number || 'On enquiry')}</p></div>
+                <div><p className="text-xs text-ink-400">Tenure</p><p className="mt-1 font-semibold">{landParcel?.tenure ? titleCase(String(landParcel.tenure)) : property.ownership_type ? titleCase(property.ownership_type) : 'On enquiry'}</p></div>
+                <div><p className="text-xs text-ink-400">Zoning</p><p className="mt-1 font-semibold">{String(landParcel?.zoning || property.zoning || 'On enquiry')}</p></div>
+              </> : isStay ? <>
+                <div><p className="text-xs text-ink-400">Listing</p><p className="mt-1 font-semibold">{String(shortStayListing?.listing_name || 'Hospitality listing')}</p></div>
+                <div><p className="text-xs text-ink-400">Nightly rate</p><p className="mt-1 font-semibold">{stayRate > 0 ? formatKES(stayRate) : 'On enquiry'}</p></div>
+                <div><p className="text-xs text-ink-400">Guest capacity</p><p className="mt-1 font-semibold">{String(shortStayListing?.max_guests ?? '—')}</p></div>
+                <div><p className="text-xs text-ink-400">Minimum nights</p><p className="mt-1 font-semibold">{String(shortStayListing?.minimum_nights ?? '—')}</p></div>
+                <div><p className="text-xs text-ink-400">Check-in</p><p className="mt-1 font-semibold">{String(shortStayListing?.check_in_time || 'On enquiry')}</p></div>
+                <div><p className="text-xs text-ink-400">Check-out</p><p className="mt-1 font-semibold">{String(shortStayListing?.check_out_time || 'On enquiry')}</p></div>
+              </> : isSale || view.kind === 'development' ? <>
+                <div><p className="text-xs text-ink-400">Asset type</p><p className="mt-1 font-semibold">{property.property_type}</p></div>
+                <div><p className="text-xs text-ink-400">Asking price</p><p className="mt-1 font-semibold">{salePrice > 0 ? formatKES(salePrice) : 'On enquiry'}</p></div>
+                <div><p className="text-xs text-ink-400">Ownership / tenure</p><p className="mt-1 font-semibold">{property.ownership_type ? titleCase(property.ownership_type) : 'On enquiry'}</p></div>
+                <div><p className="text-xs text-ink-400">Land area</p><p className="mt-1 font-semibold">{property.total_land_area ? `${property.total_land_area} ${property.land_area_unit || 'acres'}` : '—'}</p></div>
                 <div><p className="text-xs text-ink-400">Zoning</p><p className="mt-1 font-semibold">{property.zoning || 'On enquiry'}</p></div>
+                <div><p className="text-xs text-ink-400">Year built / completion</p><p className="mt-1 font-semibold">{property.year_built || '—'}</p></div>
               </> : <>
                 <div><p className="text-xs text-ink-400">Asset class</p><p className="mt-1 font-semibold capitalize">{property.asset_class.replace(/_/g, ' ')}</p></div>
                 <div><p className="text-xs text-ink-400">Operating model</p><p className="mt-1 font-semibold capitalize">{property.operation_model.replace(/_/g, ' ')}</p></div>
@@ -296,6 +338,20 @@ export function PropertyDetailsPage({ propertyId }: { propertyId: string }) {
                 { icon: <ShieldCheck className="w-4 h-4" />, label: 'Security information', value: !!property.security_info },
                 { icon: <Layers3 className="w-4 h-4" />, label: 'Plot information', value: landPlotCount > 0 },
                 { icon: <Ruler className="w-4 h-4" />, label: 'Dimensions captured', value: !!property.plot_dimensions },
+              ] : isStay ? [
+                { icon: <Droplets className="w-4 h-4" />, label: 'Water', value: property.water_availability },
+                { icon: <Zap className="w-4 h-4" />, label: 'Electricity', value: property.electricity },
+                { icon: <Wifi className="w-4 h-4" />, label: 'Internet', value: property.internet },
+                { icon: <Car className="w-4 h-4" />, label: 'Parking', value: property.parking },
+                { icon: <ShieldCheck className="w-4 h-4" />, label: 'Security', value: !!property.security_info },
+                { icon: <Calendar className="w-4 h-4" />, label: 'Direct booking', value: !!shortStayListing?.direct_booking_enabled },
+              ] : isSale || view.kind === 'development' ? [
+                { icon: <Droplets className="w-4 h-4" />, label: 'Water / utilities', value: property.water_availability },
+                { icon: <Zap className="w-4 h-4" />, label: 'Electricity', value: property.electricity },
+                { icon: <MapPin className="w-4 h-4" />, label: 'Exact location', value: !!(property.map_url || (property.latitude != null && property.longitude != null)) },
+                { icon: <ShieldCheck className="w-4 h-4" />, label: 'Ownership information', value: !!property.ownership_type },
+                { icon: <FileText className="w-4 h-4" />, label: 'Title / reference', value: !!(property.title_number || property.parcel_number) },
+                { icon: <ShieldCheck className="w-4 h-4" />, label: 'Security / site information', value: !!property.security_info },
               ] : [
                 { icon: <Droplets className="w-4 h-4" />, label: 'Water', value: property.water_availability },
                 { icon: <Zap className="w-4 h-4" />, label: 'Electricity', value: property.electricity },
@@ -326,7 +382,7 @@ export function PropertyDetailsPage({ propertyId }: { propertyId: string }) {
           </div>
 
           {/* Units / rentable spaces */}
-          {!isLand && <div>
+          {['residential_rental','commercial_rental','mixed_use'].includes(view.kind) && <div>
             <h3 className="font-semibold text-ink-900 mb-4">Available Spaces ({availableUnits.length})</h3>
             {units.length === 0 ? (
               <p className="text-ink-500 text-sm">No rentable spaces are listed for this asset yet.</p>
