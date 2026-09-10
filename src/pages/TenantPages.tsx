@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Home, Wallet, FileText, Wrench, Bell, Calendar, CheckCircle, Plus, MapPin, BedDouble, Bath, ShieldCheck, Search, ArrowRight, Clock, Eye, Receipt, CreditCard, Download, X, Copy, Upload, Building2 } from 'lucide-react';
+import { Home, Wallet, FileText, Wrench, Bell, Calendar, CheckCircle, Plus, MapPin, BedDouble, Bath, ShieldCheck, Search, ArrowRight, Clock, Eye, Receipt, CreditCard, Download, X, Copy, Upload, Building2, UserRound, MessageSquare } from 'lucide-react';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { tenantNav } from '@/components/dashboardNav';
 import { StatCard, Card, Badge, EmptyState, LoadingPage, Pagination } from '@/components/ui';
@@ -824,11 +824,127 @@ export function TenantHouse() {
   );
 }
 
+interface TenantMessageRow {
+  id: string;
+  sender_id: string;
+  receiver_id: string;
+  property_id: string | null;
+  body: string;
+  read: boolean;
+  created_at: string;
+  property_name: string | null;
+  participant_name: string | null;
+}
+
 export function TenantMessages() {
+  const { profile } = useAuth();
+  const { toast } = useToast();
+  const [messages, setMessages] = useState<TenantMessageRow[]>([]);
+  const [selectedKey, setSelectedKey] = useState('');
+  const [reply, setReply] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+
+  const load = async () => {
+    if (!profile?.id) return;
+    setLoading(true);
+    const { data, error } = await supabase.rpc('get_my_messages');
+    if (error) {
+      console.error('Customer messages load error:', error);
+      toast(error.message || 'Unable to load your messages. Please refresh and try again.', 'error');
+      setLoading(false);
+      return;
+    }
+    setMessages(((data || []) as TenantMessageRow[]).sort((a, b) => a.created_at.localeCompare(b.created_at)));
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, [profile?.id]);
+
+  const threads = (() => {
+    const map = new Map<string, TenantMessageRow[]>();
+    messages.forEach((m) => {
+      const otherId = m.sender_id === profile?.id ? m.receiver_id : m.sender_id;
+      const key = `${otherId}:${m.property_id || 'general'}`;
+      const list = map.get(key) || [];
+      list.push(m);
+      map.set(key, list);
+    });
+    return [...map.entries()]
+      .map(([key, rows]) => ({ key, rows, latest: rows[rows.length - 1] }))
+      .sort((a, b) => b.latest.created_at.localeCompare(a.latest.created_at));
+  })();
+
+  const selected = threads.find((t) => t.key === selectedKey) || threads[0];
+  const unread = messages.filter((m) => !m.read && m.receiver_id === profile?.id).length;
+
+  useEffect(() => {
+    if (selected && !selectedKey) setSelectedKey(selected.key);
+  }, [selected, selectedKey]);
+
+  const openThread = async (key: string) => {
+    setSelectedKey(key);
+    const thread = threads.find((t) => t.key === key);
+    const unreadIds = thread?.rows.filter((m) => !m.read && m.receiver_id === profile?.id).map((m) => m.id) || [];
+    if (!unreadIds.length || !profile?.id) return;
+    const { error } = await supabase.from('messages').update({ read: true }).in('id', unreadIds).eq('receiver_id', profile.id);
+    if (!error) setMessages((current) => current.map((m) => unreadIds.includes(m.id) ? { ...m, read: true } : m));
+  };
+
+  const sendReply = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!profile?.id || !selected || !reply.trim()) return;
+    const receiverId = selected.rows[0].sender_id === profile.id ? selected.rows[0].receiver_id : selected.rows[0].sender_id;
+    setSending(true);
+    const replyRpc = supabase.rpc('send_customer_reply', {
+      p_receiver_id: receiverId,
+      p_property_id: selected.latest.property_id,
+      p_body: reply.trim(),
+    }) as unknown as Promise<{ data: TenantMessageRow[] | null; error: { message: string } | null }>;
+    const { data, error } = await replyRpc;
+    setSending(false);
+    if (error || !data?.[0]) {
+      console.error('Customer reply error:', error);
+      toast(error?.message || 'Could not send the reply. Please try again.', 'error');
+      return;
+    }
+    setMessages((current) => [...current, data[0]]);
+    setReply('');
+    toast('Reply sent successfully.', 'success');
+  };
+
   return (
     <DashboardLayout navItems={tenantNav} title="Messages">
-      <h2 className="text-xl font-bold text-ink-900 mb-6">Messages</h2>
-      <EmptyState icon={<Bell className="w-8 h-8" />} title="No messages yet" description="Your conversations with property owners and managers will appear here." />
+      <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div><h2 className="text-xl font-bold text-ink-900">Messages</h2><p className="mt-1 text-sm text-ink-500">Enquiries and replies from property owners and managers.</p></div>
+        {unread > 0 && <span className="badge bg-brand-100 text-brand-700">{unread} unread</span>}
+      </div>
+      {loading ? <LoadingPage /> : threads.length === 0 ? (
+        <EmptyState icon={<Bell className="w-8 h-8" />} title="No messages yet" description="Your property enquiries and owner replies will appear here." />
+      ) : (
+        <div className="grid min-h-[560px] overflow-hidden rounded-2xl border border-ink-100 bg-white shadow-sm lg:grid-cols-[320px_1fr]">
+          <div className="border-b border-ink-100 lg:border-b-0 lg:border-r">
+            <div className="border-b border-ink-100 p-4"><p className="text-xs font-bold uppercase tracking-[0.14em] text-ink-400">Conversations</p></div>
+            <div className="max-h-[500px] overflow-y-auto">
+              {threads.map((thread) => {
+                const unreadThread = thread.rows.some((m) => !m.read && m.receiver_id === profile?.id);
+                return <button key={thread.key} onClick={() => openThread(thread.key)} className={`w-full border-b border-ink-100 p-4 text-left transition ${selected?.key === thread.key ? 'bg-brand-50' : 'hover:bg-ink-50'}`}>
+                  <div className="flex items-start gap-3"><div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand-100 text-brand-700"><UserRound className="h-5 w-5" /></div><div className="min-w-0 flex-1"><div className="flex items-center justify-between gap-2"><p className="truncate font-semibold text-ink-900">{thread.latest.participant_name || 'Property owner / manager'}</p>{unreadThread && <span className="h-2 w-2 rounded-full bg-brand-600" />}</div><p className="truncate text-xs text-ink-400">{thread.latest.property_name || 'General enquiry'}</p><p className="mt-1 truncate text-sm text-ink-500">{thread.latest.body}</p></div></div>
+                </button>;
+              })}
+            </div>
+          </div>
+          <div className="flex min-h-[560px] flex-col">
+            {selected ? <>
+              <div className="border-b border-ink-100 p-4"><p className="font-semibold text-ink-900">{selected.latest.participant_name || 'Property owner / manager'}</p><p className="text-xs text-ink-400">{selected.latest.property_name || 'General enquiry'}</p></div>
+              <div className="flex-1 space-y-3 overflow-y-auto bg-ink-50/40 p-4 sm:p-6">
+                {selected.rows.map((m) => { const mine = m.sender_id === profile?.id; return <div key={m.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}><div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm shadow-sm ${mine ? 'bg-brand-600 text-white' : 'border border-ink-100 bg-white text-ink-800'}`}><p className="whitespace-pre-wrap">{m.body}</p><p className={`mt-1 text-[10px] ${mine ? 'text-white/70' : 'text-ink-400'}`}>{formatDate(m.created_at)}</p></div></div>; })}
+              </div>
+              <form onSubmit={sendReply} className="border-t border-ink-100 bg-white p-4"><div className="flex gap-2"><textarea className="input min-h-[48px] resize-none" rows={2} value={reply} onChange={(e) => setReply(e.target.value)} placeholder="Write a reply..." /><button disabled={sending || !reply.trim()} className="btn-primary self-end"><MessageSquare className="h-4 w-4" /> {sending ? 'Sending...' : 'Send'}</button></div></form>
+            </> : <div className="grid flex-1 place-items-center text-sm text-ink-400">Select a conversation.</div>}
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 }

@@ -68,6 +68,12 @@ export const ownerNav = [
     icon: <TrendingUp className="w-5 h-5" />,
   },
   {
+    label: 'Messages & Enquiries',
+    section: 'Operations',
+    to: '/owner/messages',
+    icon: <Bell className="w-5 h-5" />,
+  },
+  {
     label: 'Reports',
     section: 'Insights',
     to: '/owner/reports',

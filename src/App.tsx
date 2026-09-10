@@ -24,6 +24,7 @@ import {
   AdminDashboard, AdminProperties, AdminPropertyDetail, AdminUsers, AdminReservations, AdminPayments, AdminSettings, AdminUnits, AdminTax, AdminExpenses, AdminMaintenance, AdminLeases, AdminActivity,
 } from '@/pages/AdminPages';
 import { AdminDocuments, OwnerDocuments, TenantDocuments } from '@/pages/DocumentPages';
+import { OwnerMessages } from '@/pages/OwnerMessages';
 import { AdminKra } from '@/pages/AdminKra';
 import { AdminPortfolio, OwnerPortfolio } from '@/pages/PortfolioPages';
 import { ShortStayOperations } from '@/pages/ShortStayPages';
@@ -114,6 +115,7 @@ function Routes() {
   if (path === '/owner/payments') return isOwner ? <OwnerPayments /> : <AccessDenied />;
   if (path === '/owner/reports') return isOwner ? <OwnerReports /> : <AccessDenied />;
   if (path === '/owner/settings') return isOwner ? <OwnerSettings /> : <AccessDenied />;
+  if (path === '/owner/messages') return isOwner ? <OwnerMessages /> : <AccessDenied />;
   if (path === '/owner/documents') return isOwner ? <OwnerDocuments /> : <AccessDenied />;
   if (path === '/owner/portfolio') return isOwner ? <OwnerPortfolio /> : <AccessDenied />;
   if (path === '/owner/short-stay') return isOwner ? <ShortStayOperations ownerOnly /> : <AccessDenied />;

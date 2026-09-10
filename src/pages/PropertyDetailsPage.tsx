@@ -49,8 +49,18 @@ export function PropertyDetailsPage({ propertyId }: { propertyId: string }) {
       const matching = rows.filter((row) => String(row.property_id) === propertyId);
       const universalRow = ((universal || []) as Array<Record<string, unknown>>).find((row) => String(row.property_id) === propertyId);
       const first = matching[0] || universalRow;
+      let ownerInfo: { owner_id: string | null; full_name: string | null; phone: string | null } | null = null;
+      if (first) {
+        const ownerRpc = supabase.rpc('get_public_property_owner', { p_property_id: propertyId }) as unknown as Promise<{
+          data: Array<{ owner_id: string | null; full_name: string | null; phone: string | null }> | null;
+          error: { message: string; details?: string; hint?: string; code?: string } | null;
+        }>;
+        const { data: ownerRows, error: ownerError } = await ownerRpc;
+        if (ownerError) console.error('Property owner lookup error:', ownerError);
+        ownerInfo = ownerRows?.[0] ?? null;
+      }
       const data = first ? {
-        id: first.property_id, owner_id: null, name: first.name, description: first.description,
+        id: first.property_id, owner_id: ownerInfo?.owner_id || null, name: first.name, description: first.description,
         property_type: first.property_type, asset_class: universalRow?.asset_class || 'built_property', operation_model: universalRow?.operation_model || 'long_term_rental',
         ownership_type: universalRow?.ownership_type || null, title_number: universalRow?.title_number || null, parcel_number: universalRow?.parcel_number || null,
         total_land_area: universalRow?.total_land_area == null ? null : Number(universalRow.total_land_area), land_area_unit: universalRow?.land_area_unit || null,
@@ -61,7 +71,7 @@ export function PropertyDetailsPage({ propertyId }: { propertyId: string }) {
         number_of_units: first.number_of_units || 0, number_of_floors: first.number_of_floors || 0, amenities: first.amenities || [], parking: first.parking,
         security_info: first.security_info || null, water_availability: first.water_availability, electricity: first.electricity, internet: first.internet || false,
         pets_allowed: first.pets_allowed || false, photos: universalRow?.photos || first.photos || [], videos: [], audio: first.audio || [], status: 'verified',
-        created_at: first.created_at, updated_at: first.created_at, profiles: null,
+        created_at: first.created_at, updated_at: first.created_at, profiles: ownerInfo ? { full_name: ownerInfo.full_name, phone: ownerInfo.phone } : null,
       } : null;
       let resolvedData = data as PropertyWithOwner | null;
       if (resolvedData?.map_url && resolvedData.latitude == null && resolvedData.longitude == null) {
@@ -557,7 +567,7 @@ export function PropertyDetailsPage({ propertyId }: { propertyId: string }) {
 
       {/* Contact Modal */}
       {showContact && (
-        <ContactModal ownerName={property.profiles?.full_name} ownerPhone={property.profiles?.phone} onClose={() => setShowContact(false)} />
+        <ContactModal propertyId={property.id} ownerId={property.owner_id} ownerName={property.profiles?.full_name} ownerPhone={property.profiles?.phone} onClose={() => setShowContact(false)} />
       )}
     </div>
   );
@@ -735,33 +745,44 @@ function ViewingModal({ propertyId, units, onClose }: { propertyId: string; unit
   );
 }
 
-function ContactModal({ ownerName, ownerPhone, onClose }: { ownerName?: string | null; ownerPhone?: string | null; onClose: () => void }) {
+function ContactModal({ propertyId, ownerId, ownerName, ownerPhone, onClose }: { propertyId: string; ownerId?: string | null; ownerName?: string | null; ownerPhone?: string | null; onClose: () => void }) {
+  const { profile } = useAuth();
   const { toast } = useToast();
-  return (
-    <Modal open onClose={onClose} title="Contact Owner" size="sm">
-      <div className="space-y-4">
-        <div className="flex items-center gap-3">
-          <div className="w-14 h-14 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center text-xl font-semibold">
-            {ownerName?.[0]?.toUpperCase() || 'O'}
-          </div>
-          <div>
-            <p className="font-semibold text-ink-900">{ownerName || 'Property Owner'}</p>
-            <p className="text-sm text-ink-500">Responds within 2 hours</p>
-          </div>
-        </div>
-        {ownerPhone && (
-          <a href={`tel:${ownerPhone}`} className="btn-secondary w-full">
-            <Phone className="w-4 h-4" /> Call {ownerPhone}
-          </a>
-        )}
-        <div>
-          <label className="label">Send a message</label>
-          <textarea className="input" rows={4} placeholder="Hi, I'm interested in your property..." />
-        </div>
-        <button className="btn-primary w-full" onClick={() => { toast('Message sent! The owner will respond soon.', 'success'); onClose(); }}>
-          <MessageSquare className="w-4 h-4" /> Send Message
-        </button>
-      </div>
-    </Modal>
-  );
+  const { navigate } = useRouter();
+  const [body, setBody] = useState('');
+  const [sending, setSending] = useState(false);
+
+  const handleSend = async () => {
+    if (!profile) { toast('Please sign in to send an enquiry.', 'info'); navigate('/login'); return; }
+    if (!ownerId) { toast('This property does not have an owner assigned yet.', 'error'); return; }
+    if (!body.trim()) { toast('Please enter your message.', 'info'); return; }
+    if (profile.id === ownerId) { toast('You cannot send an enquiry to your own property.', 'info'); return; }
+    setSending(true);
+    const enquiryRpc = supabase.rpc('send_property_enquiry', {
+      p_property_id: propertyId,
+      p_body: body.trim(),
+    }) as unknown as Promise<{
+      data: string | null;
+      error: { message: string; details?: string; hint?: string; code?: string } | null;
+    }>;
+    const { data: messageId, error } = await enquiryRpc;
+    setSending(false);
+    if (error || !messageId) {
+      console.error('Property enquiry error:', error);
+      toast(error?.message || 'Unable to send your enquiry. Please try again.', 'error');
+      return;
+    }
+    toast('Enquiry sent! The property owner will respond through Messages & Enquiries.', 'success');
+    onClose();
+  };
+
+  return <Modal open onClose={onClose} title="Contact Owner" size="sm">
+    <div className="space-y-4">
+      <div className="flex items-center gap-3"><div className="grid h-14 w-14 place-items-center rounded-full bg-brand-100 text-xl font-semibold text-brand-700">{ownerName?.[0]?.toUpperCase() || 'O'}</div><div><p className="font-semibold text-ink-900">{ownerName || 'Property Owner'}</p><p className="text-sm text-ink-500">Your enquiry will be linked to this property.</p></div></div>
+      {ownerPhone && <a href={`tel:${ownerPhone}`} className="btn-secondary w-full"><Phone className="h-4 w-4" /> Call {ownerPhone}</a>}
+      <div><label className="label">Your message</label><textarea className="input" rows={5} value={body} onChange={e => setBody(e.target.value)} placeholder="Hi, I'm interested in this property. Please share availability, pricing and viewing details..." /></div>
+      <button className="btn-primary w-full" disabled={sending} onClick={handleSend}><MessageSquare className="h-4 w-4" /> {sending ? 'Sending...' : 'Send Enquiry'}</button>
+      {!profile && <p className="text-center text-xs text-ink-400">Sign in or create an account so the owner can reply to you securely.</p>}
+    </div>
+  </Modal>;
 }
