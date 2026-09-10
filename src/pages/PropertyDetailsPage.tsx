@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { MapPin, BedDouble, Bath, ShieldCheck, Heart, Share2, Phone, Calendar, ChevronLeft, ChevronRight, Car, Wifi, Droplets, Zap, PawPrint, CheckCircle, X, MessageSquare , Music2 } from 'lucide-react';
+import { MapPin, BedDouble, Bath, ShieldCheck, Heart, Share2, Phone, Calendar, ChevronLeft, ChevronRight, Car, Wifi, Droplets, Zap, PawPrint, CheckCircle, X, MessageSquare, Music2, Layers3, Ruler } from 'lucide-react';
 import { Link } from '@/context/RouterContext';
 import { useRouter } from '@/context/hooks';
 import { supabase } from '@/lib/supabase';
@@ -9,6 +9,7 @@ import { Modal } from '@/components/Modal';
 import { useAuth } from '@/context/hooks';
 import { useToast } from '@/context/hooks';
 import { getPropertyImages } from '@/lib/images';
+import { buildGoogleMapsDirectionsUrl, buildGoogleMapsEmbedUrl, extractCoordinatesFromMapUrl, resolveMapUrlCoordinates } from '@/lib/map';
 import type { Property, PropertyUnit, Profile } from '@/lib/supabase';
 
 interface PropertyWithOwner extends Property {
@@ -49,15 +50,21 @@ export function PropertyDetailsPage({ propertyId }: { propertyId: string }) {
         property_type: first.property_type, asset_class: universalRow?.asset_class || 'built_property', operation_model: universalRow?.operation_model || 'long_term_rental',
         ownership_type: universalRow?.ownership_type || null, title_number: universalRow?.title_number || null, parcel_number: universalRow?.parcel_number || null,
         total_land_area: universalRow?.total_land_area == null ? null : Number(universalRow.total_land_area), land_area_unit: universalRow?.land_area_unit || null,
+        plot_count: universalRow?.plot_count == null ? null : Number(universalRow.plot_count), plot_dimensions: universalRow?.plot_dimensions || null,
         zoning: universalRow?.zoning || null, year_built: universalRow?.year_built == null ? null : Number(universalRow.year_built),
         county: first.county, sub_county: first.sub_county, town: first.town, estate: first.estate, street: first.street || null, address: first.address,
-        latitude: first.latitude || null, longitude: first.longitude || null, map_url: first.map_url || null,
+        latitude: first.latitude == null ? null : Number(first.latitude), longitude: first.longitude == null ? null : Number(first.longitude), map_url: first.map_url || null,
         number_of_units: first.number_of_units || 0, number_of_floors: first.number_of_floors || 0, amenities: first.amenities || [], parking: first.parking,
         security_info: first.security_info || null, water_availability: first.water_availability, electricity: first.electricity, internet: first.internet || false,
         pets_allowed: first.pets_allowed || false, photos: universalRow?.photos || first.photos || [], videos: [], audio: first.audio || [], status: 'verified',
-        created_at: first.created_at, updated_at: first.created_at,
+        created_at: first.created_at, updated_at: first.created_at, profiles: null,
       } : null;
-      setProperty(data as PropertyWithOwner | null);
+      let resolvedData = data as PropertyWithOwner | null;
+      if (resolvedData?.map_url && resolvedData.latitude == null && resolvedData.longitude == null) {
+        const resolved = await resolveMapUrlCoordinates(resolvedData.map_url);
+        if (resolved) resolvedData = { ...resolvedData, latitude: resolved.latitude, longitude: resolved.longitude };
+      }
+      setProperty(resolvedData);
 
       const mappedUnits = matching.filter((row) => row.unit_id).map((row) => ({
         id: row.unit_id, property_id: row.property_id, unit_number: row.unit_number, floor: row.floor,
@@ -68,7 +75,7 @@ export function PropertyDetailsPage({ propertyId }: { propertyId: string }) {
       setUnits(mappedUnits as PropertyUnit[]);
 
       // Build gallery
-      const prop = data as PropertyWithOwner | null;
+      const prop = resolvedData;
       if (prop) {
         const photos = prop.photos?.length > 0 ? prop.photos : getPropertyImages(prop.property_type);
         setGallery(photos);
@@ -128,9 +135,18 @@ export function PropertyDetailsPage({ propertyId }: { propertyId: string }) {
 
   const availableUnits = units.filter((u) => u.status === 'available');
   const minRent = units.length > 0 ? Math.min(...units.map((u) => u.monthly_rent)) : 0;
-  const isLand = property.asset_class === 'land';
+  const isLand = property.asset_class === 'land' || /land|plot|acre|ranch|farm|parcel/i.test(property.property_type || '');
+  // Prefer the owner's explicit plot count. Only use photo count when no plot count was captured.
+  const landPlotCount = isLand ? (Number(property.plot_count) > 0 ? Number(property.plot_count) : Math.max(property.photos?.length || 0, 1)) : 0;
+  const landArea = property.total_land_area != null ? `${property.total_land_area} ${property.land_area_unit || 'acres'}` : 'On enquiry';
+  const landDimensions = property.plot_dimensions || 'On enquiry';
   const isSale = ['sale', 'land_sale'].includes(property.operation_model);
   const isStay = property.operation_model === 'short_stay';
+  const mapCoordinates = property.latitude != null && property.longitude != null
+    ? { latitude: property.latitude, longitude: property.longitude }
+    : extractCoordinatesFromMapUrl(property.map_url);
+  const mapEmbedUrl = mapCoordinates ? buildGoogleMapsEmbedUrl(mapCoordinates) : null;
+  const exactLocationUrl = property.map_url || (mapCoordinates ? buildGoogleMapsDirectionsUrl(mapCoordinates) : null);
   const headline = isSale ? 'Sale opportunity — enquire' : isStay ? 'Short-stay opportunity — enquire' : minRent > 0 ? `${formatKES(minRent)}/month` : 'Price on enquiry';
 
   return (
@@ -217,12 +233,17 @@ export function PropertyDetailsPage({ propertyId }: { propertyId: string }) {
         <div className="lg:col-span-2 space-y-8">
           {/* Quick Stats */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {[
+            {(isLand ? [
+              { icon: <Layers3 className="w-5 h-5" />, label: 'Plots available', value: landPlotCount },
+              { icon: <Ruler className="w-5 h-5" />, label: 'Land size', value: landArea },
+              { icon: <Ruler className="w-5 h-5" />, label: 'Plot dimensions', value: landDimensions },
+              { icon: <ShieldCheck className="w-5 h-5" />, label: 'Tenure', value: property.ownership_type ? titleCase(property.ownership_type) : 'On enquiry' },
+            ] : [
               { icon: <BedDouble className="w-5 h-5" />, label: 'Bedrooms', value: units[0]?.bedrooms ?? '—' },
               { icon: <Bath className="w-5 h-5" />, label: 'Bathrooms', value: units[0]?.bathrooms ?? '—' },
               { icon: <Car className="w-5 h-5" />, label: 'Parking', value: property.parking ? 'Yes' : 'No' },
               { icon: <Calendar className="w-5 h-5" />, label: 'Available', value: `${availableUnits.length} units` },
-            ].map((s) => (
+            ]).map((s) => (
               <div key={s.label} className="card p-4 text-center">
                 <div className="w-10 h-10 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center mx-auto mb-2">{s.icon}</div>
                 <p className="text-xs text-ink-500">{s.label}</p>
@@ -240,31 +261,49 @@ export function PropertyDetailsPage({ propertyId }: { propertyId: string }) {
           )}
 
           <div className="card p-6 bg-gradient-to-br from-brand-50 to-white">
-            <div className="mb-4"><h3 className="font-semibold text-ink-900">Asset information</h3><p className="text-sm text-ink-500">Core ownership, land and operating information for this opportunity.</p></div>
+            <div className="mb-4"><h3 className="font-semibold text-ink-900">{isLand ? 'Land / plot information' : 'Asset information'}</h3><p className="text-sm text-ink-500">{isLand ? 'Land-specific information captured by the owner.' : 'Core ownership, land and operating information for this opportunity.'}</p></div>
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-              <div><p className="text-xs text-ink-400">Asset class</p><p className="mt-1 font-semibold capitalize">{property.asset_class.replace(/_/g, ' ')}</p></div>
-              <div><p className="text-xs text-ink-400">Operating model</p><p className="mt-1 font-semibold capitalize">{property.operation_model.replace(/_/g, ' ')}</p></div>
-              <div><p className="text-xs text-ink-400">Ownership / tenure</p><p className="mt-1 font-semibold">{property.ownership_type ? titleCase(property.ownership_type) : 'On enquiry'}</p></div>
-              <div><p className="text-xs text-ink-400">Title number</p><p className="mt-1 font-semibold">{property.title_number || 'On enquiry'}</p></div>
-              <div><p className="text-xs text-ink-400">Parcel / plot</p><p className="mt-1 font-semibold">{property.parcel_number || 'On enquiry'}</p></div>
-              <div><p className="text-xs text-ink-400">Land area</p><p className="mt-1 font-semibold">{property.total_land_area ? `${property.total_land_area} ${property.land_area_unit || 'acres'}` : '—'}</p></div>
-              <div><p className="text-xs text-ink-400">Zoning</p><p className="mt-1 font-semibold">{property.zoning || 'On enquiry'}</p></div>
-              <div><p className="text-xs text-ink-400">Year built / completion</p><p className="mt-1 font-semibold">{property.year_built || '—'}</p></div>
+              {isLand ? <>
+                <div><p className="text-xs text-ink-400">Plots available</p><p className="mt-1 font-semibold">{landPlotCount}</p></div>
+                <div><p className="text-xs text-ink-400">Land size</p><p className="mt-1 font-semibold">{landArea}</p></div>
+                <div><p className="text-xs text-ink-400">Exact dimensions</p><p className="mt-1 font-semibold">{landDimensions}</p></div>
+                <div><p className="text-xs text-ink-400">Land use</p><p className="mt-1 font-semibold capitalize">{property.zoning || property.property_type || 'On enquiry'}</p></div>
+                <div><p className="text-xs text-ink-400">Title number</p><p className="mt-1 font-semibold">{property.title_number || 'On enquiry'}</p></div>
+                <div><p className="text-xs text-ink-400">Parcel / plot</p><p className="mt-1 font-semibold">{property.parcel_number || 'On enquiry'}</p></div>
+                <div><p className="text-xs text-ink-400">Tenure</p><p className="mt-1 font-semibold">{property.ownership_type ? titleCase(property.ownership_type) : 'On enquiry'}</p></div>
+                <div><p className="text-xs text-ink-400">Zoning</p><p className="mt-1 font-semibold">{property.zoning || 'On enquiry'}</p></div>
+              </> : <>
+                <div><p className="text-xs text-ink-400">Asset class</p><p className="mt-1 font-semibold capitalize">{property.asset_class.replace(/_/g, ' ')}</p></div>
+                <div><p className="text-xs text-ink-400">Operating model</p><p className="mt-1 font-semibold capitalize">{property.operation_model.replace(/_/g, ' ')}</p></div>
+                <div><p className="text-xs text-ink-400">Ownership / tenure</p><p className="mt-1 font-semibold">{property.ownership_type ? titleCase(property.ownership_type) : 'On enquiry'}</p></div>
+                <div><p className="text-xs text-ink-400">Title number</p><p className="mt-1 font-semibold">{property.title_number || 'On enquiry'}</p></div>
+                <div><p className="text-xs text-ink-400">Parcel / plot</p><p className="mt-1 font-semibold">{property.parcel_number || 'On enquiry'}</p></div>
+                <div><p className="text-xs text-ink-400">Land area</p><p className="mt-1 font-semibold">{property.total_land_area ? `${property.total_land_area} ${property.land_area_unit || 'acres'}` : '—'}</p></div>
+                <div><p className="text-xs text-ink-400">Zoning</p><p className="mt-1 font-semibold">{property.zoning || 'On enquiry'}</p></div>
+                <div><p className="text-xs text-ink-400">Year built / completion</p><p className="mt-1 font-semibold">{property.year_built || '—'}</p></div>
+              </>}
             </div>
           </div>
 
           {/* Features */}
           <div className="card p-6">
-            <h3 className="font-semibold text-ink-900 mb-4">Asset Features</h3>
+            <h3 className="font-semibold text-ink-900 mb-4">{isLand ? 'Land Features' : 'Asset Features'}</h3>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {[
+              {(isLand ? [
+                { icon: <Droplets className="w-4 h-4" />, label: 'Water available', value: property.water_availability },
+                { icon: <Zap className="w-4 h-4" />, label: 'Electricity available', value: property.electricity },
+                { icon: <MapPin className="w-4 h-4" />, label: 'Exact location', value: !!(property.map_url || (property.latitude != null && property.longitude != null)) },
+                { icon: <ShieldCheck className="w-4 h-4" />, label: 'Security information', value: !!property.security_info },
+                { icon: <Layers3 className="w-4 h-4" />, label: 'Plot information', value: landPlotCount > 0 },
+                { icon: <Ruler className="w-4 h-4" />, label: 'Dimensions captured', value: !!property.plot_dimensions },
+              ] : [
                 { icon: <Droplets className="w-4 h-4" />, label: 'Water', value: property.water_availability },
                 { icon: <Zap className="w-4 h-4" />, label: 'Electricity', value: property.electricity },
                 { icon: <Wifi className="w-4 h-4" />, label: 'Internet', value: property.internet },
                 { icon: <Car className="w-4 h-4" />, label: 'Parking', value: property.parking },
                 { icon: <PawPrint className="w-4 h-4" />, label: 'Pets Allowed', value: property.pets_allowed },
                 { icon: <ShieldCheck className="w-4 h-4" />, label: 'Security', value: !!property.security_info },
-              ].map((f) => (
+              ]).map((f) => (
                 <div key={f.label} className="flex items-center gap-2 text-sm">
                   <span className={`w-8 h-8 rounded-lg flex items-center justify-center ${f.value ? 'bg-brand-50 text-brand-600' : 'bg-ink-100 text-ink-400'}`}>
                     {f.icon}
@@ -276,7 +315,7 @@ export function PropertyDetailsPage({ propertyId }: { propertyId: string }) {
             </div>
             {property.amenities && property.amenities.length > 0 && (
               <>
-                <h4 className="text-sm font-medium text-ink-700 mt-6 mb-3">Amenities</h4>
+                <h4 className="text-sm font-medium text-ink-700 mt-6 mb-3">{isLand ? 'Additional land information' : 'Amenities'}</h4>
                 <div className="flex flex-wrap gap-2">
                   {property.amenities.map((a) => (
                     <span key={a} className="badge bg-ink-100 text-ink-600">{a}</span>
@@ -335,18 +374,43 @@ export function PropertyDetailsPage({ propertyId }: { propertyId: string }) {
           )}
 
           {/* Location */}
-          <div className="card p-6">
-            <h3 className="font-semibold text-ink-900 mb-4">Location</h3>
-            <div className="rounded-xl overflow-hidden bg-brand-50 h-64 relative">
-              <div className="absolute inset-0 flex items-center justify-center flex-col gap-2">
-                <MapPin className="w-12 h-12 text-brand-500" />
-                <p className="text-ink-600 font-medium">{property.name}</p>
-                <p className="text-sm text-ink-500">{property.address || `${property.estate || ''} ${property.town}, ${property.county}`}</p>
-                {property.latitude && property.longitude && (
-                  <p className="text-xs text-ink-400">{property.latitude.toFixed(4)}, {property.longitude.toFixed(4)}</p>
-                )}
+          <div className="card overflow-hidden p-0">
+            <div className="flex flex-col gap-3 border-b border-ink-100 p-6 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h3 className="font-semibold text-ink-900">Exact property location</h3>
+                <p className="mt-1 text-sm text-ink-500">{property.address || `${property.estate || ''} ${property.town}, ${property.county}`}</p>
+                {mapCoordinates && <p className="mt-1 text-xs text-ink-400">Coordinates: {mapCoordinates.latitude.toFixed(6)}, {mapCoordinates.longitude.toFixed(6)}</p>}
               </div>
+              {exactLocationUrl && <a href={exactLocationUrl} target="_blank" rel="noreferrer" className="btn-secondary shrink-0"><MapPin className="h-4 w-4" /> Open in Google Maps</a>}
             </div>
+            {mapEmbedUrl ? (
+              <div className="relative h-[360px] w-full bg-ink-100">
+                <iframe
+                  title={`Exact map location for ${property.name}`}
+                  src={mapEmbedUrl}
+                  className="h-full w-full border-0"
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                  allowFullScreen
+                />
+                <div className="pointer-events-none absolute left-3 top-3 rounded-full bg-white/95 px-3 py-1.5 text-xs font-semibold text-ink-700 shadow-md">
+                  <MapPin className="mr-1 inline h-3.5 w-3.5 text-brand-600" /> Exact owner-provided coordinates
+                </div>
+              </div>
+            ) : property.map_url ? (
+              <div className="flex min-h-[240px] flex-col items-center justify-center gap-3 bg-brand-50 p-8 text-center">
+                <MapPin className="h-10 w-10 text-brand-600" />
+                <p className="font-semibold text-ink-900">Owner-provided map location</p>
+                <p className="max-w-lg text-sm text-ink-500">The owner supplied a map link, but its shared URL does not contain readable coordinates for an embedded map. Open the original link to view the exact pin.</p>
+                <a href={property.map_url} target="_blank" rel="noreferrer" className="btn-primary">Open exact location</a>
+              </div>
+            ) : (
+              <div className="flex min-h-[240px] flex-col items-center justify-center gap-3 bg-brand-50 p-8 text-center">
+                <MapPin className="h-10 w-10 text-brand-400" />
+                <p className="font-semibold text-ink-900">Location map not supplied</p>
+                <p className="text-sm text-ink-500">The listing address is shown above. The owner can add a Google Maps link or exact coordinates from the owner workspace.</p>
+              </div>
+            )}
           </div>
         </div>
 

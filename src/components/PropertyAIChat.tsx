@@ -35,7 +35,12 @@ export function PropertyAIChat() {
     });
     setSending(false);
     if (error || !data?.answer) {
-      setMessages((current) => [...current, { role: 'assistant', content: 'I’m temporarily unavailable. Please use the Contact Agent / Enquire option and our team will help you.' }]);
+      const serverMessage = typeof data?.error === 'string' ? data.error : '';
+      const fallback = serverMessage || error?.message || 'The AI assistant is temporarily unavailable.';
+      setMessages((current) => [...current, {
+        role: 'assistant',
+        content: `${fallback} You can also use the Contact Agent / Enquire option and our team will help you.`,
+      }]);
       return;
     }
     setMessages((current) => [...current, { role: 'assistant', content: String(data.answer) }]);

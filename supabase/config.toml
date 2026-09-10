@@ -1,0 +1,7 @@
+# Supabase Edge Function configuration.
+# The public property assistant only exposes verified, public listing data.
+[functions.property-ai-chat]
+verify_jwt = false
+
+[functions.resolve-map-url]
+verify_jwt = false

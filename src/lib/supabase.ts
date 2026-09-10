@@ -58,6 +58,8 @@ export interface Property {
   parcel_number: string | null;
   total_land_area: number | null;
   land_area_unit: string | null;
+  plot_count?: number | null;
+  plot_dimensions?: string | null;
   zoning: string | null;
   year_built: number | null;
   county: string;
