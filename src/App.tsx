@@ -50,10 +50,11 @@ class AppErrorBoundary extends React.Component<{ children: React.ReactNode }, { 
 }
 
 function PublicLayout({ children }: { children: JSX.Element }) {
+  const { path } = useRouter();
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
-      <main className="flex-1">{children}</main>
+      <main key={path} className="flex-1 hp-page-enter">{children}</main>
       <Footer />
       <PropertyAIChat />
     </div>

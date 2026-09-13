@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Bell, Heart, LayoutDashboard, LogOut, Menu, X, Phone, Mail, MapPin, MessageCircle, Navigation } from 'lucide-react';
 import { Link } from '@/context/RouterContext';
 import { useRouter } from '@/context/hooks';
@@ -13,6 +13,7 @@ export function Header() {
   const { toast } = useToast();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [navigatingTo, setNavigatingTo] = useState<string | null>(null);
 
   const navLinks = [
     { label: 'Home', to: '/' },
@@ -24,6 +25,17 @@ export function Header() {
     { label: 'About', to: '/about' },
     { label: 'Contact', to: '/contact' },
   ];
+
+  useEffect(() => {
+    if (!navigatingTo) return;
+    const timer = window.setTimeout(() => setNavigatingTo(null), 650);
+    return () => window.clearTimeout(timer);
+  }, [path, navigatingTo]);
+
+  const handleNavigation = (label: string) => {
+    setMenuOpen(false);
+    setNavigatingTo(label);
+  };
 
   const isActive = (to: string) =>
     to === '/' ? path === '/' : path === to || path.startsWith(`${to}/`) || path.startsWith(`${to}?`);
@@ -54,6 +66,7 @@ export function Header() {
               <Link
                 key={link.to}
                 to={link.to}
+                onClick={() => handleNavigation(link.label)}
                 className={`rounded-xl px-2.5 py-2 text-[13px] font-semibold transition-all lg:px-3 ${
                   isActive(link.to)
                     ? 'bg-white text-brand-900 shadow-sm ring-1 ring-ink-100'
@@ -153,7 +166,7 @@ export function Header() {
               <Link
                 key={link.to}
                 to={link.to}
-                onClick={() => setMobileOpen(false)}
+                onClick={() => { setMobileOpen(false); handleNavigation(link.label); }}
                 className={`block rounded-lg px-3 py-2.5 text-sm font-semibold ${
                   isActive(link.to) ? 'bg-white text-brand-900 shadow-sm ring-1 ring-ink-100' : 'text-ink-700 hover:bg-ink-50'
                 }`}
@@ -202,6 +215,15 @@ export function Header() {
               )}
             </div>
           </nav>
+        </div>
+      )}
+
+      {navigatingTo && (
+        <div className="pointer-events-none fixed inset-x-0 top-0 z-[70]">
+          <div className="h-0.5 overflow-hidden bg-brand-950/10"><div className="hp-nav-progress h-full w-1/3 bg-accent-500" /></div>
+          <div className="mx-auto mt-3 flex w-fit items-center gap-2 rounded-full border border-white/70 bg-brand-950 px-4 py-2 text-xs font-bold text-white shadow-2xl">
+            <span className="h-2 w-2 animate-pulse rounded-full bg-accent-400" /> Opening {navigatingTo}
+          </div>
         </div>
       )}
     </header>
