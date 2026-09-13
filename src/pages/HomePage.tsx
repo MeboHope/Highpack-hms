@@ -236,18 +236,62 @@ export function HomePage() {
 
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
 
-          {/* Hero heading */}
-          <div className="mx-auto mb-10 max-w-4xl text-center">
-            <div className="mx-auto mb-5 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-accent-100 backdrop-blur"><ShieldCheck className="h-4 w-4" /> Verified property opportunities · Kenya</div>
+          {/* Hero heading / premium value proposition */}
+          <div className="grid items-center gap-10 lg:grid-cols-[1.08fr_.92fr]">
+            <div className="text-left">
+              <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-accent-100 backdrop-blur sm:text-xs">
+                <ShieldCheck className="h-4 w-4" /> Verified opportunities across Kenya
+              </div>
 
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white mb-4 leading-tight">
-              Find Your Next Property Opportunity in Kenya
-            </h1>
+              <h1 className="max-w-3xl text-4xl font-bold leading-[1.05] tracking-tight text-white sm:text-5xl lg:text-[4.35rem]">
+                Property decisions start with <span className="text-accent-300">better choices.</span>
+              </h1>
 
-            <p className="text-lg text-brand-100 max-w-2xl mx-auto">
-              Browse verified homes, land, commercial spaces and short-stay properties — with reservations, sales and management tools in one place.
-            </p>
+              <p className="mt-6 max-w-2xl text-base leading-7 text-brand-100 sm:text-lg">
+                Discover homes, land and plots, commercial spaces, mixed-use assets and short stays in one trusted marketplace — then take the next step with HighPark Consult.
+              </p>
 
+              <div className="mt-7 flex flex-wrap gap-2.5">
+                {['Buy with clarity', 'Rent with confidence', 'Invest in land', 'Stay comfortably'].map((item) => (
+                  <span key={item} className="rounded-full border border-white/15 bg-white/10 px-3.5 py-2 text-xs font-semibold text-white/90 backdrop-blur">{item}</span>
+                ))}
+              </div>
+            </div>
+
+            <div className="relative lg:pl-6">
+              <div className="absolute -inset-5 rounded-[2.5rem] bg-accent-300/10 blur-2xl" />
+              <div className="relative overflow-hidden rounded-[2rem] border border-white/15 bg-white/[0.10] p-5 shadow-2xl backdrop-blur-xl sm:p-6">
+                <div className="flex items-center justify-between gap-4 border-b border-white/10 pb-4">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-accent-200">Start your search</p>
+                    <h2 className="mt-1 text-xl font-bold text-white">What are you looking for?</h2>
+                  </div>
+                  <div className="grid h-11 w-11 place-items-center rounded-2xl bg-accent-400/15 text-accent-200 ring-1 ring-accent-300/20">
+                    <Search className="h-5 w-5" />
+                  </div>
+                </div>
+
+                <div className="mt-5 grid grid-cols-2 gap-3">
+                  {[
+                    ['Homes', 'Buy & rent', '/properties?asset_class=built_property', <HomeIcon className="h-5 w-5" />],
+                    ['Land & Plots', 'Own or develop', '/properties?category=land', <MapPin className="h-5 w-5" />],
+                    ['Commercial', 'Business spaces', '/properties?asset_class=commercial', <Building2 className="h-5 w-5" />],
+                    ['Short Stays', 'Stay your way', '/properties?category=short_stay', <CalendarCheck className="h-5 w-5" />],
+                  ].map(([title, desc, to, icon]) => (
+                    <Link key={String(title)} to={String(to)} className="group rounded-2xl border border-white/10 bg-white/[0.07] p-4 transition-all hover:-translate-y-0.5 hover:border-accent-300/40 hover:bg-white/[0.13]">
+                      <div className="grid h-9 w-9 place-items-center rounded-xl bg-white/10 text-accent-200 transition-transform group-hover:scale-105">{icon}</div>
+                      <p className="mt-3 text-sm font-bold text-white">{title}</p>
+                      <p className="mt-0.5 text-[11px] text-brand-100">{desc}</p>
+                    </Link>
+                  ))}
+                </div>
+
+                <div className="mt-4 flex items-center gap-2 rounded-2xl border border-accent-300/15 bg-accent-300/10 px-3.5 py-3 text-xs text-accent-100">
+                  <Zap className="h-4 w-4 shrink-0" />
+                  <span>Search by location, asset type and opportunity.</span>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* ==================================================
