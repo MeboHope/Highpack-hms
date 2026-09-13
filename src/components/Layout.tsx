@@ -17,9 +17,12 @@ export function Header() {
   const navLinks = [
     { label: 'Home', to: '/' },
     { label: 'Properties', to: '/properties' },
+    { label: 'Buy', to: '/properties?category=buy' },
+    { label: 'Rent', to: '/properties?category=rent' },
+    { label: 'Land & Plots', to: '/properties?category=land' },
+    { label: 'Short Stays', to: '/properties?category=short_stay' },
     { label: 'About', to: '/about' },
     { label: 'Contact', to: '/contact' },
-    { label: 'FAQs', to: '/faqs' },
   ];
 
   const isActive = (to: string) =>
@@ -46,12 +49,12 @@ export function Header() {
         <div className="flex h-[76px] items-center justify-between gap-5">
           <Brand compact />
 
-          <nav className="hidden items-center gap-1 rounded-2xl border border-ink-100 bg-ink-50/60 p-1 md:flex">
+          <nav aria-label="Main navigation" className="hidden items-center gap-0.5 rounded-2xl border border-ink-100 bg-ink-50/70 p-1 shadow-sm md:flex">
             {navLinks.map((link) => (
               <Link
                 key={link.to}
                 to={link.to}
-                className={`rounded-xl px-3.5 py-2 text-sm font-semibold transition-all ${
+                className={`rounded-xl px-2.5 py-2 text-[13px] font-semibold transition-all lg:px-3 ${
                   isActive(link.to)
                     ? 'bg-white text-brand-900 shadow-sm ring-1 ring-ink-100'
                     : 'text-ink-600 hover:bg-white hover:text-brand-900'

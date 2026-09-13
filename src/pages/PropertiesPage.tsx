@@ -25,6 +25,7 @@ export function PropertiesPage() {
   const [rows, setRows] = useState<UniversalProperty[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState(params.get('q') || '');
+  const [category, setCategory] = useState(params.get('category') || '');
   const [assetClass, setAssetClass] = useState(params.get('asset_class') || '');
   const [operation, setOperation] = useState(params.get('operation') || '');
   const [location, setLocation] = useState(params.get('location') || '');
@@ -45,12 +46,18 @@ export function PropertiesPage() {
     const q = query.trim().toLowerCase();
     return rows.filter((r) => {
       const text = [r.name, r.description, r.property_type, r.town, r.county, r.estate, r.title_number, r.parcel_number, r.zoning].filter(Boolean).join(' ').toLowerCase();
-      return (!q || text.includes(q)) && (!assetClass || r.asset_class === assetClass) && (!operation || r.operation_model === operation) && (!location || r.county === location || r.town === location);
+      const normalizedType = String(r.property_type || '').toLowerCase();
+      const categoryMatch = !category ||
+        (category === 'rent' && ['long_term_rental', 'lease', 'mixed'].includes(r.operation_model)) ||
+        (category === 'buy' && (['sale', 'land_sale'].includes(r.operation_model) || r.sale_listing_count > 0)) ||
+        (category === 'land' && (r.asset_class === 'land' || r.operation_model === 'land_sale' || /land|plot|acre|parcel|acreage|ranch|farm/.test(normalizedType))) ||
+        (category === 'short_stay' && (r.operation_model === 'short_stay' || r.short_stay_listing_count > 0));
+      return (!q || text.includes(q)) && categoryMatch && (!assetClass || r.asset_class === assetClass) && (!operation || r.operation_model === operation) && (!location || r.county === location || r.town === location);
     });
-  }, [rows, query, assetClass, operation, location]);
+  }, [rows, query, category, assetClass, operation, location]);
 
-  const hasFilters = Boolean(query || assetClass || operation || location);
-  const clear = () => { setQuery(''); setAssetClass(''); setOperation(''); setLocation(''); };
+  const hasFilters = Boolean(query || category || assetClass || operation || location);
+  const clear = () => { setQuery(''); setCategory(''); setAssetClass(''); setOperation(''); setLocation(''); };
 
   return <div className="min-h-screen bg-[radial-gradient(circle_at_top_right,rgba(14,165,233,0.07),transparent_30%),radial-gradient(circle_at_top_left,rgba(15,118,110,0.06),transparent_28%)]"><div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
     <div className="mb-7 overflow-hidden rounded-[28px] brand-gradient p-7 text-white shadow-soft-lg sm:p-10">

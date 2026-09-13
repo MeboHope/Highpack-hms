@@ -10,6 +10,15 @@ import {
   Wallet,
   FileText,
   TrendingUp,
+  Building2,
+  Users,
+  Settings,
+  HelpCircle,
+  Bot,
+  ClipboardList,
+  BarChart3,
+  MessageSquare,
+  CalendarCheck,
 } from 'lucide-react';
 
 import { Link } from '@/context/RouterContext';
@@ -286,11 +295,11 @@ export function HomePage() {
 
           <div>
             <h2 className="text-2xl sm:text-3xl font-bold text-ink-900">
-              Featured Property Opportunities
+              Featured opportunities
             </h2>
 
             <p className="text-ink-500 mt-1">
-              Handpicked property, land & stay opportunities
+              A selection of verified homes, land, commercial spaces and stays currently available on HighPark.
             </p>
           </div>
 
@@ -304,21 +313,22 @@ export function HomePage() {
 
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-
-          {loading
-            ? Array.from({ length: 6 }).map(
-                (_, i) => (
-                  <SkeletonCard key={i} />
-                )
-              )
-            : properties.map((property) => (
-                <FeaturedPropertyCard
-                  key={property.id}
-                  property={property}
-                />
+        <div className="relative overflow-hidden rounded-[2rem] border border-ink-100 bg-gradient-to-br from-ink-50 via-white to-brand-50/60 p-3 sm:p-4">
+          <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-16 bg-gradient-to-r from-ink-50 via-ink-50/70 to-transparent" />
+          <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-16 bg-gradient-to-l from-brand-50/70 via-white/70 to-transparent" />
+          {loading ? (
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 p-2">
+              {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)}
+            </div>
+          ) : properties.length > 0 ? (
+            <div className="hp-marquee-track">
+              {[...properties, ...properties].map((property, index) => (
+                <div key={`${property.id}-${index}`} className="hp-marquee-card shrink-0">
+                  <FeaturedPropertyCard property={property} />
+                </div>
               ))}
-
+            </div>
+          ) : null}
         </div>
 
         {!loading &&
@@ -345,6 +355,216 @@ export function HomePage() {
       </section>
 
       {/* ======================================================
+          HOMEPAGE JOURNEY / SITE MAP
+          ====================================================== */}
+
+      <section id="platform" className="border-y border-ink-100 bg-ink-50/70 py-14">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="section-kicker">From discovery to management</p>
+              <h2 className="mt-2 text-2xl font-bold tracking-tight text-ink-950 sm:text-3xl">One platform for the complete property journey</h2>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-ink-500">
+                Find the right opportunity, understand the details, make an enquiry or reservation, and continue into a dedicated workspace when you are ready to manage the relationship.
+              </p>
+            </div>
+            <Link to="/properties" className="btn-secondary shrink-0">Open full marketplace <ArrowRight className="h-4 w-4" /></Link>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            {[
+              { icon: <Search className="h-5 w-5" />, number: '01', title: 'Discover', desc: 'Search verified homes, commercial spaces, land, plots, mixed-use assets and short-stay opportunities by location and purpose.', links: [['Marketplace', '/properties'], ['Property details', '/properties']], tone: 'brand' },
+              { icon: <Users className="h-5 w-5" />, number: '02', title: 'Engage & transact', desc: 'Save opportunities, request a viewing, send an enquiry, reserve a stay or begin the next step with the HighPark team.', links: [['Create account', '/register'], ['Sign in', '/login']], tone: 'accent' },
+              { icon: <Building2 className="h-5 w-5" />, number: '03', title: 'Operate & manage', desc: 'Customers, owners and administrators move into dedicated workspaces for leases, payments, maintenance, documents, messages and reporting.', links: [['Customer workspace', '/login'], ['Owner workspace', '/login']], tone: 'dark' },
+            ].map((item) => (
+              <div key={item.number} className="group rounded-3xl border border-ink-100 bg-white p-6 shadow-sm transition-all hover:-translate-y-1 hover:shadow-xl">
+                <div className="flex items-start justify-between gap-4">
+                  <div className={`grid h-11 w-11 place-items-center rounded-2xl ${item.tone === 'accent' ? 'bg-accent-50 text-accent-700' : item.tone === 'dark' ? 'bg-brand-950 text-white' : 'bg-brand-50 text-brand-700'}`}>
+                    {item.icon}
+                  </div>
+                  <span className="text-4xl font-black tracking-tight text-ink-100">{item.number}</span>
+                </div>
+                <h3 className="mt-5 text-lg font-bold text-ink-950">{item.title}</h3>
+                <p className="mt-2 text-sm leading-6 text-ink-500">{item.desc}</p>
+                <div className="mt-5 flex flex-wrap gap-2">
+                  {item.links.map(([label, to]) => (
+                    <Link key={label} to={to} className="inline-flex items-center gap-1.5 rounded-full border border-ink-200 bg-ink-50 px-3 py-1.5 text-xs font-semibold text-ink-700 transition hover:border-brand-200 hover:bg-brand-50 hover:text-brand-800">
+                      {label} <ArrowRight className="h-3 w-3" />
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ======================================================
+          PREMIUM PROPERTY CATEGORIES
+          ====================================================== */}
+
+      <section className="hp-navy-readable relative overflow-hidden bg-brand-950 py-16 text-white">
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-accent-400/80 to-transparent" />
+        <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-accent-400/10 blur-3xl" />
+        <div className="pointer-events-none absolute -left-24 bottom-0 h-72 w-72 rounded-full bg-brand-500/20 blur-3xl" />
+        <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="mb-10 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.22em] text-accent-300">Property, land & hospitality</p>
+              <h2 className="mt-2 !text-white text-2xl font-bold sm:text-3xl">Choose the opportunity that fits your needs</h2>
+              <p className="mt-2 max-w-2xl !text-white/80 text-sm leading-6">Whether you are looking for a home, business premises, development land or a short stay, start with the category that matches your objective.</p>
+            </div>
+            <Link to="/properties" className="btn-accent shrink-0">Explore all opportunities <ArrowRight className="h-4 w-4" /></Link>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            {[
+              ['Homes', 'Residential properties', '🏠', ''],
+              ['Commercial', 'Offices & business spaces', '🏢', 'commercial'],
+              ['Land & Plots', 'Development & investment land', '🌍', 'land'],
+              ['Mixed Use', 'Multi-purpose assets', '🏙️', 'mixed_use'],
+              ['Short Stays', 'Flexible hospitality stays', '🛏️', 'short_stay'],
+              ['For Sale', 'Ownership opportunities', '💼', 'sale'],
+            ].map(([title, desc, icon, filter]) => (
+              <Link key={title} to={filter === 'sale' ? '/properties?category=buy' : filter === 'land' ? '/properties?category=land' : filter === 'short_stay' ? '/properties?category=short_stay' : filter ? `/properties?asset_class=${filter}` : '/properties'} className="group rounded-2xl border border-white/10 bg-white/[0.06] p-4 transition-all hover:-translate-y-1 hover:bg-white/10 hover:shadow-2xl">
+                <div className="text-2xl">{icon}</div>
+                <h3 className="mt-4 text-sm font-bold text-white">{title}</h3>
+                <p className="mt-1 text-xs leading-5 text-brand-200">{desc}</p>
+                <span className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-accent-300">Explore <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-1" /></span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ======================================================
+          PAGE-BY-PAGE EXPERIENCE PREVIEWS
+          ====================================================== */}
+
+      <section id="experiences" className="bg-white py-16">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="mx-auto mb-12 max-w-3xl text-center">
+            <p className="section-kicker">Explore the platform</p>
+            <h2 className="mt-2 text-2xl font-bold tracking-tight text-ink-950 sm:text-3xl">Everything you need, from search to service</h2>
+            <p className="mt-3 text-sm leading-6 text-ink-500">
+              Start with the public marketplace, review the opportunity in detail, then move into the right workspace for bookings, tenancy, portfolio management, support and ongoing service.
+            </p>
+          </div>
+
+          <div className="space-y-5">
+            {[
+              {
+                eyebrow: 'Marketplace',
+                title: 'Properties, land, plots & stays',
+                desc: 'Search the marketplace by location, asset type and purpose. Compare verified opportunities and open a full listing for the information you need before making contact.',
+                icon: <Building2 className="h-6 w-6" />,
+                links: [['Browse properties', '/properties'], ['Explore land & plots', '/properties?asset_class=land'], ['Explore short stays', '/properties?operation=short_stay']],
+                bullets: ['Verified inventory', 'Map/location information', 'Asset-aware property presentation'],
+                side: 'left',
+              },
+              {
+                eyebrow: 'Property details',
+                title: 'Inspect an opportunity before you enquire',
+                desc: 'Review photos, location, pricing, availability and asset-specific information on a dedicated listing page, then enquire, request a viewing or reserve where available.',
+                icon: <MapPin className="h-6 w-6" />,
+                links: [['Open marketplace', '/properties'], ['Ask HighPark AI', '/properties']],
+                bullets: ['Location & map context', 'Land-specific information', 'Enquiry and reservation pathways'],
+                side: 'right',
+              },
+              {
+                eyebrow: 'Customer workspace',
+                title: 'Your saved properties, bookings & tenancy journey',
+                desc: 'Your customer workspace keeps reservations, viewings, rent, leases, maintenance, documents and messages together, so important property matters are easy to follow.',
+                icon: <ClipboardList className="h-6 w-6" />,
+                links: [['Create account', '/register'], ['Sign in', '/login']],
+                bullets: ['Reservations & viewings', 'Rent, lease & maintenance', 'Messages & documents'],
+                side: 'left',
+              },
+              {
+                eyebrow: 'Owner workspace',
+                title: 'Run the property portfolio from one command centre',
+                desc: 'Owners can manage properties and units alongside reservations, expenses, tax, maintenance, tenants, payments, reports, documents, sales and short-stay operations.',
+                icon: <BarChart3 className="h-6 w-6" />,
+                links: [['Owner dashboard', '/login'], ['Owner properties', '/login']],
+                bullets: ['Universal asset portfolio', 'Financial & operational controls', 'Customer enquiries & messaging'],
+                side: 'right',
+              },
+              {
+                eyebrow: 'Support & trust',
+                title: 'About, FAQs and direct contact',
+                desc: 'Learn about HighPark Consult, find answers to common questions and contact the team directly when you need assistance with a property or service.',
+                icon: <HelpCircle className="h-6 w-6" />,
+                links: [['About HighPark', '/about'], ['FAQs', '/faqs'], ['Contact us', '/contact']],
+                bullets: ['Company information', 'Frequently asked questions', 'Direct contact options'],
+                side: 'left',
+              },
+            ].map((item) => (
+              <div key={item.title} className={`grid overflow-hidden rounded-[2rem] border border-ink-100 bg-gradient-to-br ${item.side === 'right' ? 'from-brand-50/80 via-white to-accent-50/50' : 'from-white via-ink-50/70 to-brand-50/70'} shadow-sm lg:grid-cols-[1fr_.95fr]`}>
+                <div className={`p-7 sm:p-9 ${item.side === 'right' ? 'lg:order-2' : ''}`}>
+                  <div className="flex items-center gap-3">
+                    <div className="grid h-12 w-12 place-items-center rounded-2xl bg-brand-950 text-white shadow-lg">{item.icon}</div>
+                    <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-600">{item.eyebrow}</span>
+                  </div>
+                  <h3 className="mt-5 text-2xl font-bold tracking-tight text-ink-950">{item.title}</h3>
+                  <p className="mt-3 max-w-2xl text-sm leading-7 text-ink-600">{item.desc}</p>
+                  <div className="mt-6 flex flex-wrap gap-2">
+                    {item.links.map(([label, to]) => (
+                      <Link key={label} to={to} className="btn-secondary text-xs">{label} <ArrowRight className="h-3.5 w-3.5" /></Link>
+                    ))}
+                  </div>
+                </div>
+                <div className={`flex items-center p-7 sm:p-9 ${item.side === 'right' ? 'lg:order-1' : ''}`}>
+                  <div className="w-full rounded-3xl border border-white/80 bg-white/80 p-5 shadow-inner backdrop-blur">
+                    <div className="mb-4 flex items-center justify-between border-b border-ink-100 pb-3">
+                      <span className="text-xs font-bold uppercase tracking-[0.16em] text-ink-400">HighPark experience</span>
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-2.5 py-1 text-[10px] font-bold text-brand-700"><ShieldCheck className="h-3 w-3" /> Connected</span>
+                    </div>
+                    <div className="space-y-3">
+                      {item.bullets.map((bullet, index) => (
+                        <div key={bullet} className="flex items-center gap-3 rounded-2xl border border-ink-100 bg-white p-3.5">
+                          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-accent-50 text-accent-700">{index === 0 ? <CalendarCheck className="h-4 w-4" /> : index === 1 ? <MessageSquare className="h-4 w-4" /> : <Settings className="h-4 w-4" />}</span>
+                          <span className="text-sm font-semibold text-ink-700">{bullet}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ======================================================
+          PLATFORM ROLES
+          ====================================================== */}
+
+      <section id="roles" className="hp-navy-readable hp-premium-glow bg-brand-950 py-16 text-white">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="mb-10 max-w-3xl">
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-accent-300">Built for every side of property</p>
+            <h2 className="mt-2 !text-white text-2xl font-bold sm:text-3xl">The right workspace for every relationship</h2>
+            <p className="mt-3 !text-brand-100 text-sm leading-6">HighPark brings property discovery and day-to-day operations together. Each user gets the tools and information relevant to their role, with secure access to their own workspace.</p>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            {[
+              { title: 'Customer', icon: <Users className="h-5 w-5" />, desc: 'Find a property, save favourites, make enquiries, arrange viewings, manage bookings and keep up with tenancy matters.', cta: 'Create customer account', to: '/register' },
+              { title: 'Property Owner', icon: <Building2 className="h-5 w-5" />, desc: 'Manage a complete portfolio across homes, commercial assets, land, mixed-use properties and short stays.', cta: 'Owner sign in', to: '/login' },
+              { title: 'Administrator', icon: <ShieldCheck className="h-5 w-5" />, desc: 'Maintain verified inventory, oversee users and operations, monitor compliance and keep the platform running smoothly.', cta: 'Administrator sign in', to: '/login' },
+            ].map((role) => (
+              <div key={role.title} className="hp-role-card rounded-3xl border border-white/10 bg-white/[0.06] p-6 transition hover:-translate-y-1 hover:bg-white/[0.09]">
+                <div className="grid h-11 w-11 place-items-center rounded-2xl bg-white/10 text-accent-300">{role.icon}</div>
+                <h3 className="mt-5 !text-white text-lg font-bold">{role.title}</h3>
+                <p className="mt-2 !text-brand-100 text-sm leading-6">{role.desc}</p>
+                <Link to={role.to} className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-accent-300 hover:text-accent-200">{role.cta} <ArrowRight className="h-4 w-4" /></Link>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ======================================================
           HOW IT WORKS
           ====================================================== */}
 
@@ -355,11 +575,11 @@ export function HomePage() {
           <div className="text-center mb-12">
 
             <h2 className="text-2xl sm:text-3xl font-bold text-ink-900">
-              How It Works
+              A straightforward property journey
             </h2>
 
             <p className="text-ink-500 mt-2">
-              From discovery to management in four simple steps
+              Search, enquire, transact and manage through one connected experience.
             </p>
 
           </div>
@@ -370,22 +590,22 @@ export function HomePage() {
               {
                 icon: <Search className="w-6 h-6" />,
                 title: 'Search & Browse',
-                desc: 'Explore verified property, land, development and hospitality opportunities by location and use.',
+                desc: 'Explore verified homes, commercial spaces, land, development assets and short stays by location, asset type and purpose.',
               },
               {
                 icon: <Wallet className="w-6 h-6" />,
                 title: 'Enquire or Reserve',
-                desc: 'Enquire, reserve a stay, submit an offer or start a property transaction.',
+                desc: 'Send an enquiry, request a viewing, reserve an available stay or take the next step toward a property transaction.',
               },
               {
                 icon: <FileText className="w-6 h-6" />,
                 title: 'Sign Tenancy Agreement',
-                desc: 'Complete your registration and sign your lease electronically.',
+                desc: 'Where a tenancy applies, complete the required registration and lease documentation through the customer journey.',
               },
               {
                 icon: <HomeIcon className="w-6 h-6" />,
                 title: 'Move In & Pay Rent',
-                desc: 'Pay your rent online, track invoices, and manage maintenance.',
+                desc: 'Keep track of rent, invoices, maintenance requests, documents and other ongoing tenancy services.',
               },
             ].map((step, i) => (
               <div
@@ -428,17 +648,17 @@ export function HomePage() {
             {
               icon: <ShieldCheck className="w-6 h-6" />,
               title: 'Verified Properties Only',
-              desc: 'Every property is verified by our team before listing. No fake listings, no surprises.',
+              desc: 'Listings are presented through HighPark’s verification workflow so customers can make decisions using the information available on the platform.',
             },
             {
               icon: <Zap className="w-6 h-6" />,
               title: 'Instant Online Reservation',
-              desc: 'Reserve any available unit in minutes with M-Pesa or card. No more rushing to view properties.',
+              desc: 'Where online reservation is enabled, customers can secure available opportunities through a streamlined digital process.',
             },
             {
               icon: <TrendingUp className="w-6 h-6" />,
               title: 'Full Tenancy Management',
-              desc: 'Pay rent, track invoices, submit maintenance, and manage your lease — all from your phone.',
+              desc: 'Keep rent, invoices, maintenance, lease information and customer communications organised in one workspace.',
             },
           ].map((feature) => (
             <div
@@ -473,7 +693,7 @@ export function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
           <h2 className="text-2xl sm:text-3xl font-bold text-ink-900 mb-8 text-center">
-            Popular Locations
+            Explore popular locations
           </h2>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
@@ -532,6 +752,32 @@ export function HomePage() {
       </section>
 
       {/* ======================================================
+          AI ASSISTANT
+          ====================================================== */}
+
+      <section id="ai-assistant" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        <div className="overflow-hidden rounded-[2rem] border border-brand-200 bg-gradient-to-br from-brand-950 via-brand-900 to-brand-800 p-7 text-white shadow-xl sm:p-10">
+          <div className="grid gap-8 lg:grid-cols-[1.2fr_.8fr] lg:items-center">
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-accent-200"><Bot className="h-3.5 w-3.5" /> HighPark AI Assistant</div>
+              <h2 className="mt-4 !text-white text-2xl font-bold sm:text-3xl">Get answers while you search</h2>
+              <p className="mt-3 max-w-2xl !text-brand-100 text-sm leading-7">Ask about available properties, land and plots, rental or sale opportunities, short stays, locations, pricing and the best way to make an enquiry.</p>
+              <div className="mt-6 flex flex-wrap gap-2 text-xs font-semibold">
+                {['Property search', 'Land & plots', 'Rent & sale', 'Short stays', 'Location', 'Enquiries'].map((topic) => <span key={topic} className="rounded-full border border-white/10 bg-white/10 px-3 py-1.5 text-brand-100">{topic}</span>)}
+              </div>
+            </div>
+            <div className="rounded-3xl border border-white/10 bg-white/[0.08] p-5">
+              <div className="flex items-center gap-3 border-b border-white/10 pb-4"><div className="grid h-10 w-10 place-items-center rounded-2xl bg-white/10"><Bot className="h-5 w-5 text-accent-300" /></div><div><p className="text-sm font-bold">Property-aware assistance</p><p className="!text-brand-200 text-[11px]">Ask from any public page</p></div></div>
+              <div className="mt-4 space-y-2">
+                <div className="rounded-2xl bg-white/10 p-3 !text-brand-100 text-xs">“Show me available land in Kenya.”</div>
+                <div className="ml-8 rounded-2xl bg-accent-400/15 p-3 !text-accent-100 text-xs">“I’ll show you the verified land and plot opportunities available on HighPark.”</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ======================================================
           TESTIMONIALS
           ====================================================== */}
 
@@ -540,7 +786,7 @@ export function HomePage() {
         <div className="text-center mb-12">
 
           <h2 className="text-2xl sm:text-3xl font-bold text-ink-900">
-            What Our Users Say
+            A simpler way to handle property
           </h2>
 
         </div>
@@ -612,12 +858,12 @@ export function HomePage() {
 
         <div className="bg-gradient-to-br from-brand-700 to-brand-800 rounded-3xl p-8 sm:p-12 text-center">
 
-          <h2 className="text-2xl sm:text-3xl font-bold text-white mb-4">
-            Ready to Find Your Next Property Opportunity?
+          <h2 className="!text-white text-2xl sm:text-3xl font-bold mb-4">
+            Find the right opportunity. Take the next step.
           </h2>
 
           <p className="text-brand-100 mb-8 max-w-xl mx-auto">
-            Explore verified property, land and hospitality opportunities with HighPark Consult. Browse, enquire, reserve or pursue a sale opportunity online.
+            Browse the marketplace, compare opportunities and contact HighPark Consult when you are ready to move forward.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
