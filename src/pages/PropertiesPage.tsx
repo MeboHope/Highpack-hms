@@ -31,6 +31,7 @@ export function PropertiesPage() {
   const [location, setLocation] = useState(params.get('location') || '');
   const [showFilters, setShowFilters] = useState(false);
   const [sort, setSort] = useState('featured');
+  const [recentIds, setRecentIds] = useState<string[]>([]);
 
   // The same marketplace component stays mounted while the hash URL changes.
   // Keep its controls synchronized with the navbar/category links.
@@ -41,6 +42,15 @@ export function PropertiesPage() {
     setOperation(params.get('operation') || '');
     setLocation(params.get('location') || '');
   }, [params]);
+
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(window.localStorage.getItem('highpark_recently_viewed') || '[]');
+      if (Array.isArray(saved)) setRecentIds(saved.filter((id): id is string => typeof id === 'string'));
+    } catch {
+      setRecentIds([]);
+    }
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -121,9 +131,38 @@ export function PropertiesPage() {
       const view = getPropertyPresentation(r.asset_class, r.operation_model, r.property_type);
       const isLand = view.kind === 'land'; const isStay = r.short_stay_listing_count > 0 || r.operation_model === 'short_stay'; const isSale = r.sale_listing_count > 0 || ['sale','land_sale'].includes(r.operation_model);
       return <Link key={r.property_id} to={`/property/${r.property_id}`} className="group overflow-hidden rounded-3xl border border-ink-100/90 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-brand-200 hover:shadow-soft-lg">
-        <div className="relative h-52 overflow-hidden bg-ink-100"><img src={image} alt={r.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" /><div className="absolute left-3 top-3 flex flex-wrap gap-1.5"><span className="badge bg-white/95 text-ink-800 shadow-sm">{label(r.asset_class)}</span>{isSale&&<span className="badge bg-accent-100 text-accent-800">For sale</span>}{isStay&&<span className="badge bg-brand-100 text-brand-800">Short stay</span>}</div></div>
+        <div className="relative h-52 overflow-hidden bg-ink-100"><img src={image} alt={r.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" /><div className="absolute left-3 top-3 flex flex-wrap gap-1.5"><span className="badge bg-brand-600 text-white shadow-sm"><ShieldCheck className="h-3 w-3" /> Verified</span><span className="badge bg-white/95 text-ink-800 shadow-sm">{label(r.asset_class)}</span>{isSale&&<span className="badge bg-accent-100 text-accent-800">For sale</span>}{isStay&&<span className="badge bg-brand-100 text-brand-800">Short stay</span>}</div></div>
         <div className="p-5"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><h3 className="truncate font-bold text-ink-900 group-hover:text-brand-700">{r.name}</h3><p className="mt-1 flex items-center gap-1.5 text-xs text-ink-500"><MapPin className="h-3.5 w-3.5" /> {r.town}, {r.county}</p></div><Tag className="h-4 w-4 shrink-0 text-brand-500" /></div><div className="mt-4 flex flex-wrap gap-1.5"><span className="badge bg-ink-50 text-ink-600">{r.property_type}</span><span className="badge bg-brand-50 text-brand-700">{view.label}</span>{r.ownership_type&&<span className="badge bg-ink-50 text-ink-600">{label(r.ownership_type)}</span>}{isLand&&r.total_land_area&&<span className="badge bg-accent-50 text-accent-700">{r.total_land_area} {r.land_area_unit || 'acres'}</span>}</div><div className="mt-5 grid grid-cols-2 gap-3 border-t border-ink-100 pt-4">{isLand ? <><div><p className="text-[11px] uppercase tracking-wide text-ink-400">Plots</p><p className="font-bold text-brand-700">{r.plot_count || 0}</p></div><div className="text-right"><p className="text-[11px] uppercase tracking-wide text-ink-400">Dimensions</p><p className="truncate font-semibold text-ink-800">{r.plot_dimensions || 'On enquiry'}</p></div></> : r.min_monthly_rent ? <div><p className="text-[11px] uppercase tracking-wide text-ink-400">From / month</p><p className="font-bold text-brand-700">{formatKES(Number(r.min_monthly_rent))}</p></div> : r.sale_min_price ? <div><p className="text-[11px] uppercase tracking-wide text-ink-400">Asking from</p><p className="font-bold text-brand-700">{formatKES(Number(r.sale_min_price))}</p></div> : r.short_stay_min_rate ? <div><p className="text-[11px] uppercase tracking-wide text-ink-400">From / night</p><p className="font-bold text-brand-700">{formatKES(Number(r.short_stay_min_rate))}</p></div> : <div><p className="text-[11px] uppercase tracking-wide text-ink-400">Opportunity</p><p className="font-bold text-brand-700">Enquire</p></div>}{isLand ? <div className="text-right"><p className="text-[11px] uppercase tracking-wide text-ink-400">Land reference</p><p className="truncate font-semibold text-ink-800">{r.parcel_number || r.title_number || 'Not provided'}</p></div> : <div className="text-right">{r.available_units>0?<><p className="text-[11px] uppercase tracking-wide text-ink-400">{view.availableLabel}</p><p className="font-semibold text-ink-800">{r.available_units} available</p></>:<><p className="text-[11px] uppercase tracking-wide text-ink-400">Operating model</p><p className="font-semibold text-ink-800">{label(r.operation_model)}</p></>}</div>}</div></div>
       </Link>;
     })}</div>}
+
+    {!loading && recentIds.length > 0 && (
+      <section className="mt-14 border-t border-ink-100 pt-10" aria-labelledby="recently-viewed-heading">
+        <div className="mb-5 flex items-end justify-between gap-4">
+          <div>
+            <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-accent-700">Continue browsing</p>
+            <h2 id="recently-viewed-heading" className="mt-1 text-2xl font-bold text-ink-900">Recently viewed</h2>
+            <p className="mt-1 text-sm text-ink-500">Return to opportunities you have already inspected.</p>
+          </div>
+          <button type="button" onClick={() => { localStorage.removeItem('highpark_recently_viewed'); setRecentIds([]); }} className="btn-ghost text-xs">Clear history</button>
+        </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {recentIds.map((id) => rows.find((r) => String(r.property_id) === id)).filter(Boolean).slice(0, 3).map((r) => {
+            const row = r as UniversalProperty;
+            const image = row.photos?.[0] || getPropertyImage(row.property_type);
+            return (
+              <Link key={row.property_id} to={`/property/${row.property_id}`} className="group flex overflow-hidden rounded-2xl border border-ink-100 bg-white shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-soft-lg">
+                <img src={image} alt="" className="h-24 w-28 shrink-0 object-cover" loading="lazy" />
+                <div className="min-w-0 p-3">
+                  <p className="truncate font-bold text-ink-900 group-hover:text-brand-700">{row.name}</p>
+                  <p className="mt-1 truncate text-xs text-ink-500">{row.town}, {row.county}</p>
+                  <p className="mt-2 text-xs font-bold text-brand-700">View opportunity</p>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      </section>
+    )}
   </div></div>;
 }

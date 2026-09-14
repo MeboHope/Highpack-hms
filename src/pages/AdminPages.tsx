@@ -317,6 +317,9 @@ export function AdminProperties() {
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('all');
   const [sort, setSort] = useState('newest');
+  const [reviewProperty, setReviewProperty] = useState<(Property & { profiles: { full_name: string } | null }) | null>(null);
+  const [reviewNotes, setReviewNotes] = useState('');
+  const [reviewBusy, setReviewBusy] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -352,11 +355,25 @@ export function AdminProperties() {
   useEffect(() => { setPage(1); }, [query, status, sort]);
   useEffect(() => { const timer = window.setTimeout(() => void load(), 250); return () => window.clearTimeout(timer); }, [page, query, status, sort]);
 
-  const updateStatus = async (id: string, nextStatus: Property['status']) => {
-    const { error } = await supabase.from('properties').update({ status: nextStatus }).eq('id', id);
-    if (error) { toast(`Could not update property: ${error.message}`, 'error'); return; }
-    setProperties((current) => current.map((p) => p.id === id ? { ...p, status: nextStatus } : p));
-    toast(`Property ${titleCase(nextStatus)}`, 'success');
+  const openReview = (property: typeof properties[number]) => {
+    setReviewProperty(property);
+    setReviewNotes('');
+  };
+
+  const review = async (decision: 'verified' | 'rejected' | 'suspended') => {
+    if (!reviewProperty) return;
+    setReviewBusy(true);
+    const { error } = await supabase.rpc('admin_review_property', {
+      p_property_id: reviewProperty.id,
+      p_decision: decision,
+      p_notes: reviewNotes.trim() || null,
+    });
+    setReviewBusy(false);
+    if (error) { toast(`Could not update property review: ${error.message}`, 'error'); return; }
+    setProperties((current) => current.map((p) => p.id === reviewProperty.id ? { ...p, status: decision } : p));
+    toast(`Property ${titleCase(decision)}`, 'success');
+    setReviewProperty(null);
+    setReviewNotes('');
   };
 
   const pending = properties.filter((p) => p.status === 'pending_verification').length;
@@ -387,15 +404,34 @@ export function AdminProperties() {
               <td>{p.property_type}</td><td><Badge status={p.status} /></td>
               <td><div className="flex items-center gap-1.5">
                 <button type="button" onClick={() => navigate(`/admin/properties/${p.id}`)} className="icon-action" title="Inspect property"><Eye className="h-4 w-4" /></button>
-                {p.status === 'pending_verification' && <><button type="button" onClick={() => void updateStatus(p.id, 'verified')} className="icon-action text-brand-700" title="Verify property"><CheckCircle className="h-4 w-4" /></button><button type="button" onClick={() => void updateStatus(p.id, 'rejected')} className="icon-action text-red-600" title="Reject property"><XCircle className="h-4 w-4" /></button></>}
-                {p.status === 'verified' && <button type="button" onClick={() => void updateStatus(p.id, 'suspended')} className="icon-action text-accent-700" title="Suspend property"><ShieldCheck className="h-4 w-4" /></button>}
-                {p.status === 'suspended' && <button type="button" onClick={() => void updateStatus(p.id, 'verified')} className="icon-action text-brand-700" title="Reactivate property"><CheckCircle className="h-4 w-4" /></button>}
+                {['pending_verification', 'verified', 'rejected', 'suspended'].includes(p.status) && <button type="button" onClick={() => openReview(p)} className="btn-secondary px-2.5 py-1.5 text-xs" title="Review property"><Eye className="h-3.5 w-3.5" /> Review</button>}
               </div></td>
             </tr>)}
           </tbody></table></div>
         </Card>
       )}
       <Pagination page={page} totalPages={totalPages} totalItems={totalProperties} pageSize={20} onPageChange={setPage} />
+      {reviewProperty && <Modal open onClose={() => !reviewBusy && setReviewProperty(null)} title="Property verification review" size="md">
+        <div className="space-y-5">
+          <div className="rounded-2xl bg-ink-50 p-4">
+            <div className="flex flex-wrap items-center gap-2"><Badge status={reviewProperty.status} /><span className="badge bg-brand-50 text-brand-700">{titleCase(reviewProperty.asset_class || 'built_property')}</span><span className="badge bg-ink-100 text-ink-700">{reviewProperty.property_type}</span></div>
+            <h3 className="mt-3 text-lg font-bold text-ink-900">{reviewProperty.name}</h3>
+            <p className="mt-1 text-sm text-ink-500">{reviewProperty.town}, {reviewProperty.county} · Owner: {reviewProperty.profiles?.full_name || 'Unassigned'}</p>
+          </div>
+          <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
+            <div className="insight-card"><p className="text-xs text-ink-400">Location pin</p><p className="mt-1 font-semibold">{reviewProperty.latitude != null && reviewProperty.longitude != null ? 'Provided' : 'Missing'}</p></div>
+            <div className="insight-card"><p className="text-xs text-ink-400">Map link</p><p className="mt-1 font-semibold">{reviewProperty.map_url ? 'Provided' : 'Missing'}</p></div>
+            <div className="insight-card"><p className="text-xs text-ink-400">Photos</p><p className="mt-1 font-semibold">{reviewProperty.photos?.length || 0}</p></div>
+          </div>
+          <div><label className="label">Review notes <span className="font-normal text-ink-400">(optional)</span></label><textarea className="input min-h-28 resize-y" value={reviewNotes} onChange={(e) => setReviewNotes(e.target.value)} placeholder="Record why the property was approved, rejected or suspended…" /></div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <button type="button" disabled={reviewBusy} onClick={() => void review('verified')} className="btn-primary"><CheckCircle className="h-4 w-4" /> Verify</button>
+            <button type="button" disabled={reviewBusy} onClick={() => void review('rejected')} className="btn-secondary text-red-600"><XCircle className="h-4 w-4" /> Reject</button>
+            <button type="button" disabled={reviewBusy} onClick={() => void review('suspended')} className="btn-secondary text-accent-700"><ShieldCheck className="h-4 w-4" /> Suspend</button>
+          </div>
+          <p className="text-[11px] text-ink-400">Only Admin can complete this review. The decision and notes are recorded with the property audit trail.</p>
+        </div>
+      </Modal>}
     </DashboardLayout>
   );
 }

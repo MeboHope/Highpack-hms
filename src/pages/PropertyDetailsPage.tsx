@@ -79,6 +79,14 @@ export function PropertyDetailsPage({ propertyId }: { propertyId: string }) {
         if (resolved) resolvedData = { ...resolvedData, latitude: resolved.latitude, longitude: resolved.longitude };
       }
       setProperty(resolvedData);
+      if (resolvedData?.id) {
+        try {
+          const key = 'highpark_recently_viewed';
+          const current = JSON.parse(window.localStorage.getItem(key) || '[]') as string[];
+          const next = [String(resolvedData.id), ...current.filter((id) => id !== String(resolvedData.id))].slice(0, 6);
+          window.localStorage.setItem(key, JSON.stringify(next));
+        } catch { /* local storage may be unavailable */ }
+      }
 
       const [{ data: landRows }, { data: saleRows }, { data: stayRows }] = await Promise.all([
         supabase.from('land_parcels').select('*').eq('property_id', propertyId).order('created_at', { ascending: false }).limit(1),
@@ -178,7 +186,7 @@ export function PropertyDetailsPage({ propertyId }: { propertyId: string }) {
   const headline = isLand ? (salePrice > 0 ? formatKES(salePrice) : 'Land sale — enquire') : isSale ? (salePrice > 0 ? formatKES(salePrice) : 'Sale opportunity — enquire') : isStay ? (stayRate > 0 ? `${formatKES(stayRate)}/night` : 'Short-stay opportunity — enquire') : minRent > 0 ? `${formatKES(minRent)}/month` : 'Price on enquiry';
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto px-4 pb-24 pt-8 sm:px-6 sm:pb-8 lg:px-8">
       <button onClick={() => navigate('/properties')} className="flex items-center gap-1 text-sm text-ink-500 hover:text-ink-800 mb-4">
         <ChevronLeft className="w-4 h-4" /> Back to Opportunities
       </button>
@@ -538,6 +546,30 @@ export function PropertyDetailsPage({ propertyId }: { propertyId: string }) {
               </button>
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Mobile quick-action rail */}
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-ink-200/80 bg-white/95 p-3 shadow-[0_-14px_40px_rgba(13,35,66,0.12)] backdrop-blur-xl sm:hidden">
+        <div className="mx-auto grid max-w-lg grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => setShowContact(true)}
+            className="btn-secondary min-h-12 w-full"
+          >
+            <MessageSquare className="h-4 w-4" /> Message
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (!profile) { toast('Please sign in to continue', 'info'); navigate('/login'); return; }
+              if (!isLand && !isSale && !isStay) setShowViewing(true);
+              else setShowContact(true);
+            }}
+            className="btn-primary min-h-12 w-full"
+          >
+            {isLand ? 'Enquire' : isSale ? 'Enquire to buy' : isStay ? 'Enquire to stay' : 'Request viewing'}
+          </button>
         </div>
       </div>
 

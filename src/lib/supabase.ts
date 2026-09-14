@@ -84,6 +84,11 @@ export interface Property {
   videos: string[];
   audio: string[];
   status: PropertyStatus;
+  verification_notes?: string | null;
+  verified_at?: string | null;
+  verified_by?: string | null;
+  rejected_at?: string | null;
+  rejected_by?: string | null;
   created_at: string;
   updated_at: string;
 }

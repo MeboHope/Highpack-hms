@@ -29,9 +29,10 @@ import { AdminKra } from '@/pages/AdminKra';
 import { AdminPortfolio, OwnerPortfolio } from '@/pages/PortfolioPages';
 import { ShortStayOperations } from '@/pages/ShortStayPages';
 import { AdminSales, OwnerSales } from '@/pages/SalesPages';
-import React, { type JSX } from 'react';
+import React, { useEffect, type JSX } from 'react';
 import highparkLogo from '@/assets/highpark-logo-clean.png';
 import { PropertyAIChat } from '@/components/PropertyAIChat';
+import { NotFoundPage } from '@/pages/NotFoundPage';
 
 class AppErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean; message: string }> {
   state = { hasError: false, message: '' };
@@ -49,10 +50,31 @@ class AppErrorBoundary extends React.Component<{ children: React.ReactNode }, { 
   }
 }
 
+function PageMeta() {
+  const { path } = useRouter();
+  useEffect(() => {
+    const cleanPath = path.split('?')[0];
+    const titles: Record<string, string> = {
+      '/': 'HighPark Consult | Property, Land & Short-Stay Opportunities',
+      '/properties': 'Property Marketplace | HighPark Consult',
+      '/about': 'About HighPark Consult',
+      '/contact': 'Contact HighPark Consult',
+      '/faqs': 'FAQs | HighPark Consult',
+      '/login': 'Sign In | HighPark Consult',
+      '/register': 'Create Account | HighPark Consult',
+    };
+    document.title = titles[cleanPath] || (cleanPath.startsWith('/property/') ? 'Property Opportunity | HighPark Consult' : 'HighPark Consult');
+    const description = document.querySelector('meta[name="description"]');
+    if (description) description.setAttribute('content', 'Explore verified property, land, commercial, mixed-use and short-stay opportunities with HighPark Consult.');
+  }, [path]);
+  return null;
+}
+
 function PublicLayout({ children }: { children: JSX.Element }) {
   const { path } = useRouter();
   return (
     <div className="min-h-screen flex flex-col">
+      <PageMeta />
       <Header />
       <main key={path} className="flex-1 hp-page-enter">{children}</main>
       <Footer />
@@ -164,7 +186,7 @@ function Routes() {
   if (path === '/contact') return <PublicLayout><ContactPage /></PublicLayout>;
   if (path === '/faqs') return <PublicLayout><FAQsPage /></PublicLayout>;
 
-  return <PublicLayout><HomePage /></PublicLayout>;
+  return <PublicLayout><NotFoundPage /></PublicLayout>;
 }
 
 function App() {
