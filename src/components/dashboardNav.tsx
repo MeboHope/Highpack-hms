@@ -1,4 +1,4 @@
-import { Home, LayoutDashboard, Building2, Calendar, Users, Wallet, FileText, Settings, Bell, Receipt, Wrench, TrendingUp, Search, Activity, LandPlot, Hotel, BadgeDollarSign, FileCheck2 } from 'lucide-react';
+import { Home, LayoutDashboard, Building2, Calendar, Users, Wallet, FileText, Settings, Bell, Receipt, Wrench, TrendingUp, Search, Activity, LandPlot, Hotel, BadgeDollarSign, FileCheck2, ShieldCheck } from 'lucide-react';
 
 export const ownerNav = [
   {
@@ -186,6 +186,12 @@ export const adminNav = [
     section: 'Administration',
     to: '/admin/users',
     icon: <Users className="w-5 h-5" />,
+  },
+  {
+    label: 'Staff & Access',
+    section: 'Administration',
+    to: '/admin/staff',
+    icon: <ShieldCheck className="w-5 h-5" />,
   },
   {
     label: 'Units & Inventory',

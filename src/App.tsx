@@ -26,6 +26,7 @@ import {
 import { AdminDocuments, OwnerDocuments, TenantDocuments } from '@/pages/DocumentPages';
 import { OwnerMessages } from '@/pages/OwnerMessages';
 import { AdminKra } from '@/pages/AdminKra';
+import { AdminStaffPage } from '@/pages/AdminStaffPage';
 import { AdminPortfolio, OwnerPortfolio } from '@/pages/PortfolioPages';
 import { ShortStayOperations } from '@/pages/ShortStayPages';
 import { AdminSales, OwnerSales } from '@/pages/SalesPages';
@@ -162,6 +163,7 @@ function Routes() {
   if (path === '/admin/properties' || path.startsWith('/admin/properties?')) return isAdmin ? <AdminProperties /> : <AccessDenied />;
   if (path === '/admin/units' || path.startsWith('/admin/units?')) return isAdmin ? <AdminUnits /> : <AccessDenied />;
   if (path === '/admin/users' || path.startsWith('/admin/users?')) return isAdmin ? <AdminUsers /> : <AccessDenied />;
+  if (path === '/admin/staff' || path.startsWith('/admin/staff?')) return isAdmin ? <AdminStaffPage /> : <AccessDenied />;
   if (path === '/admin/leases' || path.startsWith('/admin/leases?')) return isAdmin ? <AdminLeases /> : <AccessDenied />;
   if (path === '/admin/reservations') return isAdmin ? <AdminReservations /> : <AccessDenied />;
   if (path === '/admin/payments') return isAdmin ? <AdminPayments /> : <AccessDenied />;

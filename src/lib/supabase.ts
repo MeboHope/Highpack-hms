@@ -35,6 +35,7 @@ export type Furnishing = 'furnished' | 'semi_furnished' | 'unfurnished';
 export interface Profile {
   id: string;
   role: UserRole;
+  is_super_admin: boolean;
   full_name: string | null;
   phone: string | null;
   national_id: string | null;

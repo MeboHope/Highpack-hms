@@ -12,13 +12,14 @@ function getHashPath(): string {
   const hash = window.location.hash.replace(/^#/, '');
   const query = new URLSearchParams(window.location.search);
 
-  // Supabase password-recovery callbacks arrive in the URL fragment
+  // Supabase password-recovery and staff-invitation callbacks arrive in the URL fragment
   // (access_token=...&type=recovery...). Our app also uses the hash for
   // client-side routing, so detect that callback before interpreting it as
   // a normal route. Supabase establishes the recovery session automatically.
   if (
     hash.startsWith('access_token=') ||
     hash.includes('type=recovery') ||
+    hash.includes('type=invite') ||
     query.get('auth') === 'recovery'
   ) {
     return '/reset-password';
