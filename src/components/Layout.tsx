@@ -56,12 +56,12 @@ export function Header() {
   };
 
   return (
-    <header className="sticky top-0 z-50 border-b border-ink-100/80 bg-white/90 backdrop-blur-xl shadow-[0_8px_30px_rgba(13,35,66,0.04)]">
+    <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-xl shadow-[0_8px_30px_rgba(13,35,66,0.04)]">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-[76px] items-center justify-between gap-5">
           <Brand compact />
 
-          <nav aria-label="Main navigation" className="hidden items-center gap-0.5 rounded-2xl border border-ink-100 bg-ink-50/70 p-1 shadow-sm md:flex">
+          <nav aria-label="Main navigation" className="hidden items-center gap-0.5 rounded-2xl bg-ink-50/70 p-1 shadow-sm md:flex">
             {navLinks.map((link) => (
               <Link
                 key={link.to}
@@ -69,7 +69,7 @@ export function Header() {
                 onClick={() => handleNavigation(link.label)}
                 className={`rounded-xl px-2.5 py-2 text-[13px] font-semibold transition-all lg:px-3 ${
                   isActive(link.to)
-                    ? 'bg-white text-brand-900 shadow-sm ring-1 ring-ink-100'
+                    ? 'bg-white text-brand-900 shadow-sm'
                     : 'text-ink-600 hover:bg-white hover:text-brand-900'
                 }`}
               >
@@ -160,7 +160,7 @@ export function Header() {
       </div>
 
       {mobileOpen && (
-        <div className="border-t border-ink-100 bg-white md:hidden">
+        <div className="bg-white md:hidden">
           <nav className="mx-auto max-w-7xl space-y-1 px-4 py-3 sm:px-6">
             {navLinks.map((link) => (
               <Link
@@ -168,14 +168,14 @@ export function Header() {
                 to={link.to}
                 onClick={() => { setMobileOpen(false); handleNavigation(link.label); }}
                 className={`block rounded-lg px-3 py-2.5 text-sm font-semibold ${
-                  isActive(link.to) ? 'bg-white text-brand-900 shadow-sm ring-1 ring-ink-100' : 'text-ink-700 hover:bg-ink-50'
+                  isActive(link.to) ? 'bg-white text-brand-900 shadow-sm' : 'text-ink-700 hover:bg-ink-50'
                 }`}
               >
                 {link.label}
               </Link>
             ))}
 
-            <div className="mt-2 border-t border-ink-100 pt-3">
+            <div className="mt-2 pt-3">
               {profile ? (
                 <>
                   <Link
@@ -234,7 +234,7 @@ export function Footer() {
   return (
     <footer className="mt-20 bg-brand-950 text-ink-300">
       <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
-        <div className="mb-10 grid grid-cols-1 gap-10 rounded-3xl border border-white/10 bg-white/[0.03] p-7 md:grid-cols-[1.3fr_.8fr_.8fr_1.1fr] md:p-9">
+        <div className="mb-10 grid grid-cols-1 gap-10 rounded-3xl bg-white/[0.03] p-7 md:grid-cols-[1.3fr_.8fr_.8fr_1.1fr] md:p-9">
           <div>
             <Link to="/" className="inline-flex rounded-xl bg-white p-2" aria-label="HighPark Consult Ltd">
               <img src={highparkLogo} alt="HighPark Consult Ltd" className="h-24 w-24 object-contain" />
@@ -276,7 +276,7 @@ export function Footer() {
           </div>
         </div>
 
-        <div className="mt-10 flex flex-col items-center justify-between gap-3 border-t border-brand-800 pt-6 text-center text-sm text-ink-500 sm:flex-row sm:text-left">
+        <div className="mt-10 flex flex-col items-center justify-between gap-3 pt-6 text-center text-sm text-ink-500 sm:flex-row sm:text-left">
           <p>© {new Date().getFullYear()} HighPark Consult Ltd. All rights reserved.</p>
           <p>Professional property solutions in Kenya.</p>
         </div>

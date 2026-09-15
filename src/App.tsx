@@ -114,18 +114,51 @@ function PageMeta() {
   const { path } = useRouter();
   useEffect(() => {
     const cleanPath = path.split('?')[0];
-    const titles: Record<string, string> = {
-      '/': 'HighPark Consult | Property, Land & Short-Stay Opportunities',
-      '/properties': 'Property Marketplace | HighPark Consult',
-      '/about': 'About HighPark Consult',
-      '/contact': 'Contact HighPark Consult',
-      '/faqs': 'FAQs | HighPark Consult',
-      '/login': 'Sign In | HighPark Consult',
-      '/register': 'Create Account | HighPark Consult',
+    const meta: Record<string, { title: string; description: string }> = {
+      '/': {
+        title: 'HighPark Consult | Verified Property, Land & Investment Opportunities in Kenya',
+        description: 'Discover verified homes, land, plots, commercial spaces, mixed-use opportunities and short stays across Kenya. Explore with confidence and move forward with clarity.',
+      },
+      '/properties': {
+        title: 'Verified Property Marketplace | Homes, Land, Plots & Stays | HighPark Consult',
+        description: 'Browse verified homes, land, plots, commercial spaces, mixed-use assets and short-stay opportunities across Kenya.',
+      },
+      '/about': {
+        title: 'About HighPark Consult | A More Trusted Way to Navigate Property in Kenya',
+        description: 'Learn how HighPark Consult connects property discovery, transactions and professional property management across Kenya.',
+      },
+      '/contact': {
+        title: 'Contact HighPark Consult | Property & Real Estate Support in Kenya',
+        description: 'Connect with HighPark Consult for property enquiries, viewings, management services and real estate support in Kenya.',
+      },
+      '/faqs': {
+        title: 'FAQs | HighPark Consult',
+        description: 'Find answers about verified properties, enquiries, reservations, tenancy, payments and property services with HighPark Consult.',
+      },
+      '/login': {
+        title: 'Sign In | HighPark Consult',
+        description: 'Sign in to your HighPark Consult account to continue your property, tenancy or management journey.',
+      },
+      '/register': {
+        title: 'Create Your HighPark Consult Account',
+        description: 'Create a HighPark Consult account to save opportunities, make enquiries and continue your property journey online.',
+      },
     };
-    document.title = titles[cleanPath] || (cleanPath.startsWith('/property/') ? 'Property Opportunity | HighPark Consult' : 'HighPark Consult');
-    const description = document.querySelector('meta[name="description"]');
-    if (description) description.setAttribute('content', 'Explore verified property, land, commercial, mixed-use and short-stay opportunities with HighPark Consult.');
+    const fallback = cleanPath.startsWith('/property/')
+      ? { title: 'Property Opportunity | HighPark Consult', description: 'View property details, location, availability and next steps with HighPark Consult.' }
+      : { title: 'HighPark Consult | Property & Real Estate in Kenya', description: 'Discover verified property opportunities and professional property services with HighPark Consult.' };
+    const current = meta[cleanPath] || fallback;
+    document.title = current.title;
+
+    const setMeta = (selector: string, content: string) => {
+      const element = document.querySelector(selector);
+      if (element) element.setAttribute('content', content);
+    };
+    setMeta('meta[name="description"]', current.description);
+    setMeta('meta[property="og:title"]', current.title);
+    setMeta('meta[property="og:description"]', current.description);
+    setMeta('meta[name="twitter:title"]', current.title);
+    setMeta('meta[name="twitter:description"]', current.description);
   }, [path]);
   return null;
 }

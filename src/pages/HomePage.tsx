@@ -244,19 +244,19 @@ export function HomePage() {
           <div className="grid items-center gap-10 lg:grid-cols-[1.08fr_.92fr]">
             <div className="text-left">
               <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-accent-100 backdrop-blur sm:text-xs">
-                <ShieldCheck className="h-4 w-4" /> Verified opportunities across Kenya
+                <ShieldCheck className="h-4 w-4" /> A smarter way to move in Kenya’s property market
               </div>
 
               <h1 className="max-w-3xl text-4xl font-bold leading-[1.05] tracking-tight text-white sm:text-5xl lg:text-[4.35rem]">
-                Property decisions start with <span className="text-accent-300">better choices.</span>
+                Find the right property. <span className="text-accent-300">Move with confidence.</span>
               </h1>
 
               <p className="mt-6 max-w-2xl text-base leading-7 text-brand-100 sm:text-lg">
-                Discover homes, land and plots, commercial spaces, mixed-use assets and short stays in one trusted marketplace — then take the next step with HighPark Consult.
+                Discover verified homes, land and plots, commercial spaces, mixed-use opportunities and short stays — all in one professionally managed marketplace. Compare your options, understand the opportunity, and take your next step with HighPark Consult.
               </p>
 
               <div className="mt-7 flex flex-wrap gap-2.5">
-                {['Buy with clarity', 'Rent with confidence', 'Invest in land', 'Stay comfortably'].map((item) => (
+                {['Buy with confidence', 'Rent with clarity', 'Invest with purpose', 'Stay with ease'].map((item) => (
                   <span key={item} className="rounded-full border border-white/15 bg-white/10 px-3.5 py-2 text-xs font-semibold text-white/90 backdrop-blur">{item}</span>
                 ))}
               </div>
@@ -292,7 +292,7 @@ export function HomePage() {
 
                 <div className="mt-4 flex items-center gap-2 rounded-2xl border border-accent-300/15 bg-accent-300/10 px-3.5 py-3 text-xs text-accent-100">
                   <Zap className="h-4 w-4 shrink-0" />
-                  <span>Search by location, asset type and opportunity.</span>
+                  <span>Search by location, asset class and purpose.</span>
                 </div>
               </div>
             </div>
@@ -343,11 +343,11 @@ export function HomePage() {
 
           <div>
             <h2 className="text-2xl sm:text-3xl font-bold text-ink-900">
-              Featured opportunities
+              Opportunities worth exploring
             </h2>
 
             <p className="text-ink-500 mt-1">
-              A selection of verified homes, land, commercial spaces and stays currently available on HighPark.
+              Explore a carefully presented selection of verified homes, land, commercial spaces, development opportunities and short stays available through HighPark Consult.
             </p>
           </div>
 
@@ -411,9 +411,9 @@ export function HomePage() {
           <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <p className="section-kicker">From discovery to management</p>
-              <h2 className="mt-2 text-2xl font-bold tracking-tight text-ink-950 sm:text-3xl">One platform for the complete property journey</h2>
+              <h2 className="mt-2 text-2xl font-bold tracking-tight text-ink-950 sm:text-3xl">One trusted platform for the complete property journey</h2>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-ink-500">
-                Find the right opportunity, understand the details, make an enquiry or reservation, and continue into a dedicated workspace when you are ready to manage the relationship.
+                From the first search to the next stage of ownership, tenancy, investment or hospitality, HighPark Consult brings discovery, communication, transactions and property management into one connected experience.
               </p>
             </div>
             <Link to="/properties" className="btn-secondary shrink-0">Open full marketplace <ArrowRight className="h-4 w-4" /></Link>
@@ -459,8 +459,8 @@ export function HomePage() {
           <div className="mb-10 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.22em] text-accent-300">Property, land & hospitality</p>
-              <h2 className="mt-2 !text-white text-2xl font-bold sm:text-3xl">Choose the opportunity that fits your needs</h2>
-              <p className="mt-2 max-w-2xl !text-white/80 text-sm leading-6">Whether you are looking for a home, business premises, development land or a short stay, start with the category that matches your objective.</p>
+              <h2 className="mt-2 !text-white text-2xl font-bold sm:text-3xl">Choose an opportunity that fits your objective</h2>
+              <p className="mt-2 max-w-2xl !text-white/80 text-sm leading-6">Whether your goal is to find a home, secure business space, acquire land, explore a development opportunity or book a short stay, start with the category that matches your objective.</p>
             </div>
             <Link to="/properties" className="btn-accent shrink-0">Explore all opportunities <ArrowRight className="h-4 w-4" /></Link>
           </div>
@@ -493,9 +493,9 @@ export function HomePage() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="mx-auto mb-12 max-w-3xl text-center">
             <p className="section-kicker">Explore the platform</p>
-            <h2 className="mt-2 text-2xl font-bold tracking-tight text-ink-950 sm:text-3xl">Everything you need, from search to service</h2>
+            <h2 className="mt-2 text-2xl font-bold tracking-tight text-ink-950 sm:text-3xl">From the first search to the next step, we stay with you</h2>
             <p className="mt-3 text-sm leading-6 text-ink-500">
-              Start with the public marketplace, review the opportunity in detail, then move into the right workspace for bookings, tenancy, portfolio management, support and ongoing service.
+              HighPark Consult is designed to make property decisions clearer and property relationships easier to manage — whether you are searching, renting, buying, investing, hosting or managing a portfolio.
             </p>
           </div>
 
@@ -834,7 +834,7 @@ export function HomePage() {
         <div className="text-center mb-12">
 
           <h2 className="text-2xl sm:text-3xl font-bold text-ink-900">
-            A simpler way to handle property
+            Property should feel simpler, clearer and more dependable
           </h2>
 
         </div>
@@ -907,11 +907,11 @@ export function HomePage() {
         <div className="bg-gradient-to-br from-brand-700 to-brand-800 rounded-3xl p-8 sm:p-12 text-center">
 
           <h2 className="!text-white text-2xl sm:text-3xl font-bold mb-4">
-            Find the right opportunity. Take the next step.
+            Your next property decision starts here.
           </h2>
 
           <p className="text-brand-100 mb-8 max-w-xl mx-auto">
-            Browse the marketplace, compare opportunities and contact HighPark Consult when you are ready to move forward.
+            Explore verified opportunities, compare what matters, and connect with HighPark Consult when you are ready to take the next step. We bring the marketplace and the management journey together so you can move forward with greater confidence.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center">

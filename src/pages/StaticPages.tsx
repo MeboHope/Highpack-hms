@@ -37,17 +37,14 @@ export function AboutPage() {
         supabase.rpc('get_public_property_catalog'),
         supabase.rpc('get_public_site_stats'),
       ]);
-
       if (catalogError) console.error('About public catalog error:', catalogError);
       if (statsError) console.error('About public statistics error:', statsError);
-
       const rows = (catalog || []) as Array<Record<string, unknown>>;
       const verifiedProperties = new Set(rows.map((row) => String(row.property_id))).size;
       const counties = new Set(rows.map((row) => row.county).filter(Boolean)).size;
       const aggregate = (siteStats?.[0] || {}) as Record<string, unknown>;
       const customerCount = Number(aggregate.customer_accounts || 0);
       const rent = Math.round(Number(aggregate.verified_rent_processed || 0));
-
       if (!cancelled) {
         setStats([
           { value: verifiedProperties, suffix: '+', label: 'Verified Properties' },
@@ -60,70 +57,149 @@ export function AboutPage() {
     return () => { cancelled = true; };
   }, []);
 
+  const pillars = [
+    {
+      icon: <ShieldCheck className="w-6 h-6" />,
+      title: 'Trust built into the experience',
+      desc: 'We are building a property experience where customers can discover verified opportunities, review meaningful information and engage with a professional team before committing time or money.',
+    },
+    {
+      icon: <Search className="w-6 h-6" />,
+      title: 'Clarity before commitment',
+      desc: 'Property decisions are important. HighPark brings location, pricing, availability, asset details, enquiries and next steps into a clearer digital journey so you can make informed decisions.',
+    },
+    {
+      icon: <TrendingUp className="w-6 h-6" />,
+      title: 'Built for the full property journey',
+      desc: 'Our platform goes beyond listing houses. It supports homes, land, plots, commercial and mixed-use assets, sales, rentals, leases, short stays and the operational relationships that follow.',
+    },
+  ];
+
+  const audiences = [
+    {
+      icon: <Home className="w-5 h-5" />,
+      title: 'For customers, tenants and buyers',
+      desc: 'Discover opportunities, compare options, save properties, request viewings, make enquiries and continue your property journey through a dedicated account.',
+      items: ['Verified property and land opportunities', 'Location, pricing and availability information', 'Enquiries, viewings and reservation pathways', 'Rent, lease, maintenance and document services'],
+    },
+    {
+      icon: <Building2 className="w-5 h-5" />,
+      title: 'For property owners and investors',
+      desc: 'Bring your portfolio into one professional workspace and gain clearer visibility across assets, units, tenants, income, expenses, maintenance, documents and sales activity.',
+      items: ['Residential, commercial, land and mixed-use assets', 'Property and unit portfolio management', 'Rent, payments, expenses and reporting', 'Maintenance, documents, sales and customer communication'],
+    },
+  ];
+
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      <div className="text-center mb-12">
-        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-brand-50 text-brand-700 text-sm font-medium mb-4">
-          <Home className="w-4 h-4" /> About HighPark Consult
-        </div>
-        <h1 className="text-3xl sm:text-4xl font-bold text-ink-900 mb-4">Kenya's trusted property platform</h1>
-        <p className="text-lg text-ink-500 max-w-2xl mx-auto">
-          We connect tenants and property owners across Kenya — making it easy to find homes, reserve online, and manage tenancy from start to finish.
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-        {[
-          { icon: <Search className="w-6 h-6" />, title: 'Our Mission', desc: 'To make finding and managing a home in Kenya simple, transparent, and accessible to everyone with a smartphone.' },
-          { icon: <ShieldCheck className="w-6 h-6" />, title: 'Verified Only', desc: 'Every property on HighPark Consult is verified by our team. No fake listings, no wasted trips to properties that don\'t exist.' },
-          { icon: <TrendingUp className="w-6 h-6" />, title: 'Our Vision', desc: 'To become Kenya\'s largest and most trusted property marketplace, serving tenants, owners, and managers nationwide.' },
-        ].map((item) => (
-          <div key={item.title} className="card p-6">
-            <div className="w-12 h-12 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center mb-4">{item.icon}</div>
-            <h3 className="font-semibold text-ink-900 mb-2">{item.title}</h3>
-            <p className="text-sm text-ink-500">{item.desc}</p>
-          </div>
-        ))}
-      </div>
-
-      <div className="card p-8 mb-12">
-        <h2 className="text-2xl font-bold text-ink-900 mb-6">What we offer</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          {[
-            { icon: <Search className="w-5 h-5" />, title: 'For Tenants', items: ['Browse verified properties across 20+ counties', 'Reserve any available house online for KSh 2,000', 'Pay rent via M-Pesa, card, or bank transfer', 'Track invoices, receipts, and payment history', 'Submit maintenance requests from your phone', 'Sign tenancy agreements electronically'] },
-            { icon: <Building2 className="w-5 h-5" />, title: 'For Property Owners', items: ['List and manage unlimited properties and units', 'Track rent collection and outstanding balances', 'Record expenses and generate financial reports', 'Automated tax calculations with KRA support', 'Manage maintenance requests and assign technicians', 'Owner payouts with configurable schedules'] },
-          ].map((section) => (
-            <div key={section.title}>
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-10 h-10 rounded-xl bg-accent-50 text-accent-600 flex items-center justify-center">{section.icon}</div>
-                <h3 className="font-semibold text-ink-900">{section.title}</h3>
-              </div>
-              <ul className="space-y-2">
-                {section.items.map((item) => (
-                  <li key={item} className="flex items-start gap-2 text-sm text-ink-600">
-                    <div className="w-1.5 h-1.5 rounded-full bg-brand-500 mt-2 shrink-0" />
-                    {item}
-                  </li>
-                ))}
-              </ul>
+    <div className="premium-page-bg">
+      <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
+        <section className="relative overflow-hidden rounded-[2rem] bg-brand-950 px-6 py-12 text-center shadow-soft-lg sm:px-10 sm:py-16">
+          <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-accent-400/10 blur-3xl" />
+          <div className="pointer-events-none absolute -left-24 bottom-0 h-72 w-72 rounded-full bg-brand-500/15 blur-3xl" />
+          <div className="relative mx-auto max-w-4xl">
+            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-4 py-1.5 text-sm font-semibold text-accent-200">
+              <Home className="w-4 h-4" /> About HighPark Consult
             </div>
-          ))}
-        </div>
-      </div>
+            <h1 className="text-3xl font-bold tracking-tight text-white sm:text-5xl">A more trusted, connected way to navigate property in Kenya.</h1>
+            <p className="mx-auto mt-5 max-w-3xl text-base leading-7 text-brand-100 sm:text-lg">
+              HighPark Consult brings property discovery and professional property management together in one connected experience — helping customers, owners and investors move from opportunity to action with greater clarity and confidence.
+            </p>
+            <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
+              <Link to="/properties" className="btn-accent">Explore verified opportunities</Link>
+              <Link to="/contact" className="btn-secondary border-white/20 bg-white/10 text-white hover:bg-white/15">Talk to HighPark Consult</Link>
+            </div>
+          </div>
+        </section>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-12">
-        {stats.map((stat) => (
-          <AboutCount key={stat.label} {...stat} />
-        ))}
-      </div>
+        <section className="py-14 sm:py-16">
+          <div className="max-w-3xl">
+            <p className="section-kicker">Why HighPark Consult</p>
+            <h2 className="mt-2 text-2xl font-bold tracking-tight text-ink-950 sm:text-3xl">Property is more than a listing. It is a decision, a relationship and a long-term responsibility.</h2>
+            <p className="mt-4 text-base leading-7 text-ink-600">
+              We believe the digital property experience should be as professional as the decision itself. That means making it easier to discover genuine opportunities, understand what is being offered, communicate with the right people and continue receiving support after the first enquiry.
+            </p>
+            <p className="mt-4 text-base leading-7 text-ink-600">
+              HighPark Consult is designed around that complete journey. Our marketplace brings together residential homes, land and plots, commercial spaces, mixed-use and development opportunities and short stays. Behind the marketplace is a structured management platform that helps owners and teams handle the operational work that keeps property relationships running.
+            </p>
+          </div>
 
-      <div className="bg-gradient-to-br from-brand-700 to-brand-800 rounded-3xl p-8 sm:p-12 text-center">
-        <h2 className="text-2xl font-bold text-white mb-4">Ready to get started?</h2>
-        <p className="text-brand-100 mb-8 max-w-xl mx-auto">Whether you're looking for a home or managing properties, HighPark Consult has you covered.</p>
-        <div className="flex flex-col sm:flex-row gap-3 justify-center">
-          <Link to="/properties" className="btn-accent">Browse Properties</Link>
-          <Link to="/register" className="btn-secondary bg-white text-brand-700 border-white hover:bg-brand-50">Create Account</Link>
-        </div>
+          <div className="mt-10 grid grid-cols-1 gap-5 md:grid-cols-3">
+            {pillars.map((item) => (
+              <div key={item.title} className="card p-6 transition-all hover:-translate-y-1 hover:shadow-soft-lg">
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-brand-50 text-brand-700">{item.icon}</div>
+                <h3 className="font-semibold text-ink-950">{item.title}</h3>
+                <p className="mt-2 text-sm leading-6 text-ink-500">{item.desc}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="card p-7 sm:p-10">
+          <div className="max-w-3xl">
+            <p className="section-kicker">What we are building</p>
+            <h2 className="mt-2 text-2xl font-bold text-ink-950 sm:text-3xl">One professional environment for discovery, transactions and property operations.</h2>
+            <p className="mt-4 text-sm leading-7 text-ink-600 sm:text-base">
+              HighPark is intentionally broader than a traditional house-rental website. We are building a universal property platform that can serve the different ways people use and invest in real estate — from finding a family home or commercial space to evaluating land, managing a rental portfolio or operating a short-stay property.
+            </p>
+          </div>
+          <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2">
+            {[
+              ['Homes & residential', 'Buy or rent residential properties with clear presentation, availability and enquiry pathways.'],
+              ['Land & plots', 'Explore land, plot opportunities, development potential, dimensions and location information.'],
+              ['Commercial & mixed-use', 'Find business premises and multi-purpose assets suited to commercial or development objectives.'],
+              ['Short stays', 'Discover flexible accommodation and manage the operational journey behind short-stay hospitality.'],
+              ['Sales & investment', 'Move from discovery to enquiries, offers and controlled sales workflows for property and land opportunities.'],
+              ['Property management', 'Support the ongoing work of owners and teams across leases, payments, expenses, maintenance, documents and reporting.'],
+            ].map(([title, desc]) => (
+              <div key={title} className="rounded-2xl bg-ink-50/80 p-5">
+                <h3 className="font-semibold text-ink-950">{title}</h3>
+                <p className="mt-2 text-sm leading-6 text-ink-500">{desc}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="py-14 sm:py-16">
+          <div className="mb-8 max-w-3xl">
+            <p className="section-kicker">Designed around people</p>
+            <h2 className="mt-2 text-2xl font-bold text-ink-950 sm:text-3xl">A better experience for the people on every side of property.</h2>
+          </div>
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            {audiences.map((section) => (
+              <div key={section.title} className="card p-7">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent-50 text-accent-700">{section.icon}</div>
+                  <h3 className="font-semibold text-ink-950">{section.title}</h3>
+                </div>
+                <p className="mt-4 text-sm leading-6 text-ink-500">{section.desc}</p>
+                <ul className="mt-5 space-y-3">
+                  {section.items.map((item) => (
+                    <li key={item} className="flex items-start gap-3 text-sm text-ink-600">
+                      <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-brand-600" />
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="grid grid-cols-2 gap-4 pb-14 sm:grid-cols-4 sm:pb-16">
+          {stats.map((stat) => <AboutCount key={stat.label} {...stat} />)}
+        </section>
+
+        <section className="overflow-hidden rounded-[2rem] bg-brand-gold-gradient p-8 text-center shadow-soft-lg sm:p-12">
+          <p className="text-xs font-bold uppercase tracking-[0.22em] text-accent-200">Your next move starts here</p>
+          <h2 className="mt-3 text-2xl font-bold text-white sm:text-3xl">Explore with confidence. Decide with clarity. Work with HighPark Consult.</h2>
+          <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-white/85 sm:text-base">
+            Whether you are searching for a home, looking for land, securing business space, planning an investment, booking a short stay or managing a portfolio, HighPark Consult is built to make the journey more connected and professional.
+          </p>
+          <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
+            <Link to="/properties" className="btn-accent">Browse verified opportunities</Link>
+            <Link to="/contact" className="btn-secondary border-white bg-white text-brand-700 hover:bg-brand-50">Contact our team</Link>
+          </div>
+        </section>
       </div>
     </div>
   );
