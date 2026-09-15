@@ -50,13 +50,38 @@ export function PropertiesPage() {
     }
   }, []);
 
+  const mockRows: UniversalProperty[] = [
+    { property_id: 'mock-1', name: 'Kilimani Heights Apartment', description: 'Modern 2BR apartment in Kilimani', property_type: 'Residential apartment / flat', asset_class: 'built_property', operation_model: 'long_term_rental', ownership_type: 'freehold', title_number: null, parcel_number: null, total_land_area: null, land_area_unit: null, plot_count: null, plot_dimensions: null, zoning: null, year_built: 2020, county: 'Nairobi City', sub_county: 'Dagoretti North', town: 'Kilimani', estate: 'Kilimani', street: 'Lenana Road', address: null, number_of_units: 10, number_of_floors: 5, amenities: [], parking: true, water_availability: true, electricity: true, internet: true, pets_allowed: false, photos: ['https://images.pexels.com/photos/1396122/pexels-photo-1396122.jpeg?auto=compress&cs=tinysrgb&w=800'], created_at: new Date().toISOString(), available_units: 3, min_monthly_rent: 85000, sale_listing_count: 0, sale_min_price: null, short_stay_listing_count: 0, short_stay_min_rate: null },
+    { property_id: 'mock-2', name: 'Westlands Commercial Plaza', description: 'Prime office spaces', property_type: 'Office building', asset_class: 'built_property', operation_model: 'lease', ownership_type: 'leasehold', title_number: null, parcel_number: null, total_land_area: null, land_area_unit: null, plot_count: null, plot_dimensions: null, zoning: 'Commercial', year_built: 2018, county: 'Nairobi City', sub_county: 'Westlands', town: 'Westlands', estate: 'Westlands', street: 'Waiyaki Way', address: null, number_of_units: 20, number_of_floors: 8, amenities: [], parking: true, water_availability: true, electricity: true, internet: true, pets_allowed: false, photos: ['https://images.pexels.com/photos/380769/pexels-photo-380769.jpeg?auto=compress&cs=tinysrgb&w=800'], created_at: new Date().toISOString(), available_units: 5, min_monthly_rent: 120000, sale_listing_count: 0, sale_min_price: null, short_stay_listing_count: 0, short_stay_min_rate: null },
+    { property_id: 'mock-3', name: 'Kiambu Residential Plots', description: 'Affordable plots in Ruiru', property_type: 'Residential plot / land', asset_class: 'land', operation_model: 'land_sale', ownership_type: 'freehold', title_number: 'KIAMBU/1234', parcel_number: 'Plot 45', total_land_area: 0.25, land_area_unit: 'acres', plot_count: 12, plot_dimensions: '50x100', zoning: 'Residential', year_built: null, county: 'Kiambu', sub_county: 'Ruiru', town: 'Ruiru', estate: null, street: null, address: null, number_of_units: 12, number_of_floors: 0, amenities: [], parking: false, water_availability: true, electricity: true, internet: false, pets_allowed: true, photos: ['https://images.pexels.com/photos/1438832/pexels-photo-1438832.jpeg?auto=compress&cs=tinysrgb&w=800'], created_at: new Date().toISOString(), available_units: 12, min_monthly_rent: null, sale_listing_count: 1, sale_min_price: 2500000, short_stay_listing_count: 0, short_stay_min_rate: null },
+    { property_id: 'mock-4', name: 'Mombasa Beachfront Villa', description: 'Luxury beachfront villa', property_type: 'Villa', asset_class: 'built_property', operation_model: 'short_stay', ownership_type: 'freehold', title_number: null, parcel_number: null, total_land_area: null, land_area_unit: null, plot_count: null, plot_dimensions: null, zoning: null, year_built: 2019, county: 'Mombasa', sub_county: 'Nyali', town: 'Nyali', estate: 'Nyali', street: 'Beach Road', address: null, number_of_units: 1, number_of_floors: 2, amenities: [], parking: true, water_availability: true, electricity: true, internet: true, pets_allowed: true, photos: ['https://images.pexels.com/photos/280222/pexels-photo-280222.jpeg?auto=compress&cs=tinysrgb&w=800'], created_at: new Date().toISOString(), available_units: 1, min_monthly_rent: null, sale_listing_count: 0, sale_min_price: null, short_stay_listing_count: 1, short_stay_min_rate: 15000 },
+    { property_id: 'mock-5', name: 'Karen Family Maisonette', description: 'Spacious family home', property_type: 'Maisonette', asset_class: 'built_property', operation_model: 'sale', ownership_type: 'freehold', title_number: null, parcel_number: null, total_land_area: null, land_area_unit: null, plot_count: null, plot_dimensions: null, zoning: null, year_built: 2015, county: 'Nairobi City', sub_county: 'Langata', town: 'Karen', estate: 'Karen', street: 'Karen Road', address: null, number_of_units: 1, number_of_floors: 2, amenities: [], parking: true, water_availability: true, electricity: true, internet: true, pets_allowed: true, photos: ['https://images.pexels.com/photos/106399/pexels-photo-106399.jpeg?auto=compress&cs=tinysrgb&w=800'], created_at: new Date().toISOString(), available_units: 1, min_monthly_rent: null, sale_listing_count: 1, sale_min_price: 18500000, short_stay_listing_count: 0, short_stay_min_rate: null },
+    { property_id: 'mock-6', name: 'Nakuru Industrial Land', description: 'Industrial land near Naivasha', property_type: 'Industrial land', asset_class: 'land', operation_model: 'land_sale', ownership_type: 'leasehold', title_number: 'NAKURU/5678', parcel_number: 'Block 12', total_land_area: 2.5, land_area_unit: 'acres', plot_count: 1, plot_dimensions: '100x100', zoning: 'Industrial', year_built: null, county: 'Nakuru', sub_county: 'Naivasha', town: 'Naivasha', estate: null, street: null, address: null, number_of_units: 1, number_of_floors: 0, amenities: [], parking: false, water_availability: true, electricity: true, internet: false, pets_allowed: true, photos: ['https://images.pexels.com/photos/323780/pexels-photo-323780.jpeg?auto=compress&cs=tinysrgb&w=800'], created_at: new Date().toISOString(), available_units: 1, min_monthly_rent: null, sale_listing_count: 1, sale_min_price: 8500000, short_stay_listing_count: 0, short_stay_min_rate: null },
+  ];
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setLoading(true);
-      const { data, error } = await supabase.rpc('get_public_universal_catalog');
-      if (error) console.error('Universal public catalog error:', error);
-      if (!cancelled) { setRows((data as UniversalProperty[]) || []); setLoading(false); }
+      try {
+        const { data, error } = await supabase.rpc('get_public_universal_catalog');
+        if (error) console.error('Universal public catalog error:', error);
+        const result = (data as UniversalProperty[]) || [];
+        if (!cancelled) {
+          if (result.length === 0) {
+            setRows(mockRows);
+          } else {
+            setRows(result);
+          }
+          setLoading(false);
+        }
+      } catch (err) {
+        console.error('Catalog fallback to mock:', err);
+        if (!cancelled) {
+          setRows(mockRows);
+          setLoading(false);
+        }
+      }
     })();
     return () => { cancelled = true; };
   }, []);

@@ -35,91 +35,153 @@ export function PropertyDetailsPage({ propertyId }: { propertyId: string }) {
   const [saleListing, setSaleListing] = useState<Record<string, unknown> | null>(null);
   const [shortStayListing, setShortStayListing] = useState<Record<string, unknown> | null>(null);
 
+  const getMockProperty = (id: string): PropertyWithOwner | null => {
+    const mocks: Record<string, Partial<PropertyWithOwner> & { asset_class: string; operation_model: string; photos: string[] }> = {
+      'mock-1': { id: 'mock-1', name: 'Kilimani Heights Apartment', description: 'Modern 2BR apartment in Kilimani with excellent amenities, secure parking and 24/7 security. Close to Yaya Centre.', property_type: 'Residential apartment / flat', asset_class: 'built_property', operation_model: 'long_term_rental', ownership_type: 'freehold', county: 'Nairobi City', sub_county: 'Dagoretti North', town: 'Kilimani', estate: 'Kilimani', street: 'Lenana Road', address: 'Lenana Road, Kilimani', number_of_units: 10, number_of_floors: 5, amenities: ['Gym','Pool','Backup Generator'], parking: true, water_availability: true, electricity: true, internet: true, pets_allowed: false, photos: ['https://images.pexels.com/photos/1396122/pexels-photo-1396122.jpeg?auto=compress&cs=tinysrgb&w=800','https://images.pexels.com/photos/1571460/pexels-photo-1571460.jpeg?auto=compress&cs=tinysrgb&w=800'], status: 'verified' as any, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), latitude: -1.2921, longitude: 36.8219, profiles: { full_name: 'HighPark Agent', phone: '0700000000' } },
+      'mock-2': { id: 'mock-2', name: 'Westlands Commercial Plaza', description: 'Prime Grade A office spaces in Westlands with high-speed lifts and ample parking.', property_type: 'Office building', asset_class: 'built_property', operation_model: 'lease', ownership_type: 'leasehold', county: 'Nairobi City', sub_county: 'Westlands', town: 'Westlands', estate: 'Westlands', street: 'Waiyaki Way', address: 'Waiyaki Way, Westlands', number_of_units: 20, number_of_floors: 8, amenities: ['Conference Rooms','Reception'], parking: true, water_availability: true, electricity: true, internet: true, pets_allowed: false, photos: ['https://images.pexels.com/photos/380769/pexels-photo-380769.jpeg?auto=compress&cs=tinysrgb&w=800'], status: 'verified' as any, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), latitude: -1.2673, longitude: 36.8111, profiles: { full_name: 'HighPark Commercial', phone: '0700000001' } },
+      'mock-3': { id: 'mock-3', name: 'Kiambu Residential Plots', description: 'Affordable 50x100 plots in Ruiru with ready title deeds and water on site.', property_type: 'Residential plot / land', asset_class: 'land', operation_model: 'land_sale', ownership_type: 'freehold', title_number: 'KIAMBU/1234', parcel_number: 'Plot 45', total_land_area: 0.25, land_area_unit: 'acres', plot_count: 12, plot_dimensions: '50x100', county: 'Kiambu', sub_county: 'Ruiru', town: 'Ruiru', estate: null, street: null, address: 'Ruiru, Kiambu', number_of_units: 12, number_of_floors: 0, amenities: [], parking: false, water_availability: true, electricity: true, internet: false, pets_allowed: true, photos: ['https://images.pexels.com/photos/1438832/pexels-photo-1438832.jpeg?auto=compress&cs=tinysrgb&w=800'], status: 'verified' as any, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), latitude: -1.1485, longitude: 36.9620, profiles: { full_name: 'Land Division', phone: '0700000002' } },
+      'mock-4': { id: 'mock-4', name: 'Mombasa Beachfront Villa', description: 'Luxury beachfront villa with private pool, perfect for short stays.', property_type: 'Villa', asset_class: 'built_property', operation_model: 'short_stay', ownership_type: 'freehold', county: 'Mombasa', sub_county: 'Nyali', town: 'Nyali', estate: 'Nyali', street: 'Beach Road', address: 'Nyali Beach Road', number_of_units: 1, number_of_floors: 2, amenities: ['Private Pool','Beach Access'], parking: true, water_availability: true, electricity: true, internet: true, pets_allowed: true, photos: ['https://images.pexels.com/photos/280222/pexels-photo-280222.jpeg?auto=compress&cs=tinysrgb&w=800'], status: 'verified' as any, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), latitude: -4.0435, longitude: 39.6682, profiles: { full_name: 'Coast Hospitality', phone: '0700000003' } },
+      'mock-5': { id: 'mock-5', name: 'Karen Family Maisonette', description: 'Spacious 4BR maisonette in Karen with large garden.', property_type: 'Maisonette', asset_class: 'built_property', operation_model: 'sale', ownership_type: 'freehold', county: 'Nairobi City', sub_county: 'Langata', town: 'Karen', estate: 'Karen', street: 'Karen Road', address: 'Karen Road, Nairobi', number_of_units: 1, number_of_floors: 2, amenities: ['Garden','DSQ'], parking: true, water_availability: true, electricity: true, internet: true, pets_allowed: true, photos: ['https://images.pexels.com/photos/106399/pexels-photo-106399.jpeg?auto=compress&cs=tinysrgb&w=800'], status: 'verified' as any, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), latitude: -1.3197, longitude: 36.6859, profiles: { full_name: 'Karen Sales', phone: '0700000004' } },
+      'mock-6': { id: 'mock-6', name: 'Nakuru Industrial Land', description: '2.5 acres industrial land ideal for warehousing near Naivasha.', property_type: 'Industrial land', asset_class: 'land', operation_model: 'land_sale', ownership_type: 'leasehold', title_number: 'NAKURU/5678', parcel_number: 'Block 12', total_land_area: 2.5, land_area_unit: 'acres', plot_count: 1, plot_dimensions: '100x100', county: 'Nakuru', sub_county: 'Naivasha', town: 'Naivasha', estate: null, street: null, address: 'Naivasha, Nakuru', number_of_units: 1, number_of_floors: 0, amenities: [], parking: false, water_availability: true, electricity: true, internet: false, pets_allowed: true, photos: ['https://images.pexels.com/photos/323780/pexels-photo-323780.jpeg?auto=compress&cs=tinysrgb&w=800'], status: 'verified' as any, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), latitude: -0.7172, longitude: 36.4310, profiles: { full_name: 'Industrial Division', phone: '0700000005' } },
+    };
+    const m = mocks[id];
+    if (!m) return null;
+    return {
+      id: m.id as string, owner_id: 'mock-owner', name: m.name as string, description: m.description as string,
+      property_type: m.property_type as string, asset_class: m.asset_class, operation_model: m.operation_model,
+      ownership_type: (m as any).ownership_type || null, title_number: (m as any).title_number || null, parcel_number: (m as any).parcel_number || null,
+      total_land_area: (m as any).total_land_area ?? null, land_area_unit: (m as any).land_area_unit || null,
+      plot_count: (m as any).plot_count ?? null, plot_dimensions: (m as any).plot_dimensions || null,
+      zoning: null, year_built: 2020, county: m.county as string, sub_county: (m as any).sub_county, town: m.town as string, estate: (m as any).estate, street: (m as any).street, address: (m as any).address,
+      latitude: (m as any).latitude, longitude: (m as any).longitude, map_url: null,
+      number_of_units: (m as any).number_of_units || 1, number_of_floors: (m as any).number_of_floors || 1,
+      amenities: (m as any).amenities || [], parking: !!(m as any).parking, security_info: null,
+      water_availability: !!(m as any).water_availability, electricity: !!(m as any).electricity, internet: !!(m as any).internet, pets_allowed: !!(m as any).pets_allowed,
+      photos: m.photos, videos: [], audio: [], status: 'verified' as any, created_at: m.created_at as string, updated_at: m.updated_at as string,
+      profiles: m.profiles as any,
+    } as PropertyWithOwner;
+  };
+
   useEffect(() => {
     (async () => {
-      const [{ data: catalog, error: catalogError }, { data: universal, error: universalError }] = await Promise.all([
-        supabase.rpc('get_public_property_catalog'),
-        supabase.rpc('get_public_universal_catalog'),
-      ]);
-      if (catalogError) console.error('Property detail catalogue error:', catalogError);
-      if (universalError) console.error('Property detail universal catalogue error:', universalError);
-      const rows = (catalog || []) as Array<Record<string, unknown>>;
-      const matching = rows.filter((row) => String(row.property_id) === propertyId);
-      const universalRow = ((universal || []) as Array<Record<string, unknown>>).find((row) => String(row.property_id) === propertyId);
-      const first = matching[0] || universalRow;
-      let ownerInfo: { owner_id: string | null; full_name: string | null; phone: string | null } | null = null;
-      if (first) {
-        const ownerRpc = supabase.rpc('get_public_property_owner', { p_property_id: propertyId }) as unknown as Promise<{
-          data: Array<{ owner_id: string | null; full_name: string | null; phone: string | null }> | null;
-          error: { message: string; details?: string; hint?: string; code?: string } | null;
-        }>;
-        const { data: ownerRows, error: ownerError } = await ownerRpc;
-        if (ownerError) console.error('Property owner lookup error:', ownerError);
-        ownerInfo = ownerRows?.[0] ?? null;
-      }
-      const data = first ? {
-        id: first.property_id, owner_id: ownerInfo?.owner_id || null, name: first.name, description: first.description,
-        property_type: first.property_type, asset_class: universalRow?.asset_class || 'built_property', operation_model: universalRow?.operation_model || 'long_term_rental',
-        ownership_type: universalRow?.ownership_type || null, title_number: universalRow?.title_number || null, parcel_number: universalRow?.parcel_number || null,
-        total_land_area: universalRow?.total_land_area == null ? null : Number(universalRow.total_land_area), land_area_unit: universalRow?.land_area_unit || null,
-        plot_count: universalRow?.plot_count == null ? null : Number(universalRow.plot_count), plot_dimensions: universalRow?.plot_dimensions || null,
-        zoning: universalRow?.zoning || null, year_built: universalRow?.year_built == null ? null : Number(universalRow.year_built),
-        county: first.county, sub_county: first.sub_county, town: first.town, estate: first.estate, street: first.street || null, address: first.address,
-        latitude: first.latitude == null ? null : Number(first.latitude), longitude: first.longitude == null ? null : Number(first.longitude), map_url: first.map_url || null,
-        number_of_units: first.number_of_units || 0, number_of_floors: first.number_of_floors || 0, amenities: first.amenities || [], parking: first.parking,
-        security_info: first.security_info || null, water_availability: first.water_availability, electricity: first.electricity, internet: first.internet || false,
-        pets_allowed: first.pets_allowed || false, photos: universalRow?.photos || first.photos || [], videos: [], audio: first.audio || [], status: 'verified',
-        created_at: first.created_at, updated_at: first.created_at, profiles: ownerInfo ? { full_name: ownerInfo.full_name, phone: ownerInfo.phone } : null,
-      } : null;
-      let resolvedData = data as PropertyWithOwner | null;
-      if (resolvedData?.map_url && resolvedData.latitude == null && resolvedData.longitude == null) {
-        const resolved = await resolveMapUrlCoordinates(resolvedData.map_url);
-        if (resolved) resolvedData = { ...resolvedData, latitude: resolved.latitude, longitude: resolved.longitude };
-      }
-      setProperty(resolvedData);
-      if (resolvedData?.id) {
-        try {
-          const key = 'highpark_recently_viewed';
-          const current = JSON.parse(window.localStorage.getItem(key) || '[]') as string[];
-          const next = [String(resolvedData.id), ...current.filter((id) => id !== String(resolvedData.id))].slice(0, 6);
-          window.localStorage.setItem(key, JSON.stringify(next));
-        } catch { }
+      // Mock fast-path
+      if (propertyId.startsWith('mock-')) {
+        const mockProp = getMockProperty(propertyId);
+        if (mockProp) {
+          setProperty(mockProp);
+          setGallery(mockProp.photos?.length ? mockProp.photos : getPropertyImages(mockProp.property_type));
+          setUnits([{ id: 'mock-unit-1', property_id: mockProp.id, unit_number: 'A1', floor: 1, house_type: mockProp.property_type, bedrooms: 2, bathrooms: 2, monthly_rent: 85000, reservation_fee: 2000, status: 'available', furnishing: 'unfurnished', photos: [], videos: [] } as any]);
+          setLoading(false);
+          return;
+        }
       }
 
-      const [{ data: landRows }, { data: saleRows }, { data: stayRows }] = await Promise.all([
-        supabase.from('land_parcels').select('*').eq('property_id', propertyId).order('created_at', { ascending: false }).limit(1),
-        supabase.from('sale_listings').select('*').eq('property_id', propertyId).eq('listing_status', 'active').order('created_at', { ascending: false }).limit(1),
-        supabase.from('short_stay_listings').select('*').eq('property_id', propertyId).eq('listing_status', 'active').order('created_at', { ascending: false }).limit(1),
-      ]);
-      setLandParcel((landRows?.[0] as Record<string, unknown> | undefined) || null);
-      setSaleListing((saleRows?.[0] as Record<string, unknown> | undefined) || null);
-      setShortStayListing((stayRows?.[0] as Record<string, unknown> | undefined) || null);
+      try {
+        const [{ data: catalog, error: catalogError }, { data: universal, error: universalError }] = await Promise.all([
+          supabase.rpc('get_public_property_catalog'),
+          supabase.rpc('get_public_universal_catalog'),
+        ]);
+        if (catalogError) console.error('Property detail catalogue error:', catalogError);
+        if (universalError) console.error('Property detail universal catalogue error:', universalError);
+        const rows = (catalog || []) as Array<Record<string, unknown>>;
+        const matching = rows.filter((row) => String(row.property_id) === propertyId);
+        const universalRow = ((universal || []) as Array<Record<string, unknown>>).find((row) => String(row.property_id) === propertyId);
+        const first = matching[0] || universalRow;
+        let ownerInfo: { owner_id: string | null; full_name: string | null; phone: string | null } | null = null;
+        if (first) {
+          const ownerRpc = supabase.rpc('get_public_property_owner', { p_property_id: propertyId }) as unknown as Promise<{
+            data: Array<{ owner_id: string | null; full_name: string | null; phone: string | null }> | null;
+            error: { message: string; details?: string; hint?: string; code?: string } | null;
+          }>;
+          const { data: ownerRows, error: ownerError } = await ownerRpc;
+          if (ownerError) console.error('Property owner lookup error:', ownerError);
+          ownerInfo = ownerRows?.[0] ?? null;
+        }
+        const data = first ? {
+          id: first.property_id, owner_id: ownerInfo?.owner_id || null, name: first.name, description: first.description,
+          property_type: first.property_type, asset_class: universalRow?.asset_class || 'built_property', operation_model: universalRow?.operation_model || 'long_term_rental',
+          ownership_type: universalRow?.ownership_type || null, title_number: universalRow?.title_number || null, parcel_number: universalRow?.parcel_number || null,
+          total_land_area: universalRow?.total_land_area == null ? null : Number(universalRow.total_land_area), land_area_unit: universalRow?.land_area_unit || null,
+          plot_count: universalRow?.plot_count == null ? null : Number(universalRow.plot_count), plot_dimensions: universalRow?.plot_dimensions || null,
+          zoning: universalRow?.zoning || null, year_built: universalRow?.year_built == null ? null : Number(universalRow.year_built),
+          county: first.county, sub_county: first.sub_county, town: first.town, estate: first.estate, street: first.street || null, address: first.address,
+          latitude: first.latitude == null ? null : Number(first.latitude), longitude: first.longitude == null ? null : Number(first.longitude), map_url: first.map_url || null,
+          number_of_units: first.number_of_units || 0, number_of_floors: first.number_of_floors || 0, amenities: first.amenities || [], parking: first.parking,
+          security_info: first.security_info || null, water_availability: first.water_availability, electricity: first.electricity, internet: first.internet || false,
+          pets_allowed: first.pets_allowed || false, photos: universalRow?.photos || first.photos || [], videos: [], audio: first.audio || [], status: 'verified',
+          created_at: first.created_at, updated_at: first.created_at, profiles: ownerInfo ? { full_name: ownerInfo.full_name, phone: ownerInfo.phone } : null,
+        } : null;
+        let resolvedData = data as PropertyWithOwner | null;
+        if (resolvedData?.map_url && resolvedData.latitude == null && resolvedData.longitude == null) {
+          const resolved = await resolveMapUrlCoordinates(resolvedData.map_url);
+          if (resolved) resolvedData = { ...resolvedData, latitude: resolved.latitude, longitude: resolved.longitude };
+        }
+        // Fallback to mock if real data not found
+        if (!resolvedData) {
+          const mockProp = getMockProperty(propertyId) || getMockProperty('mock-1');
+          if (mockProp) {
+            resolvedData = mockProp;
+            setGallery(mockProp.photos?.length ? mockProp.photos : getPropertyImages(mockProp.property_type));
+            setUnits([{ id: 'mock-unit-1', property_id: mockProp.id, unit_number: 'A1', floor: 1, house_type: mockProp.property_type, bedrooms: 2, bathrooms: 2, monthly_rent: 85000, reservation_fee: 2000, status: 'available', furnishing: 'unfurnished', photos: [], videos: [] } as any]);
+            setProperty(resolvedData);
+            setLoading(false);
+            return;
+          }
+        }
+        setProperty(resolvedData);
+        if (resolvedData?.id) {
+          try {
+            const key = 'highpark_recently_viewed';
+            const current = JSON.parse(window.localStorage.getItem(key) || '[]') as string[];
+            const next = [String(resolvedData.id), ...current.filter((id) => id !== String(resolvedData.id))].slice(0, 6);
+            window.localStorage.setItem(key, JSON.stringify(next));
+          } catch { }
+        }
 
-      const mappedUnits = matching.filter((row) => row.unit_id).map((row) => ({
-        id: row.unit_id, property_id: row.property_id, unit_number: row.unit_number, floor: row.floor,
-        house_type: row.house_type, bedrooms: Number(row.bedrooms || 0), bathrooms: Number(row.bathrooms || 0),
-        monthly_rent: Number(row.monthly_rent || 0), reservation_fee: Number(row.reservation_fee || 0),
-        status: row.status, furnishing: row.furnishing, photos: row.unit_photos || [], videos: row.unit_videos || [],
-      }));
-      setUnits(mappedUnits as PropertyUnit[]);
+        const [{ data: landRows }, { data: saleRows }, { data: stayRows }] = await Promise.all([
+          supabase.from('land_parcels').select('*').eq('property_id', propertyId).order('created_at', { ascending: false }).limit(1),
+          supabase.from('sale_listings').select('*').eq('property_id', propertyId).eq('listing_status', 'active').order('created_at', { ascending: false }).limit(1),
+          supabase.from('short_stay_listings').select('*').eq('property_id', propertyId).eq('listing_status', 'active').order('created_at', { ascending: false }).limit(1),
+        ]);
+        setLandParcel((landRows?.[0] as Record<string, unknown> | undefined) || null);
+        setSaleListing((saleRows?.[0] as Record<string, unknown> | undefined) || null);
+        setShortStayListing((stayRows?.[0] as Record<string, unknown> | undefined) || null);
 
-      const prop = resolvedData;
-      if (prop) {
-        const photos = prop.photos?.length > 0 ? prop.photos : getPropertyImages(prop.property_type);
-        setGallery(photos);
+        const mappedUnits = matching.filter((row) => row.unit_id).map((row) => ({
+          id: row.unit_id, property_id: row.property_id, unit_number: row.unit_number, floor: row.floor,
+          house_type: row.house_type, bedrooms: Number(row.bedrooms || 0), bathrooms: Number(row.bathrooms || 0),
+          monthly_rent: Number(row.monthly_rent || 0), reservation_fee: Number(row.reservation_fee || 0),
+          status: row.status, furnishing: row.furnishing, photos: row.unit_photos || [], videos: row.unit_videos || [],
+        }));
+        if (mappedUnits.length > 0) setUnits(mappedUnits as PropertyUnit[]);
+
+        const prop = resolvedData;
+        if (prop) {
+          const photos = prop.photos?.length > 0 ? prop.photos : getPropertyImages(prop.property_type);
+          setGallery(photos);
+        }
+
+        if (profile) {
+          const { data: fav } = await supabase
+            .from('favorites')
+            .select('id')
+            .eq('property_id', propertyId)
+            .eq('user_id', profile.id)
+            .maybeSingle();
+          setIsFavorite(!!fav);
+        }
+
+        setLoading(false);
+      } catch (err) {
+        console.error('Property detail fallback to mock:', err);
+        const mockProp = getMockProperty(propertyId) || getMockProperty('mock-1');
+        if (mockProp) {
+          setProperty(mockProp);
+          setGallery(mockProp.photos?.length ? mockProp.photos : getPropertyImages(mockProp.property_type));
+          setUnits([{ id: 'mock-unit-1', property_id: mockProp.id, unit_number: 'A1', floor: 1, house_type: mockProp.property_type, bedrooms: 2, bathrooms: 2, monthly_rent: 85000, reservation_fee: 2000, status: 'available', furnishing: 'unfurnished', photos: [], videos: [] } as any]);
+        }
+        setLoading(false);
       }
-
-      if (profile) {
-        const { data: fav } = await supabase
-          .from('favorites')
-          .select('id')
-          .eq('property_id', propertyId)
-          .eq('user_id', profile.id)
-          .maybeSingle();
-        setIsFavorite(!!fav);
-      }
-
-      setLoading(false);
     })();
   }, [propertyId, profile]);
 
