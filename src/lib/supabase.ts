@@ -3,13 +3,19 @@ import { createClient } from '@supabase/supabase-js';
 const url = import.meta.env.VITE_SUPABASE_URL;
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-if (!url || !anonKey) {
-  throw new Error(
-    'Missing Supabase environment variables. Check VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.'
-  );
+// For preview / local development without env, use a dummy URL so the app can still render
+// The UI will show empty states instead of crashing with white screen
+const fallbackUrl = 'https://placeholder.supabase.co';
+const fallbackKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.placeholder';
+
+const finalUrl = url && url !== 'https://YOUR-PROJECT.supabase.co' ? url : fallbackUrl;
+const finalKey = anonKey && anonKey !== 'YOUR_SUPABASE_ANON_OR_PUBLISHABLE_KEY' ? anonKey : fallbackKey;
+
+if (!url || !anonKey || url === 'https://YOUR-PROJECT.supabase.co' || anonKey === 'YOUR_SUPABASE_ANON_OR_PUBLISHABLE_KEY') {
+  console.warn('Supabase env vars missing or placeholder — using fallback for UI preview. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY for full functionality.');
 }
 
-export const supabase = createClient(url, anonKey, {
+export const supabase = createClient(finalUrl, finalKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
@@ -349,5 +355,3 @@ export interface SystemSettings {
   mpesa_account_prefix?: string | null;
   updated_at: string;
 }
-
-
