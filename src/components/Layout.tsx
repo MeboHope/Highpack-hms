@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Bell, Heart, LayoutDashboard, LogOut, Menu, X, Phone, Mail, MapPin, MessageCircle, Navigation } from 'lucide-react';
+import { Bell, Heart, LayoutDashboard, LogOut, Menu, X, Phone, Mail, MapPin } from 'lucide-react';
 import { Link } from '@/context/RouterContext';
 import { useRouter } from '@/context/hooks';
 import { useAuth } from '@/context/hooks';
 import { useToast } from '@/context/hooks';
 import { Brand } from '@/components/Brand';
-import highparkLogo from '@/assets/highpark-logo-clean.png';
 
 export function Header() {
   const { path, navigate } = useRouter();
@@ -13,29 +12,25 @@ export function Header() {
   const { toast } = useToast();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [navigatingTo, setNavigatingTo] = useState<string | null>(null);
 
+  // Reduced to 4-5 key items — secondary moved to footer
   const navLinks = [
     { label: 'Home', to: '/' },
     { label: 'Properties', to: '/properties' },
-    { label: 'Buy', to: '/properties?category=buy' },
-    { label: 'Rent', to: '/properties?category=rent' },
-    { label: 'Land & Plots', to: '/properties?category=land' },
-    { label: 'Short Stays', to: '/properties?category=short_stay' },
     { label: 'About', to: '/about' },
     { label: 'Contact', to: '/contact' },
   ];
 
   useEffect(() => {
-    if (!navigatingTo) return;
-    const timer = window.setTimeout(() => setNavigatingTo(null), 650);
-    return () => window.clearTimeout(timer);
-  }, [path, navigatingTo]);
-
-  const handleNavigation = (label: string) => {
-    setMenuOpen(false);
-    setNavigatingTo(label);
-  };
+    if (mobileOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [mobileOpen]);
 
   const isActive = (to: string) =>
     to === '/' ? path === '/' : path === to || path.startsWith(`${to}/`) || path.startsWith(`${to}?`);
@@ -56,22 +51,18 @@ export function Header() {
   };
 
   return (
-    <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-xl shadow-[0_8px_30px_rgba(13,35,66,0.04)]">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="flex h-[76px] items-center justify-between gap-5">
+    <>
+      <header className="header">
+        <div className="header__inner">
           <Brand compact />
 
-          <nav aria-label="Main navigation" className="hidden items-center gap-0.5 rounded-2xl bg-ink-50/70 p-1 shadow-sm md:flex">
+          <nav aria-label="Main navigation" className="header__nav">
             {navLinks.map((link) => (
               <Link
                 key={link.to}
                 to={link.to}
-                onClick={() => handleNavigation(link.label)}
-                className={`rounded-xl px-2.5 py-2 text-[13px] font-semibold transition-all lg:px-3 ${
-                  isActive(link.to)
-                    ? 'bg-white text-brand-900 shadow-sm'
-                    : 'text-ink-600 hover:bg-white hover:text-brand-900'
-                }`}
+                onClick={() => setMenuOpen(false)}
+                className={`header__nav-link ${isActive(link.to) ? 'header__nav-link--active' : ''}`}
               >
                 {link.label}
               </Link>
@@ -87,7 +78,7 @@ export function Header() {
                 <Link to="/notifications" className="btn-ghost" aria-label="Notifications">
                   <Bell className="h-5 w-5" />
                 </Link>
-                <Link to={dashboardLink} className="btn-accent rounded-xl px-4 shadow-sm">
+                <Link to={dashboardLink} className="btn-primary">
                   <LayoutDashboard className="h-4 w-4" />
                   Dashboard
                 </Link>
@@ -96,11 +87,13 @@ export function Header() {
                   <button
                     type="button"
                     onClick={() => setMenuOpen((open) => !open)}
-                    className="flex items-center gap-2 rounded-lg p-1.5 transition-colors hover:bg-ink-50"
+                    className="flex items-center gap-2 p-1.5 transition-colors hover:bg-ink-50"
+                    style={{ borderRadius: '2px', minHeight: '44px', minWidth: '44px' }}
                     aria-expanded={menuOpen}
                     aria-haspopup="menu"
+                    aria-label="Account menu"
                   >
-                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-100 to-accent-100 font-bold text-brand-800 ring-2 ring-white shadow-sm">
+                    <div className="flex h-10 w-10 items-center justify-center bg-brand-900 font-bold text-white" style={{ borderRadius: '2px' }}>
                       {profile.full_name?.charAt(0).toUpperCase() || 'U'}
                     </div>
                   </button>
@@ -113,8 +106,8 @@ export function Header() {
                         className="fixed inset-0 z-10 h-full w-full cursor-default"
                         onClick={() => setMenuOpen(false)}
                       />
-                      <div className="absolute right-0 z-20 mt-3 w-60 overflow-hidden rounded-2xl border border-ink-100 bg-white py-1.5 shadow-2xl">
-                        <div className="border-b border-ink-100 bg-gradient-to-br from-brand-50/70 to-white px-4 py-3.5">
+                      <div className="absolute right-0 z-20 mt-2 w-60 overflow-hidden border border-ink-100 bg-white py-1.5 shadow-soft">
+                        <div className="border-b border-ink-100 bg-ink-50 px-4 py-3">
                           <p className="truncate text-sm font-semibold text-ink-900">{profile.full_name || 'User'}</p>
                           <p className="mt-0.5 text-xs capitalize text-ink-500">{profile.role === 'customer' ? 'Tenant' : profile.role}</p>
                         </div>
@@ -122,6 +115,7 @@ export function Header() {
                           to={dashboardLink}
                           onClick={() => setMenuOpen(false)}
                           className="flex items-center gap-2 px-4 py-2.5 text-sm text-ink-700 hover:bg-ink-50"
+                          style={{ minHeight: '44px' }}
                         >
                           <LayoutDashboard className="h-4 w-4" />
                           My Dashboard
@@ -130,6 +124,7 @@ export function Header() {
                           type="button"
                           onClick={handleSignOut}
                           className="flex w-full items-center gap-2 border-t border-ink-100 px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50"
+                          style={{ minHeight: '44px' }}
                         >
                           <LogOut className="h-4 w-4" />
                           Sign Out
@@ -149,39 +144,60 @@ export function Header() {
 
           <button
             type="button"
-            className="btn-ghost md:hidden"
-            onClick={() => setMobileOpen((open) => !open)}
-            aria-label="Toggle navigation"
+            className="header__hamburger"
+            onClick={() => setMobileOpen(true)}
+            aria-label="Open navigation menu"
             aria-expanded={mobileOpen}
           >
-            {mobileOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+            <Menu className="h-5 w-5" />
           </button>
         </div>
-      </div>
+      </header>
 
-      {mobileOpen && (
-        <div className="bg-white md:hidden">
-          <nav className="mx-auto max-w-7xl space-y-1 px-4 py-3 sm:px-6">
+      {/* Mobile drawer — slides in from side */}
+      <div className={`mobile-drawer ${mobileOpen ? 'mobile-drawer--open' : ''}`} aria-hidden={!mobileOpen}>
+        <div className="mobile-drawer__overlay" onClick={() => setMobileOpen(false)} />
+        <aside className="mobile-drawer__panel" role="dialog" aria-modal="true" aria-label="Navigation menu">
+          <div className="mobile-drawer__header">
+            <Brand compact />
+            <button
+              type="button"
+              onClick={() => setMobileOpen(false)}
+              className="flex h-11 w-11 items-center justify-center border border-ink-100 bg-white text-ink-600 hover:bg-ink-50"
+              style={{ borderRadius: '2px' }}
+              aria-label="Close navigation menu"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          <nav className="mobile-drawer__nav" aria-label="Mobile navigation">
             {navLinks.map((link) => (
               <Link
                 key={link.to}
                 to={link.to}
-                onClick={() => { setMobileOpen(false); handleNavigation(link.label); }}
-                className={`block rounded-lg px-3 py-2.5 text-sm font-semibold ${
-                  isActive(link.to) ? 'bg-white text-brand-900 shadow-sm' : 'text-ink-700 hover:bg-ink-50'
-                }`}
+                onClick={() => setMobileOpen(false)}
+                className={`mobile-drawer__link ${isActive(link.to) ? 'mobile-drawer__link--active' : ''}`}
               >
                 {link.label}
               </Link>
             ))}
 
-            <div className="mt-2 pt-3">
+            <div className="mt-6 border-t border-ink-100 pt-6">
+              <p className="mb-3 px-1 text-xs font-bold uppercase tracking-wide text-ink-400">Browse</p>
+              <Link to="/properties?category=buy" onClick={() => setMobileOpen(false)} className="mobile-drawer__link">Buy</Link>
+              <Link to="/properties?category=rent" onClick={() => setMobileOpen(false)} className="mobile-drawer__link">Rent</Link>
+              <Link to="/properties?category=land" onClick={() => setMobileOpen(false)} className="mobile-drawer__link">Land & Plots</Link>
+              <Link to="/properties?category=short_stay" onClick={() => setMobileOpen(false)} className="mobile-drawer__link">Short Stays</Link>
+            </div>
+
+            <div className="mt-auto pt-6">
               {profile ? (
                 <>
                   <Link
                     to={dashboardLink}
                     onClick={() => setMobileOpen(false)}
-                    className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold text-ink-700 hover:bg-ink-50"
+                    className="mobile-drawer__link"
                   >
                     <LayoutDashboard className="h-4 w-4" />
                     Dashboard
@@ -189,7 +205,7 @@ export function Header() {
                   <button
                     type="button"
                     onClick={handleSignOut}
-                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm font-semibold text-red-600 hover:bg-red-50"
+                    className="mobile-drawer__link w-full text-left text-red-600"
                   >
                     <LogOut className="h-4 w-4" />
                     Sign Out
@@ -200,14 +216,14 @@ export function Header() {
                   <Link
                     to="/login"
                     onClick={() => setMobileOpen(false)}
-                    className="btn-secondary"
+                    className="btn-secondary text-center"
                   >
                     Sign In
                   </Link>
                   <Link
                     to="/register"
                     onClick={() => setMobileOpen(false)}
-                    className="btn-primary"
+                    className="btn-primary text-center"
                   >
                     Get Started
                   </Link>
@@ -215,68 +231,48 @@ export function Header() {
               )}
             </div>
           </nav>
-        </div>
-      )}
-
-      {navigatingTo && (
-        <div className="pointer-events-none fixed inset-x-0 top-0 z-[70]">
-          <div className="h-0.5 overflow-hidden bg-brand-950/10"><div className="hp-nav-progress h-full w-1/3 bg-accent-500" /></div>
-          <div className="mx-auto mt-3 flex w-fit items-center gap-2 rounded-full border border-white/70 bg-brand-950 px-4 py-2 text-xs font-bold text-white shadow-2xl">
-            <span className="h-2 w-2 animate-pulse rounded-full bg-accent-400" /> Opening {navigatingTo}
-          </div>
-        </div>
-      )}
-    </header>
+        </aside>
+      </div>
+    </>
   );
 }
 
 export function Footer() {
   return (
-    <footer className="mt-20 bg-brand-950 text-ink-300">
-      <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
-        <div className="mb-10 grid grid-cols-1 gap-10 rounded-3xl bg-white/[0.03] p-7 md:grid-cols-[1.3fr_.8fr_.8fr_1.1fr] md:p-9">
-          <div>
-            <Link to="/" className="inline-flex rounded-xl bg-white p-2" aria-label="HighPark Consult Ltd">
-              <img src={highparkLogo} alt="HighPark Consult Ltd" className="h-24 w-24 object-contain" />
+    <footer className="footer">
+      <div className="footer__inner">
+        <div className="footer__top">
+          <div className="footer__brand">
+            <Link to="/" className="inline-flex items-center gap-3" aria-label="HighPark Consult Ltd">
+              <span className="flex h-10 w-10 items-center justify-center bg-white text-brand-900 font-bold text-sm" style={{ borderRadius: '2px' }}>HP</span>
+              <span className="text-white font-bold tracking-wide">HIGHPARK CONSULT</span>
             </Link>
-            <p className="mt-4 max-w-sm text-sm leading-6 text-ink-400">
-              HighPark Consult Ltd — trusted property solutions, strategic guidance, and professional property management in Kenya.
+            <p>
+              Trusted property solutions, strategic guidance, and professional property management in Kenya.
             </p>
-            <p className="mt-5 text-xs font-semibold uppercase tracking-[0.18em] text-accent-300">HighPark K Consult LTD GROUP</p>
-          </div>
-
-          <div>
-            <h3 className="text-sm font-semibold text-white">Explore</h3>
-            <div className="mt-4 space-y-2 text-sm">
-              <Link to="/properties" className="block hover:text-accent-300">Browse Properties, Land & Stays</Link>
-              <Link to="/about" className="block hover:text-accent-300">About Us</Link>
-              <Link to="/faqs" className="block hover:text-accent-300">FAQs</Link>
-              <Link to="/contact" className="block hover:text-accent-300">Contact</Link>
+            <div className="mt-4 flex flex-col gap-2 text-sm text-white/70">
+              <a href="tel:+254710382989" className="inline-flex items-center gap-2 hover:text-white transition-colors" style={{ minHeight: '44px' }}>
+                <Phone className="h-4 w-4" /> +254 710 382989
+              </a>
+              <a href="mailto:lawparkconsultltd@gmail.com" className="inline-flex items-center gap-2 hover:text-white transition-colors" style={{ minHeight: '44px' }}>
+                <Mail className="h-4 w-4" /> lawparkconsultltd@gmail.com
+              </a>
+              <span className="inline-flex items-center gap-2">
+                <MapPin className="h-4 w-4" /> 5017-00100, Nairobi, Kenya
+              </span>
             </div>
           </div>
 
-          <div>
-            <h3 className="text-sm font-semibold text-white">For Tenants</h3>
-            <div className="mt-4 space-y-2 text-sm">
-              <Link to="/properties" className="block hover:text-accent-300">Explore Properties & Land</Link>
-              <Link to="/register" className="block hover:text-accent-300">Create Tenant Account</Link>
-              <Link to="/login" className="block hover:text-accent-300">Tenant Sign In</Link>
-            </div>
-          </div>
-
-          <div>
-            <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-accent-300">Contact & Office</h3>
-            <div className="mt-4 space-y-3 text-sm text-ink-400">
-              <a href="tel:+254710382989" className="contact-row"><Phone className="h-4 w-4 text-accent-300" /><span><strong className="block text-white">Phone</strong>+254 710 382989</span></a>
-              <a href="mailto:lawparkconsultltd@gmail.com" className="contact-row"><Mail className="h-4 w-4 text-accent-300" /><span><strong className="block text-white">Email</strong>lawparkconsultltd@gmail.com</span></a>
-              <a href="https://wa.me/254710382989" target="_blank" rel="noreferrer" className="contact-row"><MessageCircle className="h-4 w-4 text-accent-300" /><span><strong className="block text-white">WhatsApp</strong>+254 710 382989</span></a>
-              <div className="contact-row"><MapPin className="h-4 w-4 text-accent-300" /><span><strong className="block text-white">Postal / Office</strong>5017-00100, Nairobi, Kenya</span></div>
-              <div className="contact-row"><Navigation className="h-4 w-4 text-accent-300" /><span><strong className="block text-white">Group</strong>HighPark K Consult LTD GROUP</span></div>
-            </div>
+          <div className="footer__links">
+            <Link to="/">Home</Link>
+            <Link to="/properties">Properties</Link>
+            <Link to="/about">About</Link>
+            <Link to="/contact">Contact</Link>
+            <Link to="/faqs">FAQs</Link>
           </div>
         </div>
 
-        <div className="mt-10 flex flex-col items-center justify-between gap-3 pt-6 text-center text-sm text-ink-500 sm:flex-row sm:text-left">
+        <div className="footer__bottom">
           <p>© {new Date().getFullYear()} HighPark Consult Ltd. All rights reserved.</p>
           <p>Professional property solutions in Kenya.</p>
         </div>

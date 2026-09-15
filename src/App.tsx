@@ -31,47 +31,9 @@ import { AdminPortfolio, OwnerPortfolio } from '@/pages/PortfolioPages';
 import { ShortStayOperations } from '@/pages/ShortStayPages';
 import { AdminSales, OwnerSales } from '@/pages/SalesPages';
 import React, { useEffect, type JSX } from 'react';
-import highparkLogo from '@/assets/highpark-logo-clean.png';
 import { PropertyAIChat } from '@/components/PropertyAIChat';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { hasStaffPermission, canStaffAccessProperty, ADMIN_PERMISSION } from '@/lib/staffAccess';
-
-
-function ScrollRevealObserver() {
-  const { path } = useRouter();
-
-  useEffect(() => {
-    const root = document.querySelector('main');
-    if (!root) return;
-
-    const candidates = Array.from(root.querySelectorAll<HTMLElement>(
-      'section, .card, .card-hover, [data-scroll-reveal]'
-    ));
-
-    candidates.forEach((element, index) => {
-      element.classList.add('hp-scroll-reveal');
-      element.style.setProperty('--hp-reveal-delay', `${Math.min(index % 6, 5) * 55}ms`);
-    });
-
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      candidates.forEach((element) => element.classList.add('hp-scroll-reveal-visible'));
-      return;
-    }
-
-    const observer = new IntersectionObserver((entries, currentObserver) => {
-      entries.forEach((entry) => {
-        if (!entry.isIntersecting) return;
-        entry.target.classList.add('hp-scroll-reveal-visible');
-        currentObserver.unobserve(entry.target);
-      });
-    }, { threshold: 0.08, rootMargin: '0px 0px -7% 0px' });
-
-    candidates.forEach((element) => observer.observe(element));
-    return () => observer.disconnect();
-  }, [path]);
-
-  return null;
-}
 
 function ScrollProgress() {
   const [progress, setProgress] = React.useState(0);
@@ -91,7 +53,12 @@ function ScrollProgress() {
     };
   }, []);
 
-  return <div className="scroll-progress" aria-hidden="true"><span style={{ width: `${progress}%` }} /></div>;
+  // Use transform only for GPU acceleration
+  return (
+    <div className="scroll-progress" aria-hidden="true">
+      <span style={{ transform: `scaleX(${progress / 100})`, transformOrigin: 'left' }} />
+    </div>
+  );
 }
 
 class AppErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean; message: string }> {
@@ -104,7 +71,20 @@ class AppErrorBoundary extends React.Component<{ children: React.ReactNode }, { 
   }
   render() {
     if (this.state.hasError) {
-      return <div className="min-h-screen bg-ink-50 px-6 py-16 text-center"><div className="mx-auto max-w-xl rounded-3xl border border-red-100 bg-white p-8 shadow-soft-lg"><div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-2xl bg-red-50 text-red-600">!</div><h1 className="text-2xl font-bold text-ink-900">HighPark Consult could not load this page</h1><p className="mt-3 text-sm leading-6 text-ink-500">A page component encountered an unexpected error. Refresh the page and try again.</p><details className="mt-5 text-left"><summary className="cursor-pointer text-xs font-semibold text-ink-500">Technical details</summary><pre className="mt-2 overflow-auto rounded-xl bg-ink-50 p-3 text-xs text-red-700">{this.state.message}</pre></details><button type="button" onClick={() => window.location.reload()} className="btn-primary mt-6">Refresh page</button></div></div>;
+      return (
+        <div className="min-h-screen bg-ink-50 px-6 py-16 text-center">
+          <div className="mx-auto max-w-xl border border-red-100 bg-white p-8" style={{ borderRadius: '4px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center bg-red-50 text-red-600" style={{ borderRadius: '2px' }}>!</div>
+            <h1 className="text-2xl font-bold text-ink-900">HighPark Consult could not load this page</h1>
+            <p className="mt-3 text-sm leading-6 text-ink-500">A page component encountered an unexpected error. Refresh the page and try again.</p>
+            <details className="mt-5 text-left">
+              <summary className="cursor-pointer text-xs font-semibold text-ink-500">Technical details</summary>
+              <pre className="mt-2 overflow-auto bg-ink-50 p-3 text-xs text-red-700" style={{ borderRadius: '2px' }}>{this.state.message}</pre>
+            </details>
+            <button type="button" onClick={() => window.location.reload()} className="btn-primary mt-6">Refresh page</button>
+          </div>
+        </div>
+      );
     }
     return this.props.children;
   }
@@ -168,9 +148,8 @@ function PublicLayout({ children }: { children: JSX.Element }) {
   return (
     <div className="min-h-screen flex flex-col">
       <PageMeta />
-      <ScrollRevealObserver />
       <Header />
-      <main key={path} className="flex-1 hp-page-enter">{children}</main>
+      <main key={path} className="flex-1">{children}</main>
       <Footer />
       <PropertyAIChat />
     </div>
@@ -182,8 +161,8 @@ function AccessDenied() {
   return (
     <PublicLayout>
       <div className="mx-auto flex min-h-[60vh] max-w-xl flex-col items-center justify-center px-4 text-center">
-        <div className="mb-5 rounded-2xl bg-red-50 px-5 py-3 text-sm font-semibold text-red-700">Access restricted</div>
-        <h1 className="text-3xl font-bold text-brand-950">You do not have permission to view this page.</h1>
+        <div className="mb-5 bg-red-50 px-5 py-3 text-sm font-semibold text-red-700 border border-red-100" style={{ borderRadius: '2px' }}>Access restricted</div>
+        <h1 className="text-2xl font-bold" style={{ color: '#0d2342' }}>You do not have permission to view this page.</h1>
         <p className="mt-3 text-ink-500">Please sign in with an account that has the required access.</p>
         <button type="button" onClick={() => navigate('/')} className="btn-primary mt-7">Return Home</button>
       </div>
@@ -198,7 +177,7 @@ function Routes() {
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-ink-50">
-        <Spinner className="h-8 w-8 text-brand-500" />
+        <Spinner className="h-8 w-8 text-brand-900" />
       </div>
     );
   }
@@ -220,7 +199,6 @@ function Routes() {
 
   if (isProtectedPath && !profile) return <AuthPage mode="login" />;
 
-  // Owner / property-manager routes
   if (path === '/owner') return isOwner ? <OwnerDashboard /> : <AccessDenied />;
   if (path === '/owner/properties') return isOwner ? <OwnerProperties /> : <AccessDenied />;
   if (path.startsWith('/owner/units/')) return isOwner ? <OwnerUnits propertyId={path.split('/owner/units/')[1]} /> : <AccessDenied />;
@@ -238,7 +216,6 @@ function Routes() {
   if (path === '/owner/short-stay') return isOwner ? <ShortStayOperations ownerOnly /> : <AccessDenied />;
   if (path === '/owner/sales') return isOwner ? <OwnerSales /> : <AccessDenied />;
 
-  // Tenant routes
   if (path === '/tenant') return isTenant ? <TenantDashboard /> : <AccessDenied />;
   if (path === '/tenant/reservations') return isTenant ? <TenantReservations /> : <AccessDenied />;
   if (path === '/tenant/viewings') return isTenant ? <TenantViewings /> : <AccessDenied />;
@@ -250,8 +227,6 @@ function Routes() {
   if (path === '/tenant/settings') return isTenant ? <TenantSettings /> : <AccessDenied />;
   if (path === '/tenant/documents') return isTenant ? <TenantDocuments /> : <AccessDenied />;
 
-  // Admin routes. Operational staff are allowed only through their assigned
-  // permission set; Super Admin remains unrestricted.
   const adminAllowed = (permission: string) => isAdmin && hasStaffPermission(staffAccess, permission);
   const adminPropertyAllowed = (permission: string, propertyId: string | null) => isAdmin && canStaffAccessProperty(staffAccess, propertyId, permission);
 
@@ -293,16 +268,15 @@ function Routes() {
 
 function App() {
   return (
-    <div className="app-shell">
+    <div className="app-shell min-h-screen bg-white">
       <ScrollProgress />
-      <div className="site-watermark" aria-hidden="true"><img src={highparkLogo} alt="" /></div>
       <AppErrorBoundary>
         <RouterProvider>
-        <AuthProvider>
-          <ToastProvider>
-            <Routes />
-          </ToastProvider>
-        </AuthProvider>
+          <AuthProvider>
+            <ToastProvider>
+              <Routes />
+            </ToastProvider>
+          </AuthProvider>
         </RouterProvider>
       </AppErrorBoundary>
     </div>

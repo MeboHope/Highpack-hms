@@ -10,10 +10,6 @@ export default {
       },
 
       colors: {
-        /*
-         * HIGH PARK CONSULT
-         * Primary: Deep Navy
-         */
         brand: {
           50: '#f1f5fb',
           100: '#e2eaf5',
@@ -27,11 +23,6 @@ export default {
           900: '#0d2342',
           950: '#07172f',
         },
-
-        /*
-         * HIGH PARK CONSULT
-         * Secondary: Gold
-         */
         accent: {
           50: '#fffaf0',
           100: '#fff3d6',
@@ -45,10 +36,6 @@ export default {
           900: '#604512',
           950: '#362507',
         },
-
-        /*
-         * Neutral / text colors
-         */
         ink: {
           50: '#f7f8fa',
           100: '#eef0f4',
@@ -65,9 +52,9 @@ export default {
       },
 
       animation: {
-        'fade-in': 'fadeIn 0.4s ease-out',
-        'slide-up': 'slideUp 0.5s ease-out',
-        'scale-in': 'scaleIn 0.2s ease-out',
+        'fade-in': 'fadeIn 0.15s ease-out',
+        'slide-up': 'slideUp 0.15s ease-out',
+        'scale-in': 'scaleIn 0.15s ease-out',
       },
 
       keyframes: {
@@ -75,22 +62,20 @@ export default {
           '0%': { opacity: '0' },
           '100%': { opacity: '1' },
         },
-
         slideUp: {
           '0%': {
             opacity: '0',
-            transform: 'translateY(20px)',
+            transform: 'translateY(8px)',
           },
           '100%': {
             opacity: '1',
             transform: 'translateY(0)',
           },
         },
-
         scaleIn: {
           '0%': {
             opacity: '0',
-            transform: 'scale(0.95)',
+            transform: 'scale(0.98)',
           },
           '100%': {
             opacity: '1',
@@ -100,14 +85,25 @@ export default {
       },
 
       boxShadow: {
-        'soft': '0 10px 30px rgba(13, 35, 66, 0.08)',
-        'soft-lg': '0 20px 50px rgba(13, 35, 66, 0.12)',
-        'gold': '0 8px 25px rgba(201, 151, 46, 0.20)',
+        'soft': '0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06)',
+        'soft-lg': '0 4px 6px rgba(0,0,0,0.10), 0 2px 4px rgba(0,0,0,0.06)',
+        'soft-xl': '0 8px 16px rgba(0,0,0,0.08), 0 4px 8px rgba(0,0,0,0.04)',
       },
 
       borderRadius: {
-        'xl': '0.875rem',
-        '2xl': '1.25rem',
+        'none': '0px',
+        'sm': '2px',
+        'DEFAULT': '2px',
+        'md': '4px',
+        'lg': '4px',
+        'xl': '4px',
+        '2xl': '8px',
+        '3xl': '8px',
+        'full': '2px',
+      },
+
+      maxWidth: {
+        'container': '1200px',
       },
     },
   },

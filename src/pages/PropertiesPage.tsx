@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowRight, Building2, MapPin, Search, ShieldCheck, SlidersHorizontal, Tag, Sparkles, X } from 'lucide-react';
+import { Building2, MapPin, Search, ShieldCheck, SlidersHorizontal, Tag, X } from 'lucide-react';
 import { Link } from '@/context/RouterContext';
 import { useRouter } from '@/context/hooks';
 import { supabase } from '@/lib/supabase';
@@ -33,8 +33,6 @@ export function PropertiesPage() {
   const [sort, setSort] = useState('featured');
   const [recentIds, setRecentIds] = useState<string[]>([]);
 
-  // The same marketplace component stays mounted while the hash URL changes.
-  // Keep its controls synchronized with the navbar/category links.
   useEffect(() => {
     setQuery(params.get('q') || '');
     setCategory(params.get('category') || '');
@@ -78,12 +76,12 @@ export function PropertiesPage() {
   }, [rows, query, category, assetClass, operation, location]);
 
   const hasFilters = Boolean(query || category || assetClass || operation || location);
-  const categoryMeta: Record<string, { eyebrow: string; title: string; description: string; accent: string }> = {
-    buy: { eyebrow: 'BUY WITH CONFIDENCE', title: 'Properties and land available for purchase', description: 'Review verified sale opportunities with location, land details, pricing and property information before making an enquiry.', accent: 'Purchase opportunities' },
-    rent: { eyebrow: 'RENT WITH CLARITY', title: 'Homes and commercial spaces for rent', description: 'Explore long-term rental opportunities with clear location, availability and rental information.', accent: 'Rental opportunities' },
-    land: { eyebrow: 'LAND & PLOTS', title: 'Land and plots for your next move', description: 'Compare land opportunities by location, acreage, plot count, dimensions, tenure and other available details.', accent: 'Land opportunities' },
-    short_stay: { eyebrow: 'SHORT STAYS', title: 'Comfortable stays, ready when you are', description: 'Discover short-stay accommodation and enquire about availability, rates and the location that suits your plans.', accent: 'Short-stay opportunities' },
-    '': { eyebrow: 'HIGHPARK MARKETPLACE', title: 'Property opportunities, all in one place', description: 'Explore verified homes, commercial spaces, land, plots, developments and short stays across the HighPark marketplace.', accent: 'All opportunities' },
+  const categoryMeta: Record<string, { eyebrow: string; title: string; description: string }> = {
+    buy: { eyebrow: 'Buy with confidence', title: 'Properties and land for purchase', description: 'Review verified sale opportunities with location and pricing information.' },
+    rent: { eyebrow: 'Rent with clarity', title: 'Homes and commercial spaces for rent', description: 'Explore long-term rental opportunities with clear availability and rental information.' },
+    land: { eyebrow: 'Land & Plots', title: 'Land and plots for your next move', description: 'Compare land opportunities by location, acreage, plot count and dimensions.' },
+    short_stay: { eyebrow: 'Short stays', title: 'Comfortable stays, ready when you are', description: 'Discover short-stay accommodation and enquire about availability and rates.' },
+    '': { eyebrow: 'Marketplace', title: 'Property opportunities, all in one place', description: 'Explore verified homes, commercial spaces, land and short stays.' },
   };
   const meta = categoryMeta[category] || categoryMeta[''];
 
@@ -107,62 +105,190 @@ export function PropertiesPage() {
     return 0;
   }), [filtered, sort]);
 
-  return <div className="min-h-screen bg-[radial-gradient(circle_at_top_right,rgba(14,165,233,0.07),transparent_30%),radial-gradient(circle_at_top_left,rgba(15,118,110,0.06),transparent_28%)]"><div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-    <div className="relative mb-7 overflow-hidden rounded-[30px] bg-brand-950 p-7 text-white shadow-[0_25px_70px_rgba(7,25,53,0.18)] sm:p-10">
-      <div className="absolute -right-24 -top-24 h-64 w-64 rounded-full bg-accent-400/10 blur-3xl" />
-      <div className="absolute -bottom-28 left-1/3 h-64 w-64 rounded-full bg-brand-400/10 blur-3xl" />
-      <div className="relative flex flex-col gap-7 lg:flex-row lg:items-end lg:justify-between">
-        <div className="max-w-3xl"><div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.15em] text-accent-200"><ShieldCheck className="h-4 w-4" /> {meta.eyebrow}</div><h1 className="text-3xl font-bold leading-tight text-white sm:text-4xl lg:text-5xl">{meta.title}</h1><p className="mt-4 max-w-2xl text-sm leading-7 text-white/85 sm:text-base">{meta.description}</p></div>
-        <Link to="/register" className="btn-accent shrink-0"><ArrowRight className="h-4 w-4" /> Get started</Link>
-      </div>
-    </div>
-
-    <div className="mb-7 rounded-3xl border border-ink-100 bg-white p-3 shadow-[0_14px_40px_rgba(13,35,66,0.07)]">
-      <div className="flex flex-wrap gap-2 border-b border-ink-100 p-1 pb-3">
-        {[['', 'All opportunities'], ['buy', 'Buy'], ['rent', 'Rent'], ['land', 'Land & Plots'], ['short_stay', 'Short Stays']].map(([value, text]) => <button key={value} type="button" onClick={() => selectCategory(value)} className={`rounded-2xl px-4 py-2.5 text-sm font-bold transition-all ${category === value ? 'bg-brand-950 text-white shadow-md' : 'text-ink-600 hover:bg-ink-50 hover:text-brand-800'}`}>{text}</button>)}
-      </div>
-      <div className="flex flex-col gap-3 p-1 pt-3 lg:flex-row"><div className="relative flex-1"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" /><input className="input pl-10" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search by property, location, land reference or opportunity…" /></div><button type="button" className="btn-secondary lg:hidden" onClick={() => setShowFilters(!showFilters)}><SlidersHorizontal className="h-4 w-4" /> Refine</button><div className={`${showFilters ? 'grid' : 'hidden'} grid-cols-1 gap-3 sm:grid-cols-3 lg:flex lg:flex-1`}><select className="input lg:w-52" value={assetClass} onChange={(e) => setAssetClass(e.target.value)}><option value="">All asset classes</option>{ASSET_CLASS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</select><select className="input lg:w-52" value={operation} onChange={(e) => setOperation(e.target.value)}><option value="">All opportunities</option>{OPERATION_MODEL_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</select><select className="input lg:w-44" value={location} onChange={(e) => setLocation(e.target.value)}><option value="">All counties</option>{KENYAN_COUNTIES.map((c) => <option key={c}>{c}</option>)}</select></div>{hasFilters && <button type="button" className="btn-ghost" onClick={clear}><X className="h-4 w-4" /> Clear</button>}</div>
-    </div>
-
-    <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div><div className="mb-1 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.15em] text-accent-700"><Sparkles className="h-3.5 w-3.5" /> {meta.accent}</div><h2 className="text-2xl font-bold text-ink-900">Current opportunities</h2><p className="mt-1 text-sm text-ink-500">{loading ? 'Loading verified opportunities…' : `${filtered.length} opportunity${filtered.length === 1 ? '' : 'ies'} available`}</p></div><select className="input w-full sm:w-48" value={sort} onChange={(e) => setSort(e.target.value)} aria-label="Sort opportunities"><option value="featured">Featured</option><option value="newest">Newest</option><option value="price_low">Price: low to high</option><option value="price_high">Price: high to low</option></select></div>
-
-    {loading ? <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">{Array.from({length:6}).map((_,i)=><SkeletonCard key={i}/>)}</div> : sorted.length === 0 ? <EmptyState icon={<Building2 className="h-8 w-8" />} title="No matching opportunities" description="Try another location, asset class or operating model." action={<button type="button" className="btn-primary" onClick={clear}>View all opportunities</button>} /> : <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">{sorted.map((r) => {
-      const image = r.photos?.[0] || getPropertyImage(r.property_type);
-      const view = getPropertyPresentation(r.asset_class, r.operation_model, r.property_type);
-      const isLand = view.kind === 'land'; const isStay = r.short_stay_listing_count > 0 || r.operation_model === 'short_stay'; const isSale = r.sale_listing_count > 0 || ['sale','land_sale'].includes(r.operation_model);
-      return <Link key={r.property_id} to={`/property/${r.property_id}`} className="group overflow-hidden rounded-3xl border border-ink-100/90 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-brand-200 hover:shadow-soft-lg">
-        <div className="relative h-52 overflow-hidden bg-ink-100"><img src={image} alt={r.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" /><div className="absolute left-3 top-3 flex flex-wrap gap-1.5"><span className="badge bg-brand-600 text-white shadow-sm"><ShieldCheck className="h-3 w-3" /> Verified</span><span className="badge bg-white/95 text-ink-800 shadow-sm">{label(r.asset_class)}</span>{isSale&&<span className="badge bg-accent-100 text-accent-800">For sale</span>}{isStay&&<span className="badge bg-brand-100 text-brand-800">Short stay</span>}</div></div>
-        <div className="p-5"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><h3 className="truncate font-bold text-ink-900 group-hover:text-brand-700">{r.name}</h3><p className="mt-1 flex items-center gap-1.5 text-xs text-ink-500"><MapPin className="h-3.5 w-3.5" /> {r.town}, {r.county}</p></div><Tag className="h-4 w-4 shrink-0 text-brand-500" /></div><div className="mt-4 flex flex-wrap gap-1.5"><span className="badge bg-ink-50 text-ink-600">{r.property_type}</span><span className="badge bg-brand-50 text-brand-700">{view.label}</span>{r.ownership_type&&<span className="badge bg-ink-50 text-ink-600">{label(r.ownership_type)}</span>}{isLand&&r.total_land_area&&<span className="badge bg-accent-50 text-accent-700">{r.total_land_area} {r.land_area_unit || 'acres'}</span>}</div><div className="mt-5 grid grid-cols-2 gap-3 border-t border-ink-100 pt-4">{isLand ? <><div><p className="text-[11px] uppercase tracking-wide text-ink-400">Plots</p><p className="font-bold text-brand-700">{r.plot_count || 0}</p></div><div className="text-right"><p className="text-[11px] uppercase tracking-wide text-ink-400">Dimensions</p><p className="truncate font-semibold text-ink-800">{r.plot_dimensions || 'On enquiry'}</p></div></> : r.min_monthly_rent ? <div><p className="text-[11px] uppercase tracking-wide text-ink-400">From / month</p><p className="font-bold text-brand-700">{formatKES(Number(r.min_monthly_rent))}</p></div> : r.sale_min_price ? <div><p className="text-[11px] uppercase tracking-wide text-ink-400">Asking from</p><p className="font-bold text-brand-700">{formatKES(Number(r.sale_min_price))}</p></div> : r.short_stay_min_rate ? <div><p className="text-[11px] uppercase tracking-wide text-ink-400">From / night</p><p className="font-bold text-brand-700">{formatKES(Number(r.short_stay_min_rate))}</p></div> : <div><p className="text-[11px] uppercase tracking-wide text-ink-400">Opportunity</p><p className="font-bold text-brand-700">Enquire</p></div>}{isLand ? <div className="text-right"><p className="text-[11px] uppercase tracking-wide text-ink-400">Land reference</p><p className="truncate font-semibold text-ink-800">{r.parcel_number || r.title_number || 'Not provided'}</p></div> : <div className="text-right">{r.available_units>0?<><p className="text-[11px] uppercase tracking-wide text-ink-400">{view.availableLabel}</p><p className="font-semibold text-ink-800">{r.available_units} available</p></>:<><p className="text-[11px] uppercase tracking-wide text-ink-400">Operating model</p><p className="font-semibold text-ink-800">{label(r.operation_model)}</p></>}</div>}</div></div>
-      </Link>;
-    })}</div>}
-
-    {!loading && recentIds.length > 0 && (
-      <section className="mt-14 border-t border-ink-100 pt-10" aria-labelledby="recently-viewed-heading">
-        <div className="mb-5 flex items-end justify-between gap-4">
-          <div>
-            <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-accent-700">Continue browsing</p>
-            <h2 id="recently-viewed-heading" className="mt-1 text-2xl font-bold text-ink-900">Recently viewed</h2>
-            <p className="mt-1 text-sm text-ink-500">Return to opportunities you have already inspected.</p>
+  return (
+    <div style={{ background: '#ffffff' }}>
+      <div className="container-main" style={{ paddingTop: '24px', paddingBottom: '24px' }}>
+        {/* Header — solid, minimal */}
+        <div className="card" style={{ padding: '24px', background: '#0d2342', border: '1px solid #0d2342' }}>
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div style={{ maxWidth: '640px' }}>
+              <p className="text-xs font-bold uppercase tracking-wide" style={{ color: '#c9972e' }}>{meta.eyebrow}</p>
+              <h1 className="mt-2" style={{ color: '#ffffff' }}>{meta.title}</h1>
+              <p className="mt-3 text-sm leading-6" style={{ color: 'rgba(255,255,255,0.8)' }}>{meta.description}</p>
+            </div>
+            <Link to="/register" className="btn-accent shrink-0">Get started</Link>
           </div>
-          <button type="button" onClick={() => { localStorage.removeItem('highpark_recently_viewed'); setRecentIds([]); }} className="btn-ghost text-xs">Clear history</button>
         </div>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {recentIds.map((id) => rows.find((r) => String(r.property_id) === id)).filter(Boolean).slice(0, 3).map((r) => {
-            const row = r as UniversalProperty;
-            const image = row.photos?.[0] || getPropertyImage(row.property_type);
-            return (
-              <Link key={row.property_id} to={`/property/${row.property_id}`} className="group flex overflow-hidden rounded-2xl border border-ink-100 bg-white shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-soft-lg">
-                <img src={image} alt="" className="h-24 w-28 shrink-0 object-cover" loading="lazy" />
-                <div className="min-w-0 p-3">
-                  <p className="truncate font-bold text-ink-900 group-hover:text-brand-700">{row.name}</p>
-                  <p className="mt-1 truncate text-xs text-ink-500">{row.town}, {row.county}</p>
-                  <p className="mt-2 text-xs font-bold text-brand-700">View opportunity</p>
-                </div>
-              </Link>
-            );
-          })}
+
+        {/* Filters — mobile-first, single column on mobile */}
+        <div className="card mt-6" style={{ padding: '1rem' }}>
+          <div className="flex flex-wrap gap-2 border-b border-ink-100 pb-3">
+            {[['', 'All'], ['buy', 'Buy'], ['rent', 'Rent'], ['land', 'Land & Plots'], ['short_stay', 'Short Stays']].map(([value, text]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => selectCategory(value)}
+                className={`${category === value ? 'btn-primary' : 'btn-secondary'}`}
+                style={{ minHeight: '36px', padding: '0.5rem 1rem', fontSize: '0.8125rem' }}
+              >
+                {text}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex flex-col gap-3 pt-3 lg:flex-row">
+            <div className="relative flex-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
+              <input className="input pl-10" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search by property, location or opportunity…" />
+            </div>
+            <button type="button" className="btn-secondary lg:hidden" onClick={() => setShowFilters(!showFilters)} style={{ justifyContent: 'center' }}>
+              <SlidersHorizontal className="h-4 w-4" /> Filters
+            </button>
+            <div className={`${showFilters ? 'grid' : 'hidden'} grid-cols-1 gap-3 sm:grid-cols-3 lg:flex lg:flex-1`}>
+              <select className="input lg:w-44" value={assetClass} onChange={(e) => setAssetClass(e.target.value)}>
+                <option value="">All asset classes</option>
+                {ASSET_CLASS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+              <select className="input lg:w-44" value={operation} onChange={(e) => setOperation(e.target.value)}>
+                <option value="">All opportunities</option>
+                {OPERATION_MODEL_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+              <select className="input lg:w-40" value={location} onChange={(e) => setLocation(e.target.value)}>
+                <option value="">All counties</option>
+                {KENYAN_COUNTIES.map((c) => <option key={c}>{c}</option>)}
+              </select>
+            </div>
+            {hasFilters && (
+              <button type="button" className="btn-ghost" onClick={clear} style={{ minHeight: '44px' }}>
+                <X className="h-4 w-4" /> Clear
+              </button>
+            )}
+          </div>
         </div>
-      </section>
-    )}
-  </div></div>;
+
+        <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wide" style={{ color: '#c9972e' }}>Current opportunities</p>
+            <h2 className="mt-1">Available listings</h2>
+            <p className="mt-1 text-sm text-ink-500">{loading ? 'Loading verified opportunities…' : `${filtered.length} opportunities available`}</p>
+          </div>
+          <select className="input w-full sm:w-48" value={sort} onChange={(e) => setSort(e.target.value)} aria-label="Sort opportunities">
+            <option value="featured">Featured</option>
+            <option value="newest">Newest</option>
+            <option value="price_low">Price: low to high</option>
+            <option value="price_high">Price: high to low</option>
+          </select>
+        </div>
+
+        {loading ? (
+          <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)}
+          </div>
+        ) : sorted.length === 0 ? (
+          <div className="mt-6">
+            <EmptyState icon={<Building2 className="h-8 w-8" />} title="No matching opportunities" description="Try another location, asset class or operating model." action={<button type="button" className="btn-primary" onClick={clear}>View all opportunities</button>} />
+          </div>
+        ) : (
+          <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {sorted.map((r) => {
+              const image = r.photos?.[0] || getPropertyImage(r.property_type);
+              const view = getPropertyPresentation(r.asset_class, r.operation_model, r.property_type);
+              const isLand = view.kind === 'land';
+              const isStay = r.short_stay_listing_count > 0 || r.operation_model === 'short_stay';
+              const isSale = r.sale_listing_count > 0 || ['sale', 'land_sale'].includes(r.operation_model);
+              return (
+                <Link key={r.property_id} to={`/property/${r.property_id}`} className="card group overflow-hidden" style={{ padding: 0, borderRadius: '4px' }}>
+                  <div className="relative overflow-hidden bg-ink-100" style={{ aspectRatio: '16 / 9' }}>
+                    <img src={image} alt={r.name} className="h-full w-full object-cover transition-transform duration-150 ease-out group-hover:scale-[1.02]" loading="lazy" decoding="async" />
+                    <div className="absolute left-2 top-2 flex flex-wrap gap-1">
+                      <span className="badge badge-brand">Verified</span>
+                      {isSale && <span className="badge badge-accent">For sale</span>}
+                      {isStay && <span className="badge">Short stay</span>}
+                    </div>
+                  </div>
+                  <div style={{ padding: '1rem' }}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <h3 className="truncate font-semibold">{r.name}</h3>
+                        <p className="mt-1 flex items-center gap-1.5 text-xs text-ink-500"><MapPin className="h-3.5 w-3.5" /> {r.town}, {r.county}</p>
+                      </div>
+                      <Tag className="h-4 w-4 shrink-0 text-ink-400" />
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-1">
+                      <span className="badge">{r.property_type}</span>
+                      <span className="badge">{view.label}</span>
+                      {r.ownership_type && <span className="badge">{label(r.ownership_type)}</span>}
+                      {isLand && r.total_land_area && <span className="badge">{r.total_land_area} {r.land_area_unit || 'acres'}</span>}
+                    </div>
+                    <div className="mt-4 grid grid-cols-2 gap-3 border-t border-ink-100 pt-3">
+                      {isLand ? (
+                        <>
+                          <div><p className="text-[11px] uppercase tracking-wide text-ink-400">Plots</p><p className="font-bold text-brand-900">{r.plot_count || 0}</p></div>
+                          <div className="text-right"><p className="text-[11px] uppercase tracking-wide text-ink-400">Dimensions</p><p className="truncate font-semibold text-ink-800">{r.plot_dimensions || 'On enquiry'}</p></div>
+                        </>
+                      ) : r.min_monthly_rent ? (
+                        <div><p className="text-[11px] uppercase tracking-wide text-ink-400">From / month</p><p className="font-bold text-brand-900">{formatKES(Number(r.min_monthly_rent))}</p></div>
+                      ) : r.sale_min_price ? (
+                        <div><p className="text-[11px] uppercase tracking-wide text-ink-400">Asking from</p><p className="font-bold text-brand-900">{formatKES(Number(r.sale_min_price))}</p></div>
+                      ) : r.short_stay_min_rate ? (
+                        <div><p className="text-[11px] uppercase tracking-wide text-ink-400">From / night</p><p className="font-bold text-brand-900">{formatKES(Number(r.short_stay_min_rate))}</p></div>
+                      ) : (
+                        <div><p className="text-[11px] uppercase tracking-wide text-ink-400">Opportunity</p><p className="font-bold text-brand-900">Enquire</p></div>
+                      )}
+                      {isLand ? (
+                        <div className="text-right"><p className="text-[11px] uppercase tracking-wide text-ink-400">Land reference</p><p className="truncate font-semibold text-ink-800">{r.parcel_number || r.title_number || 'Not provided'}</p></div>
+                      ) : (
+                        <div className="text-right">
+                          {r.available_units > 0 ? (
+                            <>
+                              <p className="text-[11px] uppercase tracking-wide text-ink-400">{view.availableLabel}</p>
+                              <p className="font-semibold text-ink-800">{r.available_units} available</p>
+                            </>
+                          ) : (
+                            <>
+                              <p className="text-[11px] uppercase tracking-wide text-ink-400">Operating model</p>
+                              <p className="font-semibold text-ink-800">{label(r.operation_model)}</p>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        )}
+
+        {!loading && recentIds.length > 0 && (
+          <section className="mt-12 border-t border-ink-100 pt-8" aria-labelledby="recently-viewed-heading">
+            <div className="mb-5 flex items-end justify-between gap-4">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide" style={{ color: '#c9972e' }}>Continue browsing</p>
+                <h2 id="recently-viewed-heading" className="mt-1">Recently viewed</h2>
+                <p className="mt-1 text-sm text-ink-500">Return to opportunities you have already inspected.</p>
+              </div>
+              <button type="button" onClick={() => { localStorage.removeItem('highpark_recently_viewed'); setRecentIds([]); }} className="btn-ghost text-xs">Clear history</button>
+            </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {recentIds.map((id) => rows.find((r) => String(r.property_id) === id)).filter(Boolean).slice(0, 3).map((r) => {
+                const row = r as UniversalProperty;
+                const image = row.photos?.[0] || getPropertyImage(row.property_type);
+                return (
+                  <Link key={row.property_id} to={`/property/${row.property_id}`} className="card flex overflow-hidden group" style={{ padding: 0 }}>
+                    <img src={image} alt="" className="h-24 w-28 shrink-0 object-cover" loading="lazy" decoding="async" />
+                    <div className="min-w-0 p-3">
+                      <p className="truncate font-semibold group-hover:text-brand-900">{row.name}</p>
+                      <p className="mt-1 truncate text-xs text-ink-500">{row.town}, {row.county}</p>
+                      <p className="mt-2 text-xs font-bold" style={{ color: '#0d2342' }}>View opportunity</p>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </section>
+        )}
+      </div>
+    </div>
+  );
 }

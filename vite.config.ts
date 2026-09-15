@@ -7,6 +7,13 @@ declare const process: { cwd: () => string };
 
 export default defineConfig({
   plugins: [react()],
+  server: {
+    host: '0.0.0.0',
+    allowedHosts: true,
+    hmr: {
+      clientPort: 443,
+    },
+  },
   resolve: {
     alias: {
       '@': `${process.cwd()}/src`,

@@ -1,14 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-
-import {
-  Bell,
-  LogOut,
-  Menu,
-  X,
-  Heart,
-  Search,
-} from 'lucide-react';
-
+import { Bell, LogOut, Menu, X, Heart, Search } from 'lucide-react';
 import { Link } from '@/context/RouterContext';
 import { useRouter } from '@/context/hooks';
 import { useAuth } from '@/context/hooks';
@@ -130,133 +121,87 @@ export function DashboardLayout({
     : navItems;
 
   const roleLabel = profile?.role === 'admin' ? 'Administration' : profile?.role === 'owner' ? 'Asset owner' : 'Client workspace';
-  const routeLabel = path.startsWith('/owner') ? 'Owner workspace' : path.startsWith('/admin') ? 'Administration workspace' : path.startsWith('/tenant') ? 'Client workspace' : 'Marketplace';
-  const browseLabel = profile?.role === 'admin' ? 'View public marketplace' : 'Explore assets';
 
   return (
-    <div className="app-shell min-h-screen bg-[radial-gradient(circle_at_top_right,_rgba(193,153,71,0.08),_transparent_28%),#f6f8fb] flex">
-      {/* Desktop sidebar */}
-      <aside className="hidden lg:flex w-72 bg-white/95 backdrop-blur-xl border-r border-ink-100 flex-col fixed h-screen z-40 shadow-[12px_0_40px_rgba(13,35,66,0.05)]">
-        {/* Logo */}
-        <div className="px-5 py-6 border-b border-ink-100 flex items-center justify-center bg-gradient-to-b from-white via-white to-brand-50/40">
+    <div className="min-h-screen flex bg-white">
+      {/* Desktop sidebar — solid, minimal */}
+      <aside className="hidden lg:flex w-64 bg-white border-r border-ink-100 flex-col fixed h-screen z-40">
+        <div className="px-4 py-5 border-b border-ink-100 flex items-center justify-center">
           <Brand compact />
         </div>
 
-        {/* User profile */}
-        <div className="p-4 border-b border-ink-100 bg-gradient-to-br from-white to-ink-50/70">
+        <div className="p-4 border-b border-ink-100">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-brand-100 to-accent-100 text-brand-800 flex items-center justify-center font-bold shadow-sm ring-1 ring-brand-100">
+            <div className="w-10 h-10 flex items-center justify-center bg-brand-900 text-white font-bold" style={{ borderRadius: '2px' }}>
               {profile?.full_name?.[0]?.toUpperCase() || 'U'}
             </div>
-
             <div className="min-w-0">
-              <p className="font-medium text-ink-900 text-sm truncate">
-                {profile?.full_name || 'User'}
-              </p>
-
-              <p className="text-[11px] text-ink-400 capitalize font-medium">
-                {profile?.role || 'user'}
-              </p>
+              <p className="font-medium text-ink-900 text-sm truncate">{profile?.full_name || 'User'}</p>
+              <p className="text-[11px] text-ink-500 capitalize">{profile?.role || 'user'}</p>
             </div>
           </div>
         </div>
 
-        {/* Navigation */}
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
           {visibleNavItems.map((item, index) => (
             <div key={item.to}>
               {item.section && (index === 0 || item.section !== visibleNavItems[index - 1]?.section) && (
-                <p className="px-3 pb-1 pt-4 text-[10px] font-bold uppercase tracking-[0.16em] text-ink-400">{item.section}</p>
+                <p className="px-3 pb-1 pt-4 text-[10px] font-bold uppercase tracking-wide text-ink-400">{item.section}</p>
               )}
-            <Link
-              key={item.to}
-              to={item.to}
-              className={`group flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-semibold transition-all ${
-                isActive(item.to)
-                  ? 'bg-gradient-to-r from-brand-50 to-accent-50/60 text-brand-900 shadow-sm ring-1 ring-brand-100'
-                  : 'text-ink-600 hover:bg-ink-50 hover:text-ink-900'
-              }`}
-            >
-              <span className={isActive(item.to) ? 'text-brand-700' : 'text-ink-400 group-hover:text-brand-600'}>{item.icon}</span>
-              {item.label}
-            </Link>
+              <Link
+                to={item.to}
+                className={`flex items-center gap-3 px-3 py-2.5 text-sm font-semibold transition-colors ${isActive(item.to) ? 'bg-ink-50 text-brand-900 border border-ink-100' : 'text-ink-600 hover:bg-ink-50 hover:text-ink-900 border border-transparent'}`}
+                style={{ borderRadius: '2px', minHeight: '44px' }}
+              >
+                <span className={isActive(item.to) ? 'text-brand-900' : 'text-ink-400'}>{item.icon}</span>
+                {item.label}
+              </Link>
             </div>
           ))}
         </nav>
 
-        {/* Bottom actions */}
         <div className="p-3 border-t border-ink-100">
-          <Link
-            to="/"
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-ink-600 hover:bg-ink-50"
-          >
-            <Search className="w-5 h-5" />
-            {browseLabel}
+          <Link to="/" className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-ink-600 hover:bg-ink-50" style={{ borderRadius: '2px', minHeight: '44px' }}>
+            <Search className="w-5 h-5" /> View marketplace
           </Link>
-
-          <button
-            onClick={handleSignOut}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-red-600 hover:bg-red-50"
-          >
-            <LogOut className="w-5 h-5" />
-            Sign Out
+          <button onClick={handleSignOut} className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50" style={{ borderRadius: '2px', minHeight: '44px' }}>
+            <LogOut className="w-5 h-5" /> Sign Out
           </button>
         </div>
       </aside>
 
-      {/* Mobile sidebar */}
+      {/* Mobile drawer */}
       {mobileOpen && (
         <div className="lg:hidden fixed inset-0 z-50 flex">
-          <div
-            className="absolute inset-0 bg-ink-950/50"
-            onClick={() => setMobileOpen(false)}
-          />
-
-          <aside className="relative w-64 bg-white flex flex-col animate-slide-up">
-            {/* Mobile logo */}
+          <div className="absolute inset-0 bg-ink-950/40" onClick={() => setMobileOpen(false)} />
+          <aside className="relative w-64 bg-white flex flex-col border-r border-ink-100">
             <div className="p-4 border-b border-ink-100 flex items-center justify-between">
               <Brand compact />
-
-              <button
-                onClick={() => setMobileOpen(false)}
-                className="text-ink-400 hover:text-ink-700"
-                aria-label="Close navigation"
-              >
+              <button onClick={() => setMobileOpen(false)} className="flex h-10 w-10 items-center justify-center border border-ink-100 bg-white text-ink-600 hover:bg-ink-50" style={{ borderRadius: '2px' }} aria-label="Close navigation">
                 <X className="w-5 h-5" />
               </button>
             </div>
-
-            {/* Mobile navigation */}
             <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
               {visibleNavItems.map((item, index) => (
                 <div key={item.to}>
                   {item.section && (index === 0 || item.section !== visibleNavItems[index - 1]?.section) && (
-                    <p className="px-3 pb-1 pt-4 text-[10px] font-bold uppercase tracking-[0.16em] text-ink-400">{item.section}</p>
+                    <p className="px-3 pb-1 pt-4 text-[10px] font-bold uppercase tracking-wide text-ink-400">{item.section}</p>
                   )}
-                <Link
-                  key={item.to}
-                  to={item.to}
-                  onClick={() => setMobileOpen(false)}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium ${
-                    isActive(item.to)
-                      ? 'bg-brand-50 text-brand-700'
-                      : 'text-ink-600 hover:bg-ink-50'
-                  }`}
-                >
-                  {item.icon}
-                  {item.label}
-                </Link>
+                  <Link
+                    to={item.to}
+                    onClick={() => setMobileOpen(false)}
+                    className={`flex items-center gap-3 px-3 py-2.5 text-sm font-medium ${isActive(item.to) ? 'bg-ink-50 text-brand-900 border border-ink-100' : 'text-ink-600 hover:bg-ink-50 border border-transparent'}`}
+                    style={{ borderRadius: '2px', minHeight: '44px' }}
+                  >
+                    {item.icon}
+                    {item.label}
+                  </Link>
                 </div>
               ))}
             </nav>
-
             <div className="p-3 border-t border-ink-100">
-              <button
-                onClick={handleSignOut}
-                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-red-600 hover:bg-red-50"
-              >
-                <LogOut className="w-5 h-5" />
-                Sign Out
+              <button onClick={handleSignOut} className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50" style={{ borderRadius: '2px', minHeight: '44px' }}>
+                <LogOut className="w-5 h-5" /> Sign Out
               </button>
             </div>
           </aside>
@@ -264,60 +209,72 @@ export function DashboardLayout({
       )}
 
       {/* Main content */}
-      <div className="flex-1 lg:ml-72">
-        {/* Top bar */}
-        <header className="sticky top-0 z-30 bg-white/85 backdrop-blur-xl border-b border-ink-100 shadow-[0_4px_24px_rgba(13,35,66,0.03)]">
-          <div className="flex items-center justify-between px-4 sm:px-7 h-[72px]">
+      <div className="flex-1 lg:ml-64">
+        <header className="sticky top-0 z-30 bg-white border-b border-ink-100">
+          <div className="flex items-center justify-between px-4 sm:px-6 h-[64px]">
             <div className="flex items-center gap-3">
-              <button
-                className="lg:hidden btn-ghost p-2"
-                onClick={() => setMobileOpen(true)}
-                aria-label="Open navigation"
-              >
-                <Menu className="w-6 h-6" />
+              <button className="lg:hidden flex h-10 w-10 items-center justify-center border border-ink-100 bg-white text-ink-700 hover:bg-ink-50" style={{ borderRadius: '2px' }} onClick={() => setMobileOpen(true)} aria-label="Open navigation">
+                <Menu className="w-5 h-5" />
               </button>
-
-              <div><p className="hidden sm:block text-[10px] font-bold uppercase tracking-[0.2em] text-brand-600">HighPark Consult · Workspace</p><h1 className="text-xl font-bold text-ink-950 capitalize tracking-tight">{title}</h1></div>
+              <div>
+                <p className="hidden sm:block text-[10px] font-bold uppercase tracking-wide text-ink-400">{roleLabel}</p>
+                <h1 className="text-lg font-bold tracking-tight" style={{ letterSpacing: '-0.02em' }}>{title}</h1>
+              </div>
             </div>
 
             <div className="flex items-center gap-2">
-              {profile?.role === 'admin' && <button type="button" onClick={() => setGlobalSearchOpen(true)} className="hidden md:flex h-10 min-w-52 items-center justify-between gap-3 rounded-xl border border-ink-200 bg-ink-50/70 px-3 text-left text-xs text-ink-400 hover:border-brand-200 hover:bg-white" aria-label="Search the administration workspace"><span className="flex items-center gap-2"><Search className="h-4 w-4" />Search properties, units, users…</span><kbd className="rounded-md border border-ink-200 bg-white px-1.5 py-0.5 text-[10px] font-semibold text-ink-400">Ctrl K</kbd></button>}
-              {profile?.role === 'admin' && <button type="button" onClick={() => setGlobalSearchOpen(true)} className="btn-ghost md:hidden" aria-label="Search"><Search className="w-5 h-5" /></button>}
-              <Link
-                to="/notifications"
-                className="btn-ghost relative"
-                aria-label="Notifications"
-              >
+              {profile?.role === 'admin' && <button type="button" onClick={() => setGlobalSearchOpen(true)} className="hidden md:flex h-10 min-w-52 items-center justify-between gap-3 border border-ink-200 bg-ink-50 px-3 text-left text-xs text-ink-500 hover:border-ink-300 hover:bg-white" style={{ borderRadius: '2px' }} aria-label="Search"><span className="flex items-center gap-2"><Search className="h-4 w-4" />Search…</span><kbd className="border border-ink-200 bg-white px-1.5 py-0.5 text-[10px] font-semibold text-ink-400" style={{ borderRadius: '2px' }}>Ctrl K</kbd></button>}
+              {profile?.role === 'admin' && <button type="button" onClick={() => setGlobalSearchOpen(true)} className="flex h-10 w-10 items-center justify-center border border-ink-100 bg-white text-ink-600 hover:bg-ink-50 md:hidden" style={{ borderRadius: '2px' }} aria-label="Search"><Search className="w-5 h-5" /></button>}
+              <Link to="/notifications" className="flex h-10 w-10 items-center justify-center border border-ink-100 bg-white text-ink-600 hover:bg-ink-50" style={{ borderRadius: '2px' }} aria-label="Notifications">
                 <Bell className="w-5 h-5" />
               </Link>
-
-              <Link
-                to="/favorites"
-                className="btn-ghost"
-                aria-label="Favorites"
-              >
+              <Link to="/favorites" className="flex h-10 w-10 items-center justify-center border border-ink-100 bg-white text-ink-600 hover:bg-ink-50" style={{ borderRadius: '2px' }} aria-label="Favorites">
                 <Heart className="w-5 h-5" />
               </Link>
             </div>
           </div>
         </header>
 
-        {globalSearchOpen && profile?.role === 'admin' && <div className="fixed inset-0 z-[60] bg-ink-950/40 p-4 backdrop-blur-sm" onMouseDown={() => setGlobalSearchOpen(false)}>
-          <div className="mx-auto mt-[10vh] w-full max-w-2xl overflow-hidden rounded-2xl border border-ink-200 bg-white shadow-2xl" onMouseDown={(event) => event.stopPropagation()}>
-            <div className="flex items-center gap-3 border-b border-ink-100 px-4 py-3"><Search className="h-5 w-5 text-brand-600" /><input autoFocus value={globalQuery} onChange={(event) => setGlobalQuery(event.target.value)} placeholder="Search properties, units or users…" className="flex-1 bg-transparent text-sm outline-none placeholder:text-ink-400" /><button type="button" onClick={() => setGlobalSearchOpen(false)} className="rounded-lg px-2 py-1 text-xs font-semibold text-ink-400 hover:bg-ink-50">Esc</button></div>
-            <div className="max-h-[55vh] overflow-y-auto p-2">
-              {globalQuery.trim().length < 2 ? <div className="px-4 py-10 text-center"><Search className="mx-auto h-8 w-8 text-ink-300" /><p className="mt-3 text-sm font-semibold text-ink-700">Search the administration workspace</p><p className="mt-1 text-xs text-ink-400">Find a property, unit or user in seconds.</p></div> : globalSearching ? <div className="px-4 py-10 text-center text-sm text-ink-500">Searching live records…</div> : globalResults.length === 0 ? <div className="px-4 py-10 text-center text-sm text-ink-500">No matching records found.</div> : globalResults.map((result, index) => <button key={`${result.type}-${result.title}-${index}`} type="button" onClick={() => openSearchResult(result.to)} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left hover:bg-brand-50"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-700"><Search className="h-4 w-4" /></span><span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold text-ink-900">{result.title}</span><span className="block truncate text-xs text-ink-500">{result.type} · {result.subtitle}</span></span><span className="text-xs font-semibold text-brand-700">Open →</span></button>)}
+        {globalSearchOpen && profile?.role === 'admin' && (
+          <div className="fixed inset-0 z-[60] bg-ink-950/40 p-4" onMouseDown={() => setGlobalSearchOpen(false)}>
+            <div className="mx-auto mt-[10vh] w-full max-w-2xl overflow-hidden border border-ink-200 bg-white" style={{ borderRadius: '4px' }} onMouseDown={(e) => e.stopPropagation()}>
+              <div className="flex items-center gap-3 border-b border-ink-100 px-4 py-3">
+                <Search className="h-5 w-5 text-ink-400" />
+                <input autoFocus value={globalQuery} onChange={(e) => setGlobalQuery(e.target.value)} placeholder="Search properties, units or users…" className="flex-1 bg-transparent text-sm outline-none placeholder:text-ink-400" />
+                <button type="button" onClick={() => setGlobalSearchOpen(false)} className="px-2 py-1 text-xs font-semibold text-ink-400 hover:bg-ink-50" style={{ borderRadius: '2px' }}>Esc</button>
+              </div>
+              <div className="max-h-[55vh] overflow-y-auto p-2">
+                {globalQuery.trim().length < 2 ? (
+                  <div className="px-4 py-10 text-center"><Search className="mx-auto h-8 w-8 text-ink-300" /><p className="mt-3 text-sm font-semibold text-ink-700">Search workspace</p><p className="mt-1 text-xs text-ink-400">Find a property, unit or user.</p></div>
+                ) : globalSearching ? (
+                  <div className="px-4 py-10 text-center text-sm text-ink-500">Searching…</div>
+                ) : globalResults.length === 0 ? (
+                  <div className="px-4 py-10 text-center text-sm text-ink-500">No matching records found.</div>
+                ) : (
+                  globalResults.map((result, index) => (
+                    <button key={`${result.type}-${result.title}-${index}`} type="button" onClick={() => openSearchResult(result.to)} className="flex w-full items-center gap-3 px-3 py-3 text-left hover:bg-ink-50" style={{ borderRadius: '2px' }}>
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center bg-ink-50 text-ink-600 border border-ink-100" style={{ borderRadius: '2px' }}><Search className="h-4 w-4" /></span>
+                      <span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold text-ink-900">{result.title}</span><span className="block truncate text-xs text-ink-500">{result.type} · {result.subtitle}</span></span>
+                      <span className="text-xs font-semibold" style={{ color: '#0d2342' }}>Open →</span>
+                    </button>
+                  ))
+                )}
+              </div>
             </div>
           </div>
-        </div>}
+        )}
 
-        <main className="page-surface p-4 sm:p-6 lg:p-8 max-w-[1500px] mx-auto min-h-[calc(100vh-72px)]">
-          <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-ink-100 bg-gradient-to-r from-white via-brand-50/35 to-accent-50/25 px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+        <main className="p-4 sm:p-6 lg:p-6 max-w-[1200px] mx-auto min-h-[calc(100vh-64px)]">
+          <div className="mb-4 flex flex-col gap-2 border border-ink-100 bg-ink-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between" style={{ borderRadius: '4px' }}>
             <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-brand-600"><span>HighPark Consult</span><span className="text-ink-300">•</span><span>{roleLabel}</span></div>
-              <div className="mt-1 flex items-center gap-2"><h2 className="truncate text-base font-bold tracking-tight text-ink-950">{title}</h2><span className="hidden rounded-full bg-white px-2 py-1 text-[10px] font-bold text-ink-500 ring-1 ring-ink-100 sm:inline-flex">Live workspace</span></div>
+              <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wide text-ink-500"><span>HighPark Consult</span><span className="text-ink-300">•</span><span>{roleLabel}</span></div>
+              <h2 className="mt-1 truncate text-sm font-bold tracking-tight">{title}</h2>
             </div>
-            <div className="flex flex-wrap items-center justify-end gap-2 text-xs font-medium text-ink-500">{workspaceAsset && <span className="hidden max-w-[280px] truncate rounded-lg bg-white px-2.5 py-1.5 font-semibold text-brand-800 ring-1 ring-brand-100 sm:inline-flex">Asset: {workspaceAsset.name}</span>}<span className="hidden md:inline">{routeLabel}</span><span className="h-1.5 w-1.5 rounded-full bg-green-500" /><span className="text-green-700">Live workspace</span></div>
+            <div className="flex items-center gap-2 text-xs text-ink-500">
+              {workspaceAsset && <span className="hidden max-w-[280px] truncate bg-white px-2.5 py-1 font-semibold border border-ink-100 sm:inline-flex" style={{ borderRadius: '2px' }}>{workspaceAsset.name}</span>}
+              <span className="h-1.5 w-1.5 bg-green-600" style={{ borderRadius: '2px' }} />
+              <span className="text-green-700 font-medium">Live</span>
+            </div>
           </div>
           {children}
         </main>
@@ -325,4 +282,3 @@ export function DashboardLayout({
     </div>
   );
 }
-

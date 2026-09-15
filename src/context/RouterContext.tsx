@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, type ReactNode, type CSSProperties, type AnchorHTMLAttributes } from 'react';
 import { supabase } from '@/lib/supabase';
 
 interface RouterContextValue {
@@ -12,10 +12,6 @@ function getHashPath(): string {
   const hash = window.location.hash.replace(/^#/, '');
   const query = new URLSearchParams(window.location.search);
 
-  // Supabase password-recovery and staff-invitation callbacks arrive in the URL fragment
-  // (access_token=...&type=recovery...). Our app also uses the hash for
-  // client-side routing, so detect that callback before interpreting it as
-  // a normal route. Supabase establishes the recovery session automatically.
   if (
     window.location.pathname === '/reset-password' ||
     hash.startsWith('access_token=') ||
@@ -43,10 +39,6 @@ export function RouterProvider({ children }: { children: ReactNode }) {
     };
     window.addEventListener('hashchange', onHashChange);
 
-    // Supabase emits PASSWORD_RECOVERY after it exchanges the recovery
-    // callback for a session. This is the authoritative signal that a valid
-    // password-reset session exists, so it also works when the provider or
-    // browser normalises the callback URL differently.
     const { data: authListener } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY') {
         setPath('/reset-password');
@@ -54,10 +46,6 @@ export function RouterProvider({ children }: { children: ReactNode }) {
       }
     });
 
-    // Supabase invitation/recovery links may arrive as a real pathname such as
-    // /reset-password rather than a hash route. Keep that pathname long enough
-    // for getHashPath() to recognise the callback, then normalise the browser URL
-    // into the app's hash router without losing the callback tokens.
     const queryParams = new URLSearchParams(window.location.search);
     const isAuthCallback = queryParams.get('auth') === 'recovery' ||
       queryParams.get('type') === 'invite' ||
@@ -98,17 +86,28 @@ function useRouterInternal() {
   return ctx;
 }
 
-export function Link({ to, children, className, onClick }: { to: string; children: ReactNode; className?: string; onClick?: () => void }) {
+interface LinkProps {
+  to: string;
+  children: ReactNode;
+  className?: string;
+  style?: CSSProperties;
+  onClick?: () => void;
+  [key: string]: unknown;
+}
+
+export function Link({ to, children, className, style, onClick, ...rest }: LinkProps) {
   const { navigate } = useRouterInternal();
   return (
     <a
       href={`#${to}`}
       className={className}
+      style={style as CSSProperties}
       onClick={(e) => {
         e.preventDefault();
         onClick?.();
         navigate(to);
       }}
+      {...(rest as AnchorHTMLAttributes<HTMLAnchorElement>)}
     >
       {children}
     </a>

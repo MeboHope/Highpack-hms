@@ -32,13 +32,13 @@ export function Modal({ open, onClose, title, children, size = 'md' }: ModalProp
   };
 
   return (
-    <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 animate-fade-in">
-      <div className="absolute inset-0 bg-ink-950/50 backdrop-blur-sm" onClick={onClose} />
-      <div className={`relative w-full ${sizes[size]} bg-white rounded-2xl shadow-2xl max-h-[90vh] overflow-hidden flex flex-col animate-scale-in`}>
+    <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-ink-950/40" onClick={onClose} />
+      <div className={`relative w-full ${sizes[size]} bg-white border border-ink-100 max-h-[90vh] overflow-hidden flex flex-col`} style={{ borderRadius: '4px', boxShadow: '0 4px 16px rgba(0,0,0,0.12)' }}>
         {title && (
           <div className="flex items-center justify-between px-6 py-4 border-b border-ink-100">
             <h3 className="text-lg font-bold text-ink-900">{title}</h3>
-            <button onClick={onClose} className="text-ink-400 hover:text-ink-600 p-1 rounded-lg hover:bg-ink-100">
+            <button onClick={onClose} className="flex h-10 w-10 items-center justify-center border border-ink-100 bg-white text-ink-500 hover:bg-ink-50 hover:text-ink-700" style={{ borderRadius: '2px' }} aria-label="Close modal">
               <X className="w-5 h-5" />
             </button>
           </div>
@@ -68,11 +68,11 @@ export function ConfirmDialog({
 }) {
   return (
     <Modal open={open} onClose={onClose} title={title} size="sm">
-      <p className="text-ink-600 mb-6">{message}</p>
+      <p className="text-ink-600 mb-6 text-sm leading-6">{message}</p>
       <div className="flex gap-3 justify-end">
         <button className="btn-secondary" onClick={onClose}>Cancel</button>
         <button
-          className={danger ? 'btn-danger' : 'btn-primary'}
+          className={danger ? 'btn-primary' : 'btn-primary'}
           onClick={() => { onConfirm(); onClose(); }}
         >
           {confirmLabel}
