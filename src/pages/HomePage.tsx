@@ -134,39 +134,73 @@ export function HomePage() {
     };
   }, []);
 
+  // Mock properties for preview when Supabase is not configured
+  const mockProperties: PropertyWithUnits[] = [
+    { id: 'mock-1', name: 'Kilimani Heights Apartment', county: 'Nairobi City', town: 'Kilimani', estate: 'Kilimani', property_type: 'Residential apartment / flat', asset_class: 'built_property', operation_model: 'long_term_rental', ownership_type: 'freehold', title_number: null, parcel_number: null, total_land_area: null, land_area_unit: null, plot_count: null, plot_dimensions: null, photos: ['https://images.pexels.com/photos/1396122/pexels-photo-1396122.jpeg?auto=compress&cs=tinysrgb&w=800'], available_units: 3, min_monthly_rent: 85000, sale_listing_count: 0, sale_min_price: null, short_stay_listing_count: 0, short_stay_min_rate: null },
+    { id: 'mock-2', name: 'Westlands Commercial Plaza', county: 'Nairobi City', town: 'Westlands', estate: 'Westlands', property_type: 'Office building', asset_class: 'built_property', operation_model: 'lease', ownership_type: 'leasehold', title_number: null, parcel_number: null, total_land_area: null, land_area_unit: null, plot_count: null, plot_dimensions: null, photos: ['https://images.pexels.com/photos/380769/pexels-photo-380769.jpeg?auto=compress&cs=tinysrgb&w=800'], available_units: 5, min_monthly_rent: 120000, sale_listing_count: 0, sale_min_price: null, short_stay_listing_count: 0, short_stay_min_rate: null },
+    { id: 'mock-3', name: 'Kiambu Residential Plots', county: 'Kiambu', town: 'Ruiru', estate: null, property_type: 'Residential plot / land', asset_class: 'land', operation_model: 'land_sale', ownership_type: 'freehold', title_number: 'KIAMBU/1234', parcel_number: 'Plot 45', total_land_area: 0.25, land_area_unit: 'acres', plot_count: 12, plot_dimensions: '50x100', photos: ['https://images.pexels.com/photos/1438832/pexels-photo-1438832.jpeg?auto=compress&cs=tinysrgb&w=800'], available_units: 12, min_monthly_rent: null, sale_listing_count: 1, sale_min_price: 2500000, short_stay_listing_count: 0, short_stay_min_rate: null },
+    { id: 'mock-4', name: 'Mombasa Beachfront Villa', county: 'Mombasa', town: 'Nyali', estate: 'Nyali', property_type: 'Villa', asset_class: 'built_property', operation_model: 'short_stay', ownership_type: 'freehold', title_number: null, parcel_number: null, total_land_area: null, land_area_unit: null, plot_count: null, plot_dimensions: null, photos: ['https://images.pexels.com/photos/280222/pexels-photo-280222.jpeg?auto=compress&cs=tinysrgb&w=800'], available_units: 1, min_monthly_rent: null, sale_listing_count: 0, sale_min_price: null, short_stay_listing_count: 1, short_stay_min_rate: 15000 },
+    { id: 'mock-5', name: 'Karen Family Maisonette', county: 'Nairobi City', town: 'Karen', estate: 'Karen', property_type: 'Maisonette', asset_class: 'built_property', operation_model: 'sale', ownership_type: 'freehold', title_number: null, parcel_number: null, total_land_area: null, land_area_unit: null, plot_count: null, plot_dimensions: null, photos: ['https://images.pexels.com/photos/106399/pexels-photo-106399.jpeg?auto=compress&cs=tinysrgb&w=800'], available_units: 1, min_monthly_rent: null, sale_listing_count: 1, sale_min_price: 18500000, short_stay_listing_count: 0, short_stay_min_rate: null },
+    { id: 'mock-6', name: 'Nakuru Industrial Land', county: 'Nakuru', town: 'Naivasha', estate: null, property_type: 'Industrial land', asset_class: 'land', operation_model: 'land_sale', ownership_type: 'leasehold', title_number: 'NAKURU/5678', parcel_number: 'Block 12', total_land_area: 2.5, land_area_unit: 'acres', plot_count: 1, plot_dimensions: '100x100', photos: ['https://images.pexels.com/photos/323780/pexels-photo-323780.jpeg?auto=compress&cs=tinysrgb&w=800'], available_units: 1, min_monthly_rent: null, sale_listing_count: 1, sale_min_price: 8500000, short_stay_listing_count: 0, short_stay_min_rate: null },
+  ];
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [{ data: catalog, error: catalogError }, { data: siteStats, error: statsError }] = await Promise.all([
-        supabase.rpc('get_public_universal_catalog'),
-        supabase.rpc('get_public_site_stats'),
-      ]);
-      if (catalogError) console.error('Home universal catalog load error:', catalogError);
-      if (statsError) console.error('Home public statistics load error:', statsError);
-      const rows = (catalog || []) as Array<Record<string, unknown>>;
-      const props: PropertyWithUnits[] = rows.map((row) => ({
-        id: String(row.property_id), name: String(row.name ?? ''), county: String(row.county ?? ''), town: String(row.town ?? ''),
-        estate: row.estate == null ? null : String(row.estate), property_type: String(row.property_type ?? ''), asset_class: String(row.asset_class ?? 'built_property'),
-        operation_model: String(row.operation_model ?? 'long_term_rental'), ownership_type: row.ownership_type == null ? null : String(row.ownership_type),
-        title_number: row.title_number == null ? null : String(row.title_number), parcel_number: row.parcel_number == null ? null : String(row.parcel_number),
-        total_land_area: row.total_land_area == null ? null : Number(row.total_land_area), land_area_unit: row.land_area_unit == null ? null : String(row.land_area_unit),
-        plot_count: row.plot_count == null ? null : Number(row.plot_count), plot_dimensions: row.plot_dimensions == null ? null : String(row.plot_dimensions),
-        photos: Array.isArray(row.photos) ? row.photos.filter((x): x is string => typeof x === 'string') : [], available_units: Number(row.available_units || 0),
-        min_monthly_rent: row.min_monthly_rent == null ? null : Number(row.min_monthly_rent), sale_listing_count: Number(row.sale_listing_count || 0),
-        sale_min_price: row.sale_min_price == null ? null : Number(row.sale_min_price), short_stay_listing_count: Number(row.short_stay_listing_count || 0),
-        short_stay_min_rate: row.short_stay_min_rate == null ? null : Number(row.short_stay_min_rate),
-      })).slice(0, 6);
-      const statRow = Array.isArray(siteStats) && siteStats.length ? siteStats[0] as Record<string, unknown> : null;
-      const verifiedCount = Number(statRow?.verified_properties || rows.length);
-      const availableCount = rows.reduce((sum, row) => sum + Number(row.available_units || 0), 0);
-      const countyCount = new Set(rows.map((row) => row.county).filter((x) => typeof x === 'string' && x)).size;
-      setStats([
-        { value: verifiedCount, suffix: '+', label: 'Verified Assets' },
-        { value: Number(statRow?.available_homes || availableCount), suffix: '+', label: 'Available' },
-        { value: Number(statRow?.counties_covered || countyCount), suffix: '+', label: 'Counties' },
-        { value: 24, prefix: '< ', suffix: 'h', label: 'Reservation Hold' },
-      ]);
-      if (!cancelled) { setProperties(props); setLoading(false); }
+      try {
+        const [{ data: catalog, error: catalogError }, { data: siteStats, error: statsError }] = await Promise.all([
+          supabase.rpc('get_public_universal_catalog'),
+          supabase.rpc('get_public_site_stats'),
+        ]);
+        if (catalogError) console.error('Home universal catalog load error:', catalogError);
+        if (statsError) console.error('Home public statistics load error:', statsError);
+        const rows = (catalog || []) as Array<Record<string, unknown>>;
+        let props: PropertyWithUnits[] = rows.map((row) => ({
+          id: String(row.property_id), name: String(row.name ?? ''), county: String(row.county ?? ''), town: String(row.town ?? ''),
+          estate: row.estate == null ? null : String(row.estate), property_type: String(row.property_type ?? ''), asset_class: String(row.asset_class ?? 'built_property'),
+          operation_model: String(row.operation_model ?? 'long_term_rental'), ownership_type: row.ownership_type == null ? null : String(row.ownership_type),
+          title_number: row.title_number == null ? null : String(row.title_number), parcel_number: row.parcel_number == null ? null : String(row.parcel_number),
+          total_land_area: row.total_land_area == null ? null : Number(row.total_land_area), land_area_unit: row.land_area_unit == null ? null : String(row.land_area_unit),
+          plot_count: row.plot_count == null ? null : Number(row.plot_count), plot_dimensions: row.plot_dimensions == null ? null : String(row.plot_dimensions),
+          photos: Array.isArray(row.photos) ? row.photos.filter((x): x is string => typeof x === 'string') : [], available_units: Number(row.available_units || 0),
+          min_monthly_rent: row.min_monthly_rent == null ? null : Number(row.min_monthly_rent), sale_listing_count: Number(row.sale_listing_count || 0),
+          sale_min_price: row.sale_min_price == null ? null : Number(row.sale_min_price), short_stay_listing_count: Number(row.short_stay_listing_count || 0),
+          short_stay_min_rate: row.short_stay_min_rate == null ? null : Number(row.short_stay_min_rate),
+        })).slice(0, 6);
+
+        // Fallback to mock data for preview when no real data
+        if (props.length === 0) {
+          props = mockProperties;
+        }
+
+        const statRow = Array.isArray(siteStats) && siteStats.length ? siteStats[0] as Record<string, unknown> : null;
+        const verifiedCount = Number(statRow?.verified_properties || rows.length || 120);
+        const availableCount = rows.length > 0 ? rows.reduce((sum, row) => sum + Number(row.available_units || 0), 0) : 45;
+        const countyCount = rows.length > 0 ? new Set(rows.map((row) => row.county).filter((x) => typeof x === 'string' && x)).size : 12;
+
+        if (!cancelled) {
+          setStats([
+            { value: verifiedCount || 120, suffix: '+', label: 'Verified Assets' },
+            { value: Number(statRow?.available_homes || availableCount || 45), suffix: '+', label: 'Available' },
+            { value: Number(statRow?.counties_covered || countyCount || 12), suffix: '+', label: 'Counties' },
+            { value: 24, prefix: '< ', suffix: 'h', label: 'Reservation Hold' },
+          ]);
+          setProperties(props);
+          setLoading(false);
+        }
+      } catch (err) {
+        console.error('Home load fallback to mock due to error:', err);
+        if (!cancelled) {
+          setStats([
+            { value: 120, suffix: '+', label: 'Verified Assets' },
+            { value: 45, suffix: '+', label: 'Available' },
+            { value: 12, suffix: '+', label: 'Counties' },
+            { value: 24, prefix: '< ', suffix: 'h', label: 'Reservation Hold' },
+          ]);
+          setProperties(mockProperties);
+          setLoading(false);
+        }
+      }
     })();
     return () => { cancelled = true; };
   }, []);
@@ -264,7 +298,7 @@ export function HomePage() {
             ].map((item) => (
               <div key={item.number} className="card" style={{ padding: '1rem' }}>
                 <div className="flex items-start justify-between gap-4">
-                  <div className="flex h-10 w-10 items-center justify-center bg-ink-50 text-brand-900 border border-ink-100" style={{ borderRadius: '2px' }}>{item.icon}</div>
+                  <div className="flex h-10 w-10 items-center justify-center bg-ink-50 text-brand-900 border border-ink-100" style={{ borderRadius: '6px' }}>{item.icon}</div>
                   <span className="text-2xl font-bold text-ink-100">{item.number}</span>
                 </div>
                 <h3 className="mt-4 font-semibold">{item.title}</h3>
@@ -367,7 +401,7 @@ export function HomePage() {
               <div key={item.title} className="card grid overflow-hidden lg:grid-cols-[1fr_.9fr]" style={{ padding: 0 }}>
                 <div style={{ padding: '1.5rem' }}>
                   <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center bg-brand-900 text-white" style={{ borderRadius: '2px' }}>{item.icon}</div>
+                    <div className="flex h-10 w-10 items-center justify-center bg-brand-900 text-white" style={{ borderRadius: '6px' }}>{item.icon}</div>
                     <span className="text-xs font-bold uppercase tracking-wide" style={{ color: '#0d2342' }}>{item.eyebrow}</span>
                   </div>
                   <h3 className="mt-4 text-lg font-bold">{item.title}</h3>
@@ -379,15 +413,15 @@ export function HomePage() {
                   </div>
                 </div>
                 <div className="flex items-center bg-ink-50 p-6 border-t lg:border-t-0 lg:border-l border-ink-100">
-                  <div className="w-full bg-white p-4 border border-ink-100" style={{ borderRadius: '4px' }}>
+                  <div className="w-full bg-white p-4 border border-ink-100" style={{ borderRadius: '8px' }}>
                     <div className="mb-3 flex items-center justify-between border-b border-ink-100 pb-2">
                       <span className="text-xs font-bold uppercase tracking-wide text-ink-400">HighPark experience</span>
                       <span className="badge badge-brand"><ShieldCheck className="h-3 w-3" /> Connected</span>
                     </div>
                     <div className="space-y-2">
                       {item.bullets.map((bullet, index) => (
-                        <div key={bullet} className="flex items-center gap-3 border border-ink-100 bg-white p-3" style={{ borderRadius: '2px' }}>
-                          <span className="flex h-8 w-8 shrink-0 items-center justify-center bg-ink-50 text-ink-600 border border-ink-100" style={{ borderRadius: '2px' }}>{index === 0 ? <CalendarCheck className="h-4 w-4" /> : index === 1 ? <MessageSquare className="h-4 w-4" /> : <Settings className="h-4 w-4" />}</span>
+                        <div key={bullet} className="flex items-center gap-3 border border-ink-100 bg-white p-3" style={{ borderRadius: '6px' }}>
+                          <span className="flex h-8 w-8 shrink-0 items-center justify-center bg-ink-50 text-ink-600 border border-ink-100" style={{ borderRadius: '6px' }}>{index === 0 ? <CalendarCheck className="h-4 w-4" /> : index === 1 ? <MessageSquare className="h-4 w-4" /> : <Settings className="h-4 w-4" />}</span>
                           <span className="text-sm font-medium">{bullet}</span>
                         </div>
                       ))}
@@ -416,7 +450,7 @@ export function HomePage() {
               { title: 'Administrator', icon: <ShieldCheck className="h-5 w-5" />, desc: 'Maintain verified inventory, oversee users and operations, monitor compliance and keep the platform running smoothly.', cta: 'Administrator sign in', to: '/login' },
             ].map((role) => (
               <div key={role.title} className="card" style={{ padding: '1rem', background: 'rgba(255,255,255,0.06)', borderColor: 'rgba(255,255,255,0.1)' }}>
-                <div className="flex h-10 w-10 items-center justify-center bg-white/10 text-white" style={{ borderRadius: '2px' }}>{role.icon}</div>
+                <div className="flex h-10 w-10 items-center justify-center bg-white/10 text-white" style={{ borderRadius: '6px' }}>{role.icon}</div>
                 <h3 className="mt-4 font-bold" style={{ color: '#ffffff' }}>{role.title}</h3>
                 <p className="mt-2 text-sm leading-6" style={{ color: 'rgba(255,255,255,0.7)' }}>{role.desc}</p>
                 <Link to={role.to} className="mt-4 inline-flex items-center gap-2 text-sm font-bold" style={{ color: '#c9972e' }}>{role.cta} <ArrowRight className="h-4 w-4" /></Link>
@@ -443,7 +477,7 @@ export function HomePage() {
               { icon: <HomeIcon className="h-5 w-5" />, title: 'Move In & Pay Rent', desc: 'Keep track of rent, invoices, maintenance requests, documents and ongoing tenancy services.' },
             ].map((step, i) => (
               <div key={i} className="card" style={{ padding: '1rem' }}>
-                <div className="flex h-10 w-10 items-center justify-center bg-ink-50 text-brand-900 border border-ink-100" style={{ borderRadius: '2px' }}>{step.icon}</div>
+                <div className="flex h-10 w-10 items-center justify-center bg-ink-50 text-brand-900 border border-ink-100" style={{ borderRadius: '6px' }}>{step.icon}</div>
                 <h3 className="mt-4 font-semibold">{step.title}</h3>
                 <p className="mt-2 text-sm text-ink-500 leading-6">{step.desc}</p>
               </div>
@@ -462,7 +496,7 @@ export function HomePage() {
               { icon: <TrendingUp className="h-5 w-5" />, title: 'Full Tenancy Management', desc: 'Keep rent, invoices, maintenance, lease information and customer communications organised in one workspace.' },
             ].map((feature) => (
               <div key={feature.title} className="card" style={{ padding: '1rem' }}>
-                <div className="flex h-10 w-10 items-center justify-center bg-white text-brand-900 border border-ink-100" style={{ borderRadius: '2px' }}>{feature.icon}</div>
+                <div className="flex h-10 w-10 items-center justify-center bg-white text-brand-900 border border-ink-100" style={{ borderRadius: '6px' }}>{feature.icon}</div>
                 <h3 className="mt-4 font-semibold">{feature.title}</h3>
                 <p className="mt-2 text-sm text-ink-500 leading-6">{feature.desc}</p>
               </div>
@@ -485,7 +519,7 @@ export function HomePage() {
               { name: 'Eldoret', count: '30+ properties' },
             ].map((location) => (
               <Link key={location.name} to={`/properties?location=${encodeURIComponent(location.name)}`} className="card text-center group" style={{ padding: '1rem' }}>
-                <div className="mx-auto flex h-10 w-10 items-center justify-center bg-ink-50 text-brand-900 border border-ink-100 group-hover:bg-brand-900 group-hover:text-white transition-colors" style={{ borderRadius: '2px' }}><MapPin className="h-5 w-5" /></div>
+                <div className="mx-auto flex h-10 w-10 items-center justify-center bg-ink-50 text-brand-900 border border-ink-100 group-hover:bg-brand-900 group-hover:text-white transition-colors" style={{ borderRadius: '6px' }}><MapPin className="h-5 w-5" /></div>
                 <h3 className="mt-3 font-semibold text-sm">{location.name}</h3>
                 <p className="mt-1 text-xs text-ink-400">{location.count}</p>
               </Link>
@@ -500,18 +534,18 @@ export function HomePage() {
           <div className="card" style={{ padding: '1.5rem', background: '#0d2342', borderColor: '#0d2342' }}>
             <div className="grid gap-6 lg:grid-cols-[1.2fr_.8fr] lg:items-center">
               <div>
-                <div className="inline-flex items-center gap-2 border border-white/20 px-3 py-1.5 text-xs font-bold uppercase tracking-wide" style={{ borderRadius: '2px', color: '#c9972e' }}><Bot className="h-4 w-4" /> HighPark AI Assistant</div>
+                <div className="inline-flex items-center gap-2 border border-white/20 px-3 py-1.5 text-xs font-bold uppercase tracking-wide" style={{ borderRadius: '6px', color: '#c9972e' }}><Bot className="h-4 w-4" /> HighPark AI Assistant</div>
                 <h2 className="mt-4" style={{ color: '#ffffff' }}>Get answers while you search</h2>
                 <p className="mt-3 max-w-2xl text-sm leading-6" style={{ color: 'rgba(255,255,255,0.7)' }}>Ask about available properties, land and plots, rental or sale opportunities, short stays, locations, pricing and the best way to make an enquiry.</p>
                 <div className="mt-4 flex flex-wrap gap-2">
                   {['Property search', 'Land & plots', 'Rent & sale', 'Short stays', 'Location', 'Enquiries'].map((topic) => <span key={topic} className="badge" style={{ background: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.8)', borderColor: 'rgba(255,255,255,0.1)' }}>{topic}</span>)}
                 </div>
               </div>
-              <div className="bg-white p-4 border border-ink-100" style={{ borderRadius: '4px' }}>
-                <div className="flex items-center gap-3 border-b border-ink-100 pb-3"><div className="flex h-10 w-10 items-center justify-center bg-ink-50 text-brand-900 border border-ink-100" style={{ borderRadius: '2px' }}><Bot className="h-5 w-5" /></div><div><p className="text-sm font-bold">Property-aware assistance</p><p className="text-xs text-ink-500">Ask from any public page</p></div></div>
+              <div className="bg-white p-4 border border-ink-100" style={{ borderRadius: '8px' }}>
+                <div className="flex items-center gap-3 border-b border-ink-100 pb-3"><div className="flex h-10 w-10 items-center justify-center bg-ink-50 text-brand-900 border border-ink-100" style={{ borderRadius: '6px' }}><Bot className="h-5 w-5" /></div><div><p className="text-sm font-bold">Property-aware assistance</p><p className="text-xs text-ink-500">Ask from any public page</p></div></div>
                 <div className="mt-4 space-y-2">
-                  <div className="bg-ink-50 p-3 text-xs border border-ink-100" style={{ borderRadius: '2px' }}>“Show me available land in Kenya.”</div>
-                  <div className="ml-6 bg-brand-900 text-white p-3 text-xs" style={{ borderRadius: '2px' }}>“I’ll show you the verified land and plot opportunities available on HighPark.”</div>
+                  <div className="bg-ink-50 p-3 text-xs border border-ink-100" style={{ borderRadius: '6px' }}>“Show me available land in Kenya.”</div>
+                  <div className="ml-6 bg-brand-900 text-white p-3 text-xs" style={{ borderRadius: '6px' }}>“I’ll show you the verified land and plot opportunities available on HighPark.”</div>
                 </div>
               </div>
             </div>

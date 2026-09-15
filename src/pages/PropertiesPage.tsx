@@ -197,7 +197,7 @@ export function PropertiesPage() {
               const isStay = r.short_stay_listing_count > 0 || r.operation_model === 'short_stay';
               const isSale = r.sale_listing_count > 0 || ['sale', 'land_sale'].includes(r.operation_model);
               return (
-                <Link key={r.property_id} to={`/property/${r.property_id}`} className="card group overflow-hidden" style={{ padding: 0, borderRadius: '4px' }}>
+                <Link key={r.property_id} to={`/property/${r.property_id}`} className="card group overflow-hidden" style={{ padding: 0, borderRadius: '8px' }}>
                   <div className="relative overflow-hidden bg-ink-100" style={{ aspectRatio: '16 / 9' }}>
                     <img src={image} alt={r.name} className="h-full w-full object-cover transition-transform duration-150 ease-out group-hover:scale-[1.02]" loading="lazy" decoding="async" />
                     <div className="absolute left-2 top-2 flex flex-wrap gap-1">

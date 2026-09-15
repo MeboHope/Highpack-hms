@@ -88,12 +88,12 @@ export function Header() {
                     type="button"
                     onClick={() => setMenuOpen((open) => !open)}
                     className="flex items-center gap-2 p-1.5 transition-colors hover:bg-ink-50"
-                    style={{ borderRadius: '2px', minHeight: '44px', minWidth: '44px' }}
+                    style={{ borderRadius: '6px', minHeight: '44px', minWidth: '44px' }}
                     aria-expanded={menuOpen}
                     aria-haspopup="menu"
                     aria-label="Account menu"
                   >
-                    <div className="flex h-10 w-10 items-center justify-center bg-brand-900 font-bold text-white" style={{ borderRadius: '2px' }}>
+                    <div className="flex h-10 w-10 items-center justify-center bg-brand-900 font-bold text-white" style={{ borderRadius: '6px' }}>
                       {profile.full_name?.charAt(0).toUpperCase() || 'U'}
                     </div>
                   </button>
@@ -164,7 +164,7 @@ export function Header() {
               type="button"
               onClick={() => setMobileOpen(false)}
               className="flex h-11 w-11 items-center justify-center border border-ink-100 bg-white text-ink-600 hover:bg-ink-50"
-              style={{ borderRadius: '2px' }}
+              style={{ borderRadius: '6px' }}
               aria-label="Close navigation menu"
             >
               <X className="h-5 w-5" />
@@ -244,7 +244,7 @@ export function Footer() {
         <div className="footer__top">
           <div className="footer__brand">
             <Link to="/" className="inline-flex items-center gap-3" aria-label="HighPark Consult Ltd">
-              <span className="flex h-10 w-10 items-center justify-center bg-white text-brand-900 font-bold text-sm" style={{ borderRadius: '2px' }}>HP</span>
+              <span className="flex h-10 w-10 items-center justify-center bg-white text-brand-900 font-bold text-sm" style={{ borderRadius: '6px' }}>HP</span>
               <span className="text-white font-bold tracking-wide">HIGHPARK CONSULT</span>
             </Link>
             <p>

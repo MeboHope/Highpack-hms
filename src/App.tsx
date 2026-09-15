@@ -73,13 +73,13 @@ class AppErrorBoundary extends React.Component<{ children: React.ReactNode }, { 
     if (this.state.hasError) {
       return (
         <div className="min-h-screen bg-ink-50 px-6 py-16 text-center">
-          <div className="mx-auto max-w-xl border border-red-100 bg-white p-8" style={{ borderRadius: '4px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center bg-red-50 text-red-600" style={{ borderRadius: '2px' }}>!</div>
+          <div className="mx-auto max-w-xl border border-red-100 bg-white p-8" style={{ borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center bg-red-50 text-red-600" style={{ borderRadius: '6px' }}>!</div>
             <h1 className="text-2xl font-bold text-ink-900">HighPark Consult could not load this page</h1>
             <p className="mt-3 text-sm leading-6 text-ink-500">A page component encountered an unexpected error. Refresh the page and try again.</p>
             <details className="mt-5 text-left">
               <summary className="cursor-pointer text-xs font-semibold text-ink-500">Technical details</summary>
-              <pre className="mt-2 overflow-auto bg-ink-50 p-3 text-xs text-red-700" style={{ borderRadius: '2px' }}>{this.state.message}</pre>
+              <pre className="mt-2 overflow-auto bg-ink-50 p-3 text-xs text-red-700" style={{ borderRadius: '6px' }}>{this.state.message}</pre>
             </details>
             <button type="button" onClick={() => window.location.reload()} className="btn-primary mt-6">Refresh page</button>
           </div>
@@ -161,7 +161,7 @@ function AccessDenied() {
   return (
     <PublicLayout>
       <div className="mx-auto flex min-h-[60vh] max-w-xl flex-col items-center justify-center px-4 text-center">
-        <div className="mb-5 bg-red-50 px-5 py-3 text-sm font-semibold text-red-700 border border-red-100" style={{ borderRadius: '2px' }}>Access restricted</div>
+        <div className="mb-5 bg-red-50 px-5 py-3 text-sm font-semibold text-red-700 border border-red-100" style={{ borderRadius: '6px' }}>Access restricted</div>
         <h1 className="text-2xl font-bold" style={{ color: '#0d2342' }}>You do not have permission to view this page.</h1>
         <p className="mt-3 text-ink-500">Please sign in with an account that has the required access.</p>
         <button type="button" onClick={() => navigate('/')} className="btn-primary mt-7">Return Home</button>

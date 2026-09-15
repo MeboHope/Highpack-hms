@@ -9,12 +9,12 @@ export function Brand({ compact = false }: { compact?: boolean }) {
         ? 'inline-flex min-w-0 shrink-0 items-center gap-2 px-0.5 py-1 transition-transform hover:opacity-90 sm:gap-3'
         : 'inline-flex items-center gap-4 px-2 py-2'}
       aria-label="HighPark Consult Ltd — Strategy, Solutions, Success"
-      style={{ borderRadius: '2px' }}
+      style={{ borderRadius: '6px' }}
     >
       <span className={compact
         ? 'flex h-[48px] w-[54px] shrink-0 items-center justify-center overflow-hidden bg-white border border-ink-100 sm:h-[52px] sm:w-[60px]'
         : 'flex h-20 w-24 shrink-0 items-center justify-center bg-white border border-ink-100'}
-        style={{ borderRadius: '2px' }}>
+        style={{ borderRadius: '6px' }}>
         <img
           src={highparkLogo}
           alt="HighPark Consult Ltd"

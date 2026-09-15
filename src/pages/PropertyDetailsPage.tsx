@@ -211,14 +211,14 @@ export function PropertyDetailsPage({ propertyId }: { propertyId: string }) {
 
       {/* Gallery — aspect ratio 16/9, lazy below fold */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-3 mb-8">
-        <div className="lg:col-span-3 relative overflow-hidden bg-ink-100 cursor-pointer border border-ink-100" style={{ borderRadius: '4px', aspectRatio: '16 / 9' }} onClick={() => setShowLightbox(true)}>
+        <div className="lg:col-span-3 relative overflow-hidden bg-ink-100 cursor-pointer border border-ink-100" style={{ borderRadius: '8px', aspectRatio: '16 / 9' }} onClick={() => setShowLightbox(true)}>
           <img src={gallery[activeImage]} alt={property.name} className="w-full h-full object-cover" loading="eager" decoding="async" />
           {gallery.length > 1 && (
             <>
               <button
                 onClick={(e) => { e.stopPropagation(); setActiveImage((activeImage - 1 + gallery.length) % gallery.length); }}
                 className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/90 hover:bg-white flex items-center justify-center border border-ink-100"
-                style={{ borderRadius: '2px' }}
+                style={{ borderRadius: '6px' }}
                 aria-label="Previous image"
               >
                 <ChevronLeft className="w-5 h-5" />
@@ -226,12 +226,12 @@ export function PropertyDetailsPage({ propertyId }: { propertyId: string }) {
               <button
                 onClick={(e) => { e.stopPropagation(); setActiveImage((activeImage + 1) % gallery.length); }}
                 className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/90 hover:bg-white flex items-center justify-center border border-ink-100"
-                style={{ borderRadius: '2px' }}
+                style={{ borderRadius: '6px' }}
                 aria-label="Next image"
               >
                 <ChevronRight className="w-5 h-5" />
               </button>
-              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-ink-950/70 text-white text-xs px-3 py-1" style={{ borderRadius: '2px' }}>
+              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-ink-950/70 text-white text-xs px-3 py-1" style={{ borderRadius: '6px' }}>
                 {activeImage + 1} / {gallery.length}
               </div>
             </>
@@ -239,7 +239,7 @@ export function PropertyDetailsPage({ propertyId }: { propertyId: string }) {
         </div>
         <div className="hidden lg:grid grid-rows-2 gap-3">
           {gallery.slice(1, 3).map((img, i) => (
-            <div key={i} className="relative overflow-hidden bg-ink-100 cursor-pointer hover:opacity-90 border border-ink-100" style={{ borderRadius: '4px', aspectRatio: '16 / 9' }} onClick={() => setActiveImage(i + 1)}>
+            <div key={i} className="relative overflow-hidden bg-ink-100 cursor-pointer hover:opacity-90 border border-ink-100" style={{ borderRadius: '8px', aspectRatio: '16 / 9' }} onClick={() => setActiveImage(i + 1)}>
               <img src={img} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
             </div>
           ))}
@@ -271,7 +271,7 @@ export function PropertyDetailsPage({ propertyId }: { propertyId: string }) {
               { icon: <Calendar className="w-5 h-5" />, label: 'Available', value: `${availableUnits.length} spaces` },
             ]).map((s) => (
               <div key={s.label} className="card text-center" style={{ padding: '1rem' }}>
-                <div className="w-10 h-10 flex items-center justify-center mx-auto mb-2 bg-ink-50 text-brand-900 border border-ink-100" style={{ borderRadius: '2px' }}>{s.icon}</div>
+                <div className="w-10 h-10 flex items-center justify-center mx-auto mb-2 bg-ink-50 text-brand-900 border border-ink-100" style={{ borderRadius: '6px' }}>{s.icon}</div>
                 <p className="text-xs uppercase tracking-wide text-ink-400 font-semibold">{s.label}</p>
                 <p className="font-semibold text-sm mt-1">{String(s.value)}</p>
               </div>
@@ -319,7 +319,7 @@ export function PropertyDetailsPage({ propertyId }: { propertyId: string }) {
                 { icon: <PawPrint className="w-4 h-4" />, label: 'Pets Allowed', value: property.pets_allowed },
               ]).map((f) => (
                 <div key={f.label} className="flex items-center gap-2 text-sm">
-                  <span className={`w-8 h-8 flex items-center justify-center border ${f.value ? 'bg-ink-50 text-brand-900 border-ink-100' : 'bg-ink-50 text-ink-400 border-ink-100'}`} style={{ borderRadius: '2px' }}>
+                  <span className={`w-8 h-8 flex items-center justify-center border ${f.value ? 'bg-ink-50 text-brand-900 border-ink-100' : 'bg-ink-50 text-ink-400 border-ink-100'}`} style={{ borderRadius: '6px' }}>
                     {f.icon}
                   </span>
                   <span className={f.value ? 'text-ink-700' : 'text-ink-400'}>{f.label}</span>
@@ -434,7 +434,7 @@ export function PropertyDetailsPage({ propertyId }: { propertyId: string }) {
             <div className="card" style={{ padding: '1rem' }}>
               <h3 className="font-semibold mb-3 text-sm">Property Owner</h3>
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 flex items-center justify-center bg-brand-900 text-white font-semibold" style={{ borderRadius: '2px' }}>
+                <div className="w-10 h-10 flex items-center justify-center bg-brand-900 text-white font-semibold" style={{ borderRadius: '6px' }}>
                   {property.profiles.full_name?.[0]?.toUpperCase() || 'O'}
                 </div>
                 <div>
@@ -459,12 +459,12 @@ export function PropertyDetailsPage({ propertyId }: { propertyId: string }) {
 
       {showLightbox && (
         <div className="fixed inset-0 z-[100] bg-ink-950/80 flex items-center justify-center p-4" onClick={() => setShowLightbox(false)}>
-          <button className="absolute top-4 right-4 text-white p-2 border border-white/20 hover:bg-white/10" style={{ borderRadius: '2px' }} aria-label="Close"><X className="w-6 h-6" /></button>
+          <button className="absolute top-4 right-4 text-white p-2 border border-white/20 hover:bg-white/10" style={{ borderRadius: '6px' }} aria-label="Close"><X className="w-6 h-6" /></button>
           <img src={gallery[activeImage]} alt="" className="max-w-full max-h-[90vh] object-contain" loading="eager" />
           {gallery.length > 1 && (
             <>
-              <button onClick={(e) => { e.stopPropagation(); setActiveImage((activeImage - 1 + gallery.length) % gallery.length); }} className="absolute left-4 top-1/2 -translate-y-1/2 text-white p-2 border border-white/20 hover:bg-white/10" style={{ borderRadius: '2px' }} aria-label="Previous"><ChevronLeft className="w-8 h-8" /></button>
-              <button onClick={(e) => { e.stopPropagation(); setActiveImage((activeImage + 1) % gallery.length); }} className="absolute right-4 top-1/2 -translate-y-1/2 text-white p-2 border border-white/20 hover:bg-white/10" style={{ borderRadius: '2px' }} aria-label="Next"><ChevronRight className="w-8 h-8" /></button>
+              <button onClick={(e) => { e.stopPropagation(); setActiveImage((activeImage - 1 + gallery.length) % gallery.length); }} className="absolute left-4 top-1/2 -translate-y-1/2 text-white p-2 border border-white/20 hover:bg-white/10" style={{ borderRadius: '6px' }} aria-label="Previous"><ChevronLeft className="w-8 h-8" /></button>
+              <button onClick={(e) => { e.stopPropagation(); setActiveImage((activeImage + 1) % gallery.length); }} className="absolute right-4 top-1/2 -translate-y-1/2 text-white p-2 border border-white/20 hover:bg-white/10" style={{ borderRadius: '6px' }} aria-label="Next"><ChevronRight className="w-8 h-8" /></button>
             </>
           )}
         </div>
@@ -519,7 +519,7 @@ function ReservationModal({ unitId, onClose }: { unitId: string; onClose: () => 
     <Modal open onClose={onClose} title="Reserve This Property" size="md">
       {step === 'summary' && (
         <div>
-          <div className="bg-ink-50 p-4 mb-4 border border-ink-100" style={{ borderRadius: '4px' }}>
+          <div className="bg-ink-50 p-4 mb-4 border border-ink-100" style={{ borderRadius: '8px' }}>
             <h4 className="font-semibold mb-2 text-sm">Reservation Summary</h4>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between"><span className="text-ink-500">Reservation Fee</span> <span className="font-semibold">{formatKES(reservationFee)}</span></div>
@@ -539,7 +539,7 @@ function ReservationModal({ unitId, onClose }: { unitId: string; onClose: () => 
                   key={m.value}
                   onClick={() => setPaymentMethod(m.value as typeof paymentMethod)}
                   className={`p-3 border text-sm font-medium transition-colors ${paymentMethod === m.value ? 'border-brand-900 bg-ink-50 text-brand-900' : 'border-ink-200 text-ink-600 hover:border-ink-300'}`}
-                  style={{ borderRadius: '2px', minHeight: '44px' }}
+                  style={{ borderRadius: '6px', minHeight: '44px' }}
                 >
                   {m.label}
                 </button>
@@ -565,7 +565,7 @@ function ReservationModal({ unitId, onClose }: { unitId: string; onClose: () => 
       )}
       {step === 'success' && (
         <div className="text-center py-8">
-          <div className="w-12 h-12 flex items-center justify-center mx-auto mb-4 bg-ink-50 text-brand-900 border border-ink-100" style={{ borderRadius: '2px' }}>
+          <div className="w-12 h-12 flex items-center justify-center mx-auto mb-4 bg-ink-50 text-brand-900 border border-ink-100" style={{ borderRadius: '6px' }}>
             <CheckCircle className="w-6 h-6" />
           </div>
           <h4 className="font-bold text-lg mb-1">Reservation Request Received!</h4>
@@ -670,7 +670,7 @@ function ContactModal({ propertyId, ownerId, ownerName, ownerPhone, onClose }: {
     <Modal open onClose={onClose} title="Contact Owner" size="sm">
       <div className="space-y-4">
         <div className="flex items-center gap-3">
-          <div className="grid h-10 w-10 place-items-center bg-brand-900 text-white font-semibold" style={{ borderRadius: '2px' }}>{ownerName?.[0]?.toUpperCase() || 'O'}</div>
+          <div className="grid h-10 w-10 place-items-center bg-brand-900 text-white font-semibold" style={{ borderRadius: '6px' }}>{ownerName?.[0]?.toUpperCase() || 'O'}</div>
           <div><p className="font-semibold text-sm">{ownerName || 'Property Owner'}</p><p className="text-xs text-ink-500">Your enquiry will be linked to this property.</p></div>
         </div>
         {ownerPhone && <a href={`tel:${ownerPhone}`} className="btn-secondary w-full"><Phone className="h-4 w-4" /> Call {ownerPhone}</a>}

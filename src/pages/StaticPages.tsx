@@ -85,7 +85,7 @@ export function AboutPage() {
       <div className="container-main" style={{ paddingTop: '24px', paddingBottom: '48px' }}>
         <section className="card" style={{ padding: '32px', background: '#0d2342', borderColor: '#0d2342', textAlign: 'center' }}>
           <div className="mx-auto max-w-3xl">
-            <div className="mb-4 inline-flex items-center gap-2 border border-white/20 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-white/80" style={{ borderRadius: '2px' }}>
+            <div className="mb-4 inline-flex items-center gap-2 border border-white/20 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-white/80" style={{ borderRadius: '6px' }}>
               <Home className="w-4 h-4" /> About HighPark Consult
             </div>
             <h1 style={{ color: '#ffffff' }}>A more trusted, connected way to navigate property in Kenya.</h1>
@@ -111,7 +111,7 @@ export function AboutPage() {
           <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-3">
             {pillars.map((item) => (
               <div key={item.title} className="card" style={{ padding: '1rem' }}>
-                <div className="flex h-10 w-10 items-center justify-center bg-ink-50 text-brand-900 border border-ink-100" style={{ borderRadius: '2px' }}>{item.icon}</div>
+                <div className="flex h-10 w-10 items-center justify-center bg-ink-50 text-brand-900 border border-ink-100" style={{ borderRadius: '6px' }}>{item.icon}</div>
                 <h3 className="mt-4 font-semibold">{item.title}</h3>
                 <p className="mt-2 text-sm leading-6 text-ink-500">{item.desc}</p>
               </div>
@@ -133,7 +133,7 @@ export function AboutPage() {
               ['Sales & investment', 'Move from discovery to enquiries and controlled sales workflows.'],
               ['Property management', 'Support ongoing work across leases, payments, maintenance and reporting.'],
             ].map(([title, desc]) => (
-              <div key={title} className="bg-ink-50 p-4 border border-ink-100" style={{ borderRadius: '4px' }}>
+              <div key={title} className="bg-ink-50 p-4 border border-ink-100" style={{ borderRadius: '8px' }}>
                 <h3 className="font-semibold text-sm">{title}</h3>
                 <p className="mt-2 text-sm leading-6 text-ink-500">{desc}</p>
               </div>
@@ -194,7 +194,7 @@ export function ContactPage() {
           ].map((item) => (
             <div key={item.title} className="card" style={{ padding: '1rem' }}>
               <div className="flex items-start gap-3">
-                <div className="w-10 h-10 flex items-center justify-center bg-ink-50 text-brand-900 border border-ink-100 shrink-0" style={{ borderRadius: '2px' }}>{item.icon}</div>
+                <div className="w-10 h-10 flex items-center justify-center bg-ink-50 text-brand-900 border border-ink-100 shrink-0" style={{ borderRadius: '6px' }}>{item.icon}</div>
                 <div>
                   <p className="text-xs uppercase tracking-wide text-ink-400 font-semibold">{item.title}</p>
                   <p className="font-semibold text-sm mt-1">{item.value}</p>

@@ -4,7 +4,7 @@
 
 /* =========================================================
    HIGH PARK CONSULT — REFINED, ELEGANT, PERFORMANCE-FIRST
-   Mobile-first, minimal decoration, sharp corners, soft shadows
+   Mobile-first, minimal decoration, soft corners, soft shadows
    ========================================================= */
 
 :root {
@@ -101,7 +101,6 @@ p.lead {
   max-width: 65ch;
 }
 
-/* Body text comfortable */
 body, .text-body {
   line-height: 1.65;
 }
@@ -139,7 +138,7 @@ textarea:focus-visible {
 
 ::-webkit-scrollbar-thumb {
   background: #94a0b2;
-  border-radius: 0;
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
@@ -189,20 +188,18 @@ textarea:focus-visible {
   }
 }
 
-/* Consistent 8px grid for margins/paddings — use Tailwind spacing which is 4px based, but enforce multiples of 8px via utilities */
 .space-8 { margin: 8px; }
 .space-16 { margin: 16px; }
 .space-24 { margin: 24px; }
 
 /* =========================================================
-   BUTTONS — Sharp corners, solid fills, no opacity tricks
-   Consolidated to primary (solid) and secondary (outline)
+   BUTTONS — Soft corners (4-6px), solid fills, no opacity tricks
    ========================================================= */
 
 @layer components {
   .btn {
     @apply inline-flex items-center justify-center gap-2 font-semibold transition-all;
-    border-radius: 2px;
+    border-radius: 6px;
     min-height: 44px;
     min-width: 44px;
     padding: 0.75rem 1.25rem;
@@ -256,7 +253,6 @@ textarea:focus-visible {
     transform: scale(0.98);
   }
 
-  /* Accent solid — gold for CTA, same structure as primary */
   .btn-accent {
     @apply btn;
     background: #c9972e;
@@ -275,7 +271,6 @@ textarea:focus-visible {
     transform: scale(0.98);
   }
 
-  /* Map legacy variants to consolidated styles */
   .btn-outline {
     @apply btn-secondary;
   }
@@ -294,7 +289,7 @@ textarea:focus-visible {
 
   .btn-ghost {
     @apply inline-flex items-center justify-center gap-2 font-medium;
-    border-radius: 2px;
+    border-radius: 6px;
     min-height: 44px;
     min-width: 44px;
     padding: 0.5rem 0.75rem;
@@ -309,7 +304,6 @@ textarea:focus-visible {
     color: #0d2342;
   }
 
-  /* Disabled state — muted grey, not opacity */
   .btn:disabled,
   .btn-primary:disabled,
   .btn-secondary:disabled,
@@ -325,13 +319,13 @@ textarea:focus-visible {
 }
 
 /* =========================================================
-   FORM ELEMENTS — Sharp corners, subtle border, no shadows
+   FORM ELEMENTS — Soft corners, subtle border
    ========================================================= */
 
 @layer components {
   .input {
     @apply w-full bg-white text-ink-900 placeholder:text-ink-400;
-    border-radius: 2px;
+    border-radius: 6px;
     border: 1px solid #dce1e8;
     padding: 0.75rem 1rem;
     font-size: 0.9375rem;
@@ -345,7 +339,6 @@ textarea:focus-visible {
     border-color: #0d2342;
     outline: none;
     box-shadow: none;
-    ring: 0;
   }
 
   .select {
@@ -368,13 +361,13 @@ textarea:focus-visible {
 }
 
 /* =========================================================
-   CARDS — Minimal radius, thin border, soft shadow
+   CARDS — Soft 8px radius, thin border, soft shadow
    ========================================================= */
 
 @layer components {
   .card {
     @apply bg-white;
-    border-radius: 4px;
+    border-radius: 8px;
     border: 1px solid #eef0f4;
     box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
     transition: transform 0.15s ease-out, box-shadow 0.15s ease-out;
@@ -390,21 +383,20 @@ textarea:focus-visible {
     transform: translateY(-1px);
   }
 
-  /* Ensure card padding is 1rem not 1.25rem */
   .card-p {
     padding: 1rem;
   }
 }
 
 /* =========================================================
-   BADGES / CHIPS / TAGS — Small rectangles, minimal rounding
+   BADGES / CHIPS / TAGS — Small rectangles, soft 4px rounding
    ========================================================= */
 
 .badge {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  border-radius: 2px;
+  border-radius: 4px;
   padding: 4px 8px;
   font-size: 0.6875rem;
   font-weight: 600;
@@ -429,9 +421,9 @@ textarea:focus-visible {
   border-color: #fff3d6;
 }
 
-/* Override pill styles globally */
+/* Override pill styles — soften to 6px not 2px */
 .rounded-full {
-  border-radius: 2px !important;
+  border-radius: 6px !important;
 }
 
 .rounded-3xl,
@@ -442,19 +434,19 @@ textarea:focus-visible {
 }
 
 .rounded-2xl {
-  border-radius: 4px !important;
+  border-radius: 8px !important;
 }
 
 .rounded-xl {
-  border-radius: 4px !important;
+  border-radius: 8px !important;
 }
 
 .rounded-lg {
-  border-radius: 2px !important;
+  border-radius: 6px !important;
 }
 
 /* =========================================================
-   HERO — Full-width, image with 50-65% overlay, centered CTA
+   HERO — Full-width, image with overlay, centered CTA
    ========================================================= */
 
 .hero-full {
@@ -530,7 +522,7 @@ textarea:focus-visible {
   background: #c9972e;
   color: #ffffff;
   border: 1px solid #c9972e;
-  border-radius: 2px;
+  border-radius: 6px;
   padding: 0.875rem 1.75rem;
   font-weight: 600;
   font-size: 0.9375rem;
@@ -550,10 +542,6 @@ textarea:focus-visible {
   transform: scale(0.98);
 }
 
-/* =========================================================
-   PROPERTY CARD — Consistent aspect ratio, performance
-   ========================================================= */
-
 .property-card__image {
   aspect-ratio: 16 / 9;
   object-fit: cover;
@@ -563,7 +551,7 @@ textarea:focus-visible {
 }
 
 /* =========================================================
-   HEADER — Simplified, hamburger on mobile, static on mobile
+   HEADER — Simplified, hamburger on mobile
    ========================================================= */
 
 .header {
@@ -620,7 +608,7 @@ textarea:focus-visible {
   font-size: 0.875rem;
   font-weight: 600;
   color: #68758a;
-  border-radius: 2px;
+  border-radius: 6px;
   transition: all 0.15s ease-out;
   text-decoration: none;
   border: 1px solid transparent;
@@ -643,7 +631,7 @@ textarea:focus-visible {
   justify-content: center;
   width: 44px;
   height: 44px;
-  border-radius: 2px;
+  border-radius: 6px;
   border: 1px solid #eef0f4;
   background: #ffffff;
   color: #0d2342;
@@ -661,7 +649,6 @@ textarea:focus-visible {
   }
 }
 
-/* Mobile drawer */
 .mobile-drawer {
   position: fixed;
   inset: 0;
@@ -731,7 +718,7 @@ textarea:focus-visible {
   font-size: 0.9375rem;
   font-weight: 600;
   color: #3c485c;
-  border-radius: 2px;
+  border-radius: 6px;
   transition: all 0.15s ease-out;
   text-decoration: none;
   border: 1px solid transparent;
@@ -747,10 +734,6 @@ textarea:focus-visible {
   color: #0d2342;
   border-color: #e2eaf5;
 }
-
-/* =========================================================
-   FOOTER — Simple, dark, stacked on mobile
-   ========================================================= */
 
 .footer {
   background: #0d2342;
@@ -843,10 +826,6 @@ textarea:focus-visible {
   }
 }
 
-/* =========================================================
-   SCROLL PROGRESS — GPU accelerated, transform only
-   ========================================================= */
-
 .scroll-progress {
   position: fixed;
   top: 0;
@@ -868,10 +847,6 @@ textarea:focus-visible {
   transition: transform 80ms linear;
 }
 
-/* =========================================================
-   ANIMATIONS — Only transform and opacity, 0.15s ease-out
-   ========================================================= */
-
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -890,7 +865,6 @@ textarea:focus-visible {
   animation: slideUp 0.15s ease-out;
 }
 
-/* Remove old heavy animations */
 .hero-premium::after,
 .hp-scroll-reveal,
 .hp-page-enter,
@@ -904,7 +878,6 @@ textarea:focus-visible {
   transform: none !important;
 }
 
-/* Marquee — disable infinite animation for performance, make it static grid on mobile */
 .hp-marquee-track {
   display: grid;
   grid-template-columns: 1fr;
@@ -930,10 +903,6 @@ textarea:focus-visible {
   width: 100% !important;
 }
 
-/* =========================================================
-   OVERRIDES — Remove gradients, translucent overlays, colored shadows
-   ========================================================= */
-
 .brand-gradient,
 .gold-gradient,
 .brand-gold-gradient,
@@ -951,7 +920,6 @@ textarea:focus-visible {
   display: none !important;
 }
 
-/* Remove colored shadows */
 .shadow-accent-500\/20,
 .shadow-gold,
 .shadow-soft,
@@ -962,32 +930,24 @@ textarea:focus-visible {
   box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06) !important;
 }
 
-/* Remove backdrop-blur heavy usage */
 .backdrop-blur-xl,
 .backdrop-blur {
   backdrop-filter: none !important;
 }
 
-/* Ensure all cards use thin border not shadow for definition where appropriate */
 .card {
   border: 1px solid #eef0f4 !important;
 }
 
-/* Inputs no shadow */
 .input,
 .select,
 .textarea {
   box-shadow: none !important;
 }
 
-/* Ensure images have aspect ratio handling */
 img {
   max-width: 100%;
 }
-
-/* =========================================================
-   GRID — Mobile-first single column, gap for spacing
-   ========================================================= */
 
 .grid-mobile-1 {
   display: grid;
@@ -1008,10 +968,6 @@ img {
   }
 }
 
-/* =========================================================
-   UTILITIES — Performance and accessibility
-   ========================================================= */
-
 .skeleton {
   background: #eef0f4;
   animation: pulse 1.5s ease-in-out infinite;
@@ -1026,12 +982,10 @@ img {
   will-change: transform;
 }
 
-/* Hide watermark for cleaner look */
 .site-watermark {
   display: none !important;
 }
 
-/* Premium glow removal */
 .premium-glow,
 .app-shell::before,
 main::before,
@@ -1040,18 +994,11 @@ main::before,
   background: none !important;
 }
 
-/* Ensure main has no pseudo background */
 main::before {
   content: none !important;
 }
 
-/* =========================================================
-   RESPONSIVE BREAKPOINTS — 320, 480, 768, 1024, 1280
-   ========================================================= */
-
-@media (min-width: 320px) {
-  /* Base mobile */
-}
+@media (min-width: 320px) {}
 
 @media (min-width: 480px) {
   .container-main {
@@ -1080,7 +1027,6 @@ main::before {
   }
 }
 
-/* Touch targets */
 @media (max-width: 767px) {
   a, button {
     min-height: 44px;
@@ -1093,17 +1039,13 @@ main::before {
   }
 }
 
-/* =========================================================
-   MISC — Cleanup old styles
-   ========================================================= */
-
 .contact-row {
   display: flex;
   align-items: flex-start;
   gap: 12px;
   padding: 8px;
   margin: 0;
-  border-radius: 2px;
+  border-radius: 4px;
   transition: background-color 0.15s ease-out;
 }
 
@@ -1112,7 +1054,7 @@ main::before {
 }
 
 .stat-chip {
-  border-radius: 4px;
+  border-radius: 8px;
   border: 1px solid #eef0f4;
   background: #ffffff;
   padding: 12px;
@@ -1128,7 +1070,7 @@ main::before {
 
 .premium-table-wrap {
   overflow-x: auto;
-  border-radius: 4px;
+  border-radius: 8px;
   border: 1px solid #eef0f4;
   background: #ffffff;
 }
@@ -1167,9 +1109,8 @@ main::before {
   border-bottom: 0;
 }
 
-/* Chart panels — simplified */
 .chart-panel {
-  border-radius: 4px;
+  border-radius: 8px;
   border: 1px solid #eef0f4;
   background: #ffffff;
   padding: 20px;
@@ -1199,7 +1140,7 @@ main::before {
 }
 
 .chart-total {
-  border-radius: 2px;
+  border-radius: 4px;
   background: #f1f5fb;
   padding: 8px 12px;
   font-size: 0.875rem;
@@ -1207,7 +1148,6 @@ main::before {
   color: #0d2342;
 }
 
-/* Section kicker */
 .section-kicker {
   font-size: 0.6875rem;
   font-weight: 700;
@@ -1216,12 +1156,10 @@ main::before {
   color: #0d2342;
 }
 
-/* Ensure focus states for all interactive */
 a, button, [role="button"] {
   transition: color 0.15s ease-out, background-color 0.15s ease-out, border-color 0.15s ease-out, transform 0.15s ease-out, box-shadow 0.15s ease-out;
 }
 
-/* Links underline on hover */
 a:hover {
   text-decoration: none;
 }
@@ -1231,7 +1169,6 @@ a:hover {
   text-underline-offset: 4px;
 }
 
-/* Reduce motion for users who prefer */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
@@ -1240,7 +1177,6 @@ a:hover {
   }
 }
 
-/* Performance: will-change only during animation */
 .will-change-transform {
   will-change: auto;
 }

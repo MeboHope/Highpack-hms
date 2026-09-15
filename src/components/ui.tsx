@@ -4,7 +4,7 @@ import { statusColor, titleCase } from '@/lib/constants';
 export function Badge({ status, children }: { status?: string; children?: ReactNode }) {
   const label = children ?? (status ? titleCase(status) : '');
   return (
-    <span className={`badge ${status ? statusColor(status) : ''}`} style={{ borderRadius: '2px' }}>
+    <span className={`badge ${status ? statusColor(status) : ''}`} style={{ borderRadius: '6px' }}>
       {label}
     </span>
   );
@@ -14,7 +14,7 @@ export function Card({ children, className = '', onClick }: { children: ReactNod
   return (
     <div
       className={`card ${onClick ? 'cursor-pointer' : ''} ${className}`}
-      style={{ padding: '1rem', borderRadius: '4px', border: '1px solid #eef0f4', boxShadow: '0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06)' }}
+      style={{ padding: '1rem', borderRadius: '8px', border: '1px solid #eef0f4', boxShadow: '0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06)' }}
       onClick={onClick}
     >
       {children}
@@ -47,7 +47,7 @@ export function StatCard({
   return (
     <div
       className={`card ${onClick ? 'cursor-pointer' : ''}`}
-      style={{ padding: '1rem', borderRadius: '4px' }}
+      style={{ padding: '1rem', borderRadius: '8px' }}
       onClick={onClick}
       onKeyDown={(e) => { if (onClick && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onClick(); } }}
       role={onClick ? 'button' : undefined}
@@ -55,7 +55,7 @@ export function StatCard({
     >
       <div className="flex items-center justify-between mb-3">
         <span className="text-sm font-medium text-ink-500">{label}</span>
-        <div className={`w-10 h-10 flex items-center justify-center border ${accents[accent]}`} style={{ borderRadius: '2px' }}>
+        <div className={`w-10 h-10 flex items-center justify-center border ${accents[accent]}`} style={{ borderRadius: '6px' }}>
           {icon}
         </div>
       </div>
@@ -68,7 +68,7 @@ export function StatCard({
 export function EmptyState({ icon, title, description, action }: { icon: ReactNode; title: string; description?: string; action?: ReactNode }) {
   return (
     <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
-      <div className="w-12 h-12 flex items-center justify-center bg-ink-100 text-ink-400 mb-4" style={{ borderRadius: '2px' }}>
+      <div className="w-12 h-12 flex items-center justify-center bg-ink-100 text-ink-400 mb-4" style={{ borderRadius: '6px' }}>
         {icon}
       </div>
       <h3 className="text-lg font-semibold text-ink-800 mb-1">{title}</h3>
@@ -94,14 +94,14 @@ export function LoadingPage() {
 
 export function SkeletonCard() {
   return (
-    <div className="card overflow-hidden" style={{ padding: 0, borderRadius: '4px' }}>
+    <div className="card overflow-hidden" style={{ padding: 0, borderRadius: '8px' }}>
       <div className="skeleton h-48 w-full" style={{ aspectRatio: '16 / 9' }} />
       <div className="p-4 space-y-3">
-        <div className="skeleton h-4 w-3/4" style={{ borderRadius: '2px' }} />
-        <div className="skeleton h-3 w-1/2" style={{ borderRadius: '2px' }} />
+        <div className="skeleton h-4 w-3/4" style={{ borderRadius: '6px' }} />
+        <div className="skeleton h-3 w-1/2" style={{ borderRadius: '6px' }} />
         <div className="flex gap-2">
-          <div className="skeleton h-6 w-16" style={{ borderRadius: '2px' }} />
-          <div className="skeleton h-6 w-16" style={{ borderRadius: '2px' }} />
+          <div className="skeleton h-6 w-16" style={{ borderRadius: '6px' }} />
+          <div className="skeleton h-6 w-16" style={{ borderRadius: '6px' }} />
         </div>
       </div>
     </div>
@@ -124,9 +124,9 @@ export function Pagination({ page, totalPages, onPageChange, totalItems, pageSiz
   return <div className="flex flex-col gap-3 border-t border-ink-100 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
     <p className="text-xs text-ink-500">{totalItems !== undefined && totalItems > 0 ? `Showing ${startItem}–${endItem} of ${totalItems}` : `Page ${page} of ${safeTotalPages}`}</p>
     <div className="flex items-center gap-1">
-      <button type="button" disabled={page === 1} onClick={() => onPageChange(page - 1)} className="border border-ink-200 px-3 py-2 text-xs font-semibold text-ink-600 disabled:cursor-not-allowed disabled:opacity-40" style={{ borderRadius: '2px', minHeight: '36px' }}>Previous</button>
-      {pages.map((p, i) => p === 'ellipsis' ? <span key={`e-${i}`} className="px-2 text-ink-400">…</span> : <button type="button" key={p} onClick={() => onPageChange(p)} className={`min-w-9 border px-3 py-2 text-xs font-semibold ${p === page ? 'border-brand-900 bg-brand-900 text-white' : 'border-ink-200 text-ink-600 hover:bg-ink-50'}`} style={{ borderRadius: '2px', minHeight: '36px' }}>{p}</button>)}
-      <button type="button" disabled={page === safeTotalPages} onClick={() => onPageChange(page + 1)} className="border border-ink-200 px-3 py-2 text-xs font-semibold text-ink-600 disabled:cursor-not-allowed disabled:opacity-40" style={{ borderRadius: '2px', minHeight: '36px' }}>Next</button>
+      <button type="button" disabled={page === 1} onClick={() => onPageChange(page - 1)} className="border border-ink-200 px-3 py-2 text-xs font-semibold text-ink-600 disabled:cursor-not-allowed disabled:opacity-40" style={{ borderRadius: '6px', minHeight: '36px' }}>Previous</button>
+      {pages.map((p, i) => p === 'ellipsis' ? <span key={`e-${i}`} className="px-2 text-ink-400">…</span> : <button type="button" key={p} onClick={() => onPageChange(p)} className={`min-w-9 border px-3 py-2 text-xs font-semibold ${p === page ? 'border-brand-900 bg-brand-900 text-white' : 'border-ink-200 text-ink-600 hover:bg-ink-50'}`} style={{ borderRadius: '6px', minHeight: '36px' }}>{p}</button>)}
+      <button type="button" disabled={page === safeTotalPages} onClick={() => onPageChange(page + 1)} className="border border-ink-200 px-3 py-2 text-xs font-semibold text-ink-600 disabled:cursor-not-allowed disabled:opacity-40" style={{ borderRadius: '6px', minHeight: '36px' }}>Next</button>
     </div>
   </div>;
 }

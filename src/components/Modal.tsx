@@ -34,11 +34,11 @@ export function Modal({ open, onClose, title, children, size = 'md' }: ModalProp
   return (
     <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-ink-950/40" onClick={onClose} />
-      <div className={`relative w-full ${sizes[size]} bg-white border border-ink-100 max-h-[90vh] overflow-hidden flex flex-col`} style={{ borderRadius: '4px', boxShadow: '0 4px 16px rgba(0,0,0,0.12)' }}>
+      <div className={`relative w-full ${sizes[size]} bg-white border border-ink-100 max-h-[90vh] overflow-hidden flex flex-col`} style={{ borderRadius: '8px', boxShadow: '0 4px 16px rgba(0,0,0,0.12)' }}>
         {title && (
           <div className="flex items-center justify-between px-6 py-4 border-b border-ink-100">
             <h3 className="text-lg font-bold text-ink-900">{title}</h3>
-            <button onClick={onClose} className="flex h-10 w-10 items-center justify-center border border-ink-100 bg-white text-ink-500 hover:bg-ink-50 hover:text-ink-700" style={{ borderRadius: '2px' }} aria-label="Close modal">
+            <button onClick={onClose} className="flex h-10 w-10 items-center justify-center border border-ink-100 bg-white text-ink-500 hover:bg-ink-50 hover:text-ink-700" style={{ borderRadius: '6px' }} aria-label="Close modal">
               <X className="w-5 h-5" />
             </button>
           </div>
