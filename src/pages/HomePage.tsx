@@ -10,7 +10,6 @@ import {
   Wallet,
   FileText,
   TrendingUp,
-  Building2,
   Users,
   Settings,
   HelpCircle,
@@ -19,6 +18,11 @@ import {
   BarChart3,
   MessageSquare,
   CalendarCheck,
+  Building,
+  Map,
+  Building2,
+  BedDouble,
+  BadgeDollarSign,
 } from 'lucide-react';
 
 import { Link } from '@/context/RouterContext';
@@ -462,16 +466,16 @@ export function HomePage() {
           </div>
 
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-            {[
-              ['Homes', 'Residential properties', '🏠', ''],
-              ['Commercial', 'Offices & business spaces', '🏢', 'commercial'],
-              ['Land & Plots', 'Development & investment land', '🌍', 'land'],
-              ['Mixed Use', 'Multi-purpose assets', '🏙️', 'mixed_use'],
-              ['Short Stays', 'Flexible hospitality stays', '🛏️', 'short_stay'],
-              ['For Sale', 'Ownership opportunities', '💼', 'sale'],
-            ].map(([title, desc, icon, filter]) => (
+            {([
+              ['Homes', 'Residential properties', <HomeIcon className="h-6 w-6" />, ''],
+              ['Commercial', 'Offices & business spaces', <Building className="h-6 w-6" />, 'commercial'],
+              ['Land & Plots', 'Development & investment land', <Map className="h-6 w-6" />, 'land'],
+              ['Mixed Use', 'Multi-purpose assets', <Building2 className="h-6 w-6" />, 'mixed_use'],
+              ['Short Stays', 'Flexible hospitality stays', <BedDouble className="h-6 w-6" />, 'short_stay'],
+              ['For Sale', 'Ownership opportunities', <BadgeDollarSign className="h-6 w-6" />, 'sale'],
+            ] as Array<[string, string, JSX.Element, string]>).map(([title, desc, icon, filter]) => (
               <Link key={title} to={filter === 'sale' ? '/properties?category=buy' : filter === 'land' ? '/properties?category=land' : filter === 'short_stay' ? '/properties?category=short_stay' : filter ? `/properties?asset_class=${filter}` : '/properties'} className="group rounded-2xl border border-white/10 bg-white/[0.06] p-4 transition-all hover:-translate-y-1 hover:bg-white/10 hover:shadow-2xl">
-                <div className="text-2xl">{icon}</div>
+                <div className="text-accent-300">{icon}</div>
                 <h3 className="mt-4 text-sm font-bold text-white">{title}</h3>
                 <p className="mt-1 text-xs leading-5 text-brand-200">{desc}</p>
                 <span className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-accent-300">Explore <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-1" /></span>

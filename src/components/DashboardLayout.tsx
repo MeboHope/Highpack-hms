@@ -16,12 +16,15 @@ import { useToast } from '@/context/hooks';
 import { Brand } from '@/components/Brand';
 import { supabase } from '@/lib/supabase';
 import { titleCase } from '@/lib/constants';
+import { hasStaffPermission } from '@/lib/staffAccess';
 
 interface NavItem {
   label: string;
   to: string;
   icon: ReactNode;
   section?: string;
+  requiredPermission?: string;
+  superAdminOnly?: boolean;
 }
 
 export function DashboardLayout({
@@ -34,7 +37,7 @@ export function DashboardLayout({
   title: string;
 }) {
   const { path, navigate } = useRouter();
-  const { profile, signOut } = useAuth();
+  const { profile, staffAccess, signOut } = useAuth();
   const { toast } = useToast();
 
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -122,6 +125,10 @@ export function DashboardLayout({
     navigate(to);
   };
 
+  const visibleNavItems = profile?.role === 'admin'
+    ? navItems.filter((item) => (item.superAdminOnly ? staffAccess.isSuperAdmin : !item.requiredPermission || hasStaffPermission(staffAccess, item.requiredPermission)))
+    : navItems;
+
   const roleLabel = profile?.role === 'admin' ? 'Administration' : profile?.role === 'owner' ? 'Asset owner' : 'Client workspace';
   const routeLabel = path.startsWith('/owner') ? 'Owner workspace' : path.startsWith('/admin') ? 'Administration workspace' : path.startsWith('/tenant') ? 'Client workspace' : 'Marketplace';
   const browseLabel = profile?.role === 'admin' ? 'View public marketplace' : 'Explore assets';
@@ -156,9 +163,9 @@ export function DashboardLayout({
 
         {/* Navigation */}
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-          {navItems.map((item, index) => (
+          {visibleNavItems.map((item, index) => (
             <div key={item.to}>
-              {item.section && (index === 0 || item.section !== navItems[index - 1]?.section) && (
+              {item.section && (index === 0 || item.section !== visibleNavItems[index - 1]?.section) && (
                 <p className="px-3 pb-1 pt-4 text-[10px] font-bold uppercase tracking-[0.16em] text-ink-400">{item.section}</p>
               )}
             <Link
@@ -221,9 +228,9 @@ export function DashboardLayout({
 
             {/* Mobile navigation */}
             <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-              {navItems.map((item, index) => (
+              {visibleNavItems.map((item, index) => (
                 <div key={item.to}>
-                  {item.section && (index === 0 || item.section !== navItems[index - 1]?.section) && (
+                  {item.section && (index === 0 || item.section !== visibleNavItems[index - 1]?.section) && (
                     <p className="px-3 pb-1 pt-4 text-[10px] font-bold uppercase tracking-[0.16em] text-ink-400">{item.section}</p>
                   )}
                 <Link

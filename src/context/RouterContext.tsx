@@ -17,10 +17,15 @@ function getHashPath(): string {
   // client-side routing, so detect that callback before interpreting it as
   // a normal route. Supabase establishes the recovery session automatically.
   if (
+    window.location.pathname === '/reset-password' ||
     hash.startsWith('access_token=') ||
     hash.includes('type=recovery') ||
     hash.includes('type=invite') ||
-    query.get('auth') === 'recovery'
+    query.get('auth') === 'recovery' ||
+    query.get('type') === 'recovery' ||
+    query.get('type') === 'invite' ||
+    query.has('token_hash') ||
+    query.has('code')
   ) {
     return '/reset-password';
   }
@@ -49,11 +54,24 @@ export function RouterProvider({ children }: { children: ReactNode }) {
       }
     });
 
-    // The recovery query is only a bootstrap signal. Remove it after the
-    // initial route decision so later navigation can work normally.
-    if (new URLSearchParams(window.location.search).get('auth') === 'recovery') {
-      const cleanUrl = `${window.location.pathname}${window.location.hash}`;
-      window.history.replaceState({}, document.title, cleanUrl || '/');
+    // Supabase invitation/recovery links may arrive as a real pathname such as
+    // /reset-password rather than a hash route. Keep that pathname long enough
+    // for getHashPath() to recognise the callback, then normalise the browser URL
+    // into the app's hash router without losing the callback tokens.
+    const queryParams = new URLSearchParams(window.location.search);
+    const isAuthCallback = queryParams.get('auth') === 'recovery' ||
+      queryParams.get('type') === 'invite' ||
+      queryParams.get('type') === 'recovery' ||
+      queryParams.has('token_hash') ||
+      queryParams.has('code') ||
+      window.location.hash.includes('type=invite') ||
+      window.location.hash.includes('type=recovery') ||
+      window.location.hash.includes('access_token=');
+
+    if (isAuthCallback && window.location.pathname === '/reset-password') {
+      const callback = `${window.location.search}${window.location.hash}`;
+      window.history.replaceState({}, document.title, `/#/reset-password${callback}`);
+      setPath('/reset-password');
     }
 
     if (!window.location.hash) window.location.hash = '#/';

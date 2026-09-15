@@ -6,13 +6,13 @@ export function Brand({ compact = false }: { compact?: boolean }) {
     <Link
       to="/"
       className={compact
-        ? 'inline-flex min-w-0 shrink-0 items-center gap-2 rounded-2xl px-0.5 py-1 transition-transform hover:scale-[1.01] sm:gap-3'
-        : 'inline-flex items-center gap-4 rounded-2xl px-2 py-2'}
+        ? 'inline-flex min-w-0 shrink-0 items-center gap-2 px-0.5 py-1 transition-transform hover:scale-[1.01] sm:gap-3'
+        : 'inline-flex items-center gap-4 px-2 py-2'}
       aria-label="HighPark Consult Ltd — Strategy, Solutions, Success"
     >
       <span className={compact
-        ? 'flex h-[54px] w-[60px] shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white ring-1 ring-ink-100 shadow-sm sm:h-[60px] sm:w-[70px]'
-        : 'flex h-24 w-28 shrink-0 items-center justify-center rounded-xl bg-white ring-1 ring-ink-100'}>
+        ? 'flex h-[54px] w-[60px] shrink-0 items-center justify-center overflow-hidden bg-white shadow-sm sm:h-[60px] sm:w-[70px]'
+        : 'flex h-24 w-28 shrink-0 items-center justify-center bg-white'}>
         <img
           src={highparkLogo}
           alt="HighPark Consult Ltd"

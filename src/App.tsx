@@ -34,6 +34,65 @@ import React, { useEffect, type JSX } from 'react';
 import highparkLogo from '@/assets/highpark-logo-clean.png';
 import { PropertyAIChat } from '@/components/PropertyAIChat';
 import { NotFoundPage } from '@/pages/NotFoundPage';
+import { hasStaffPermission, canStaffAccessProperty, ADMIN_PERMISSION } from '@/lib/staffAccess';
+
+
+function ScrollRevealObserver() {
+  const { path } = useRouter();
+
+  useEffect(() => {
+    const root = document.querySelector('main');
+    if (!root) return;
+
+    const candidates = Array.from(root.querySelectorAll<HTMLElement>(
+      'section, .card, .card-hover, [data-scroll-reveal]'
+    ));
+
+    candidates.forEach((element, index) => {
+      element.classList.add('hp-scroll-reveal');
+      element.style.setProperty('--hp-reveal-delay', `${Math.min(index % 6, 5) * 55}ms`);
+    });
+
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      candidates.forEach((element) => element.classList.add('hp-scroll-reveal-visible'));
+      return;
+    }
+
+    const observer = new IntersectionObserver((entries, currentObserver) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) return;
+        entry.target.classList.add('hp-scroll-reveal-visible');
+        currentObserver.unobserve(entry.target);
+      });
+    }, { threshold: 0.08, rootMargin: '0px 0px -7% 0px' });
+
+    candidates.forEach((element) => observer.observe(element));
+    return () => observer.disconnect();
+  }, [path]);
+
+  return null;
+}
+
+function ScrollProgress() {
+  const [progress, setProgress] = React.useState(0);
+
+  useEffect(() => {
+    const update = () => {
+      const scrollable = document.documentElement.scrollHeight - window.innerHeight;
+      const next = scrollable > 0 ? (window.scrollY / scrollable) * 100 : 0;
+      setProgress(Math.min(100, Math.max(0, next)));
+    };
+    update();
+    window.addEventListener('scroll', update, { passive: true });
+    window.addEventListener('resize', update);
+    return () => {
+      window.removeEventListener('scroll', update);
+      window.removeEventListener('resize', update);
+    };
+  }, []);
+
+  return <div className="scroll-progress" aria-hidden="true"><span style={{ width: `${progress}%` }} /></div>;
+}
 
 class AppErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean; message: string }> {
   state = { hasError: false, message: '' };
@@ -76,6 +135,7 @@ function PublicLayout({ children }: { children: JSX.Element }) {
   return (
     <div className="min-h-screen flex flex-col">
       <PageMeta />
+      <ScrollRevealObserver />
       <Header />
       <main key={path} className="flex-1 hp-page-enter">{children}</main>
       <Footer />
@@ -100,7 +160,7 @@ function AccessDenied() {
 
 function Routes() {
   const { path } = useRouter();
-  const { profile, loading } = useAuth();
+  const { profile, staffAccess, loading } = useAuth();
 
   if (loading) {
     return (
@@ -115,8 +175,8 @@ function Routes() {
   if (path === '/forgot-password') return <ForgotPasswordPage />;
   if (path === '/reset-password') return <ResetPasswordPage />;
 
-  const isOwner = profile?.role === 'owner' || profile?.role === 'agent' || profile?.role === 'admin';
-  const isTenant = profile?.role === 'customer' || profile?.role === 'admin';
+  const isOwner = profile?.role === 'owner' || profile?.role === 'agent' || (profile?.role === 'admin' && staffAccess.isSuperAdmin);
+  const isTenant = profile?.role === 'customer' || (profile?.role === 'admin' && staffAccess.isSuperAdmin);
   const isAdmin = profile?.role === 'admin';
 
   const isProtectedPath =
@@ -157,26 +217,33 @@ function Routes() {
   if (path === '/tenant/settings') return isTenant ? <TenantSettings /> : <AccessDenied />;
   if (path === '/tenant/documents') return isTenant ? <TenantDocuments /> : <AccessDenied />;
 
-  // Admin routes
-  if (path === '/admin') return isAdmin ? <AdminDashboard /> : <AccessDenied />;
-  if (path.startsWith('/admin/properties/')) return isAdmin ? <AdminPropertyDetail propertyId={path.split('/admin/properties/')[1].split('?')[0]} /> : <AccessDenied />;
-  if (path === '/admin/properties' || path.startsWith('/admin/properties?')) return isAdmin ? <AdminProperties /> : <AccessDenied />;
-  if (path === '/admin/units' || path.startsWith('/admin/units?')) return isAdmin ? <AdminUnits /> : <AccessDenied />;
-  if (path === '/admin/users' || path.startsWith('/admin/users?')) return isAdmin ? <AdminUsers /> : <AccessDenied />;
-  if (path === '/admin/staff' || path.startsWith('/admin/staff?')) return isAdmin ? <AdminStaffPage /> : <AccessDenied />;
-  if (path === '/admin/leases' || path.startsWith('/admin/leases?')) return isAdmin ? <AdminLeases /> : <AccessDenied />;
-  if (path === '/admin/reservations') return isAdmin ? <AdminReservations /> : <AccessDenied />;
-  if (path === '/admin/payments') return isAdmin ? <AdminPayments /> : <AccessDenied />;
-  if (path === '/admin/expenses') return isAdmin ? <AdminExpenses /> : <AccessDenied />;
-  if (path === '/admin/maintenance') return isAdmin ? <AdminMaintenance /> : <AccessDenied />;
-  if (path === '/admin/tax' || path.startsWith('/admin/tax?')) return isAdmin ? <AdminTax /> : <AccessDenied />;
-  if (path === '/admin/kra' || path.startsWith('/admin/kra?')) return isAdmin ? <AdminKra /> : <AccessDenied />;
-  if (path === '/admin/settings') return isAdmin ? <AdminSettings /> : <AccessDenied />;
-  if (path === '/admin/activity') return isAdmin ? <AdminActivity /> : <AccessDenied />;
-  if (path === '/admin/documents') return isAdmin ? <AdminDocuments /> : <AccessDenied />;
-  if (path === '/admin/portfolio') return isAdmin ? <AdminPortfolio /> : <AccessDenied />;
-  if (path === '/admin/short-stay') return isAdmin ? <ShortStayOperations /> : <AccessDenied />;
-  if (path === '/admin/sales') return isAdmin ? <AdminSales /> : <AccessDenied />;
+  // Admin routes. Operational staff are allowed only through their assigned
+  // permission set; Super Admin remains unrestricted.
+  const adminAllowed = (permission: string) => isAdmin && hasStaffPermission(staffAccess, permission);
+  const adminPropertyAllowed = (permission: string, propertyId: string | null) => isAdmin && canStaffAccessProperty(staffAccess, propertyId, permission);
+
+  if (path === '/admin') return adminAllowed(ADMIN_PERMISSION.dashboard) ? <AdminDashboard /> : <AccessDenied />;
+  if (path.startsWith('/admin/properties/')) {
+    const propertyId = path.split('/admin/properties/')[1].split('?')[0];
+    return adminPropertyAllowed(ADMIN_PERMISSION.propertiesView, propertyId) ? <AdminPropertyDetail propertyId={propertyId} /> : <AccessDenied />;
+  }
+  if (path === '/admin/properties' || path.startsWith('/admin/properties?')) return adminAllowed(ADMIN_PERMISSION.propertiesView) ? <AdminProperties /> : <AccessDenied />;
+  if (path === '/admin/units' || path.startsWith('/admin/units?')) return adminAllowed(ADMIN_PERMISSION.unitsView) ? <AdminUnits /> : <AccessDenied />;
+  if (path === '/admin/users' || path.startsWith('/admin/users?')) return staffAccess.isSuperAdmin ? <AdminUsers /> : <AccessDenied />;
+  if (path === '/admin/staff' || path.startsWith('/admin/staff?')) return staffAccess.isSuperAdmin ? <AdminStaffPage /> : <AccessDenied />;
+  if (path === '/admin/leases' || path.startsWith('/admin/leases?')) return adminAllowed(ADMIN_PERMISSION.leasesView) ? <AdminLeases /> : <AccessDenied />;
+  if (path === '/admin/reservations') return adminAllowed(ADMIN_PERMISSION.reservationsView) ? <AdminReservations /> : <AccessDenied />;
+  if (path === '/admin/payments') return adminAllowed(ADMIN_PERMISSION.paymentsView) ? <AdminPayments /> : <AccessDenied />;
+  if (path === '/admin/expenses') return adminAllowed(ADMIN_PERMISSION.expensesView) ? <AdminExpenses /> : <AccessDenied />;
+  if (path === '/admin/maintenance') return adminAllowed(ADMIN_PERMISSION.maintenanceView) ? <AdminMaintenance /> : <AccessDenied />;
+  if (path === '/admin/tax' || path.startsWith('/admin/tax?')) return adminAllowed(ADMIN_PERMISSION.taxView) ? <AdminTax /> : <AccessDenied />;
+  if (path === '/admin/kra' || path.startsWith('/admin/kra?')) return adminAllowed(ADMIN_PERMISSION.taxView) ? <AdminKra /> : <AccessDenied />;
+  if (path === '/admin/settings') return staffAccess.isSuperAdmin ? <AdminSettings /> : <AccessDenied />;
+  if (path === '/admin/activity') return adminAllowed(ADMIN_PERMISSION.auditView) ? <AdminActivity /> : <AccessDenied />;
+  if (path === '/admin/documents') return adminAllowed(ADMIN_PERMISSION.documentsView) ? <AdminDocuments /> : <AccessDenied />;
+  if (path === '/admin/portfolio') return adminAllowed(ADMIN_PERMISSION.propertiesView) ? <AdminPortfolio /> : <AccessDenied />;
+  if (path === '/admin/short-stay') return adminAllowed(ADMIN_PERMISSION.shortStayView) ? <ShortStayOperations /> : <AccessDenied />;
+  if (path === '/admin/sales') return adminAllowed(ADMIN_PERMISSION.salesView) ? <AdminSales /> : <AccessDenied />;
 
   if (path === '/favorites') return profile ? <FavoritesPage /> : <AuthPage mode="login" />;
   if (path === '/notifications') return profile ? <NotificationsPage /> : <AuthPage mode="login" />;
@@ -194,6 +261,7 @@ function Routes() {
 function App() {
   return (
     <div className="app-shell">
+      <ScrollProgress />
       <div className="site-watermark" aria-hidden="true"><img src={highparkLogo} alt="" /></div>
       <AppErrorBoundary>
         <RouterProvider>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ShieldCheck, UserPlus, Users, UserRoundCheck, UserRoundX, RefreshCw, Crown, Mail, Phone, KeyRound } from 'lucide-react';
+import { ShieldCheck, UserPlus, Users, UserRoundCheck, UserRoundX, RefreshCw, Crown, Mail, Phone, KeyRound, Building2 } from 'lucide-react';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { adminNav } from '@/components/dashboardNav';
 import { Card, EmptyState, LoadingPage, Badge } from '@/components/ui';
@@ -35,19 +35,26 @@ export function AdminStaffPage() {
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [roleKey, setRoleKey] = useState('property_manager');
+  const [properties, setProperties] = useState<Array<{ id: string; name: string; town: string | null; county: string | null }>>([]);
+  const [scopeUser, setScopeUser] = useState<StaffRow | null>(null);
+  const [scopeIds, setScopeIds] = useState<string[]>([]);
+  const [scopeBusy, setScopeBusy] = useState(false);
 
   const isSuperAdmin = Boolean(profile?.is_super_admin);
 
   const load = async () => {
     setLoading(true);
-    const [{ data: members, error: memberError }, { data: roleRows, error: roleError }] = await Promise.all([
+    const [{ data: members, error: memberError }, { data: roleRows, error: roleError }, { data: propertyRows, error: propertyError }] = await Promise.all([
       supabase.rpc('staff_members_for_admin'),
       supabase.from('staff_roles').select('id,role_key,name,description,permissions').order('name'),
+      supabase.from('properties').select('id,name,town,county').order('name'),
     ]);
     if (memberError) toast(memberError.message, 'error');
     if (roleError) toast(roleError.message, 'error');
+    if (propertyError) toast(propertyError.message, 'error');
     setStaff((members as StaffRow[]) || []);
     setRoles((roleRows as StaffRole[]) || []);
+    setProperties((propertyRows as typeof properties) || []);
     setLoading(false);
   };
 
@@ -101,6 +108,26 @@ export function AdminStaffPage() {
     await load();
   };
 
+  const openScope = async (row: StaffRow) => {
+    setScopeUser(row);
+    setScopeBusy(true);
+    const { data, error } = await supabase.rpc('staff_property_assignments_for_admin', { p_user_id: row.user_id });
+    setScopeBusy(false);
+    if (error) { toast(error.message, 'error'); setScopeUser(null); return; }
+    setScopeIds((data || []).map((item: { property_id: string }) => item.property_id));
+  };
+
+  const saveScope = async () => {
+    if (!scopeUser) return;
+    setScopeBusy(true);
+    const { data, error } = await supabase.rpc('set_staff_property_assignments', { p_user_id: scopeUser.user_id, p_property_ids: scopeIds });
+    setScopeBusy(false);
+    if (error) { toast(error.message, 'error'); return; }
+    toast(`${data ?? scopeIds.length} properties assigned to ${scopeUser.full_name || 'staff member'}.`, 'success');
+    setScopeUser(null);
+    await load();
+  };
+
   return <DashboardLayout navItems={adminNav} title="Staff & Access">
     <div className="mb-7 flex flex-col gap-4 rounded-3xl brand-gradient p-6 text-white shadow-soft-lg sm:flex-row sm:items-end sm:justify-between">
       <div><p className="text-xs font-bold uppercase tracking-[0.18em] text-white/65">Identity & security</p><h2 className="mt-1 text-2xl font-bold">Staff & access control</h2><p className="mt-2 max-w-3xl text-sm text-white/80">Create individual staff accounts, assign operational roles and suspend access without sharing administrator credentials.</p></div>
@@ -124,8 +151,16 @@ export function AdminStaffPage() {
       <td>{row.is_super_admin ? <Badge status="active">Active</Badge> : <Badge status={row.staff_status || 'active'}>{titleCase(row.staff_status || 'active')}</Badge>}</td>
       <td><span className="text-xs text-ink-500">{row.permissions?.length || 0} module permissions</span></td>
       <td className="text-ink-500">{formatDate(row.created_at)}</td>
-      <td><div className="flex gap-2">{row.phone && <span title={row.phone} className="icon-action"><Phone className="h-4 w-4" /></span>}{isSuperAdmin && !row.is_super_admin && <button type="button" className="btn-secondary px-2.5 py-1.5 text-xs" onClick={() => void updateStatus(row.user_id, row.staff_status === 'suspended' ? 'active' : 'suspended')}>{row.staff_status === 'suspended' ? <><UserRoundCheck className="h-3.5 w-3.5" /> Reactivate</> : <><UserRoundX className="h-3.5 w-3.5" /> Suspend</>}</button>}</div></td>
+      <td><div className="flex gap-2">{row.phone && <span title={row.phone} className="icon-action"><Phone className="h-4 w-4" /></span>}{isSuperAdmin && !row.is_super_admin && row.staff_role_key && <button type="button" className="btn-secondary px-2.5 py-1.5 text-xs" onClick={() => void openScope(row)}><Building2 className="h-3.5 w-3.5" /> Scope</button>}{isSuperAdmin && !row.is_super_admin && <button type="button" className="btn-secondary px-2.5 py-1.5 text-xs" onClick={() => void updateStatus(row.user_id, row.staff_status === 'suspended' ? 'active' : 'suspended')}>{row.staff_status === 'suspended' ? <><UserRoundCheck className="h-3.5 w-3.5" /> Reactivate</> : <><UserRoundX className="h-3.5 w-3.5" /> Suspend</>}</button>}</div></td>
     </tr>)}</tbody></table></div></Card>}
+
+    {scopeUser && <Modal open onClose={() => !scopeBusy && setScopeUser(null)} title={`Property scope · ${scopeUser.full_name || 'Staff member'}`} size="lg"><div className="space-y-4">
+      <div className="rounded-2xl border border-brand-100 bg-brand-50 p-4"><p className="font-semibold text-brand-950">Assigned portfolio</p><p className="mt-1 text-xs leading-5 text-brand-900">This controls which properties this staff member can access when their role requires property-scoped data. Super Admins are unrestricted.</p></div>
+      <div className="max-h-[55vh] overflow-y-auto rounded-2xl border border-ink-100 divide-y divide-ink-100">
+        {properties.length === 0 ? <p className="p-5 text-sm text-ink-500">No properties are available for assignment.</p> : properties.map((property) => <label key={property.id} className="flex cursor-pointer items-center gap-3 px-4 py-3 hover:bg-ink-50"><input type="checkbox" checked={scopeIds.includes(property.id)} onChange={(event) => setScopeIds((current) => event.target.checked ? [...current, property.id] : current.filter((id) => id !== property.id))} className="h-4 w-4 rounded border-ink-300 text-brand-600" /><span className="min-w-0 flex-1"><span className="block text-sm font-semibold text-ink-900">{property.name}</span><span className="block text-xs text-ink-500">{[property.town, property.county].filter(Boolean).join(', ') || 'Location not supplied'}</span></span></label>)}
+      </div>
+      <div className="flex gap-3 pt-2"><button type="button" onClick={() => setScopeUser(null)} className="btn-secondary flex-1">Cancel</button><button type="button" disabled={scopeBusy} onClick={() => void saveScope()} className="btn-primary flex-1">{scopeBusy ? 'Saving…' : `Save scope (${scopeIds.length})`}</button></div>
+    </div></Modal>}
 
     {showInvite && <Modal open onClose={() => !inviteBusy && setShowInvite(false)} title="Invite staff member" size="md"><div className="space-y-4">
       <div className="rounded-2xl border border-brand-100 bg-brand-50 p-4"><div className="flex gap-3"><KeyRound className="mt-0.5 h-5 w-5 text-brand-700" /><div><p className="font-semibold text-brand-950">Individual sign-in</p><p className="mt-1 text-xs leading-5 text-brand-900">HighPark sends an invitation email. The staff member creates their own password; you do not need to know or share it.</p></div></div></div>

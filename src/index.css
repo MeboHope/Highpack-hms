@@ -71,11 +71,63 @@ h6 {
 
 ::-webkit-scrollbar-thumb {
   background: #94a0b2;
-  border-radius: 999px;
+  border-radius: 0;
+  border: 0;
 }
 
 ::-webkit-scrollbar-thumb:hover {
   background: #315b91;
+}
+
+/* Global visual language: crisp, squared surfaces with no decorative rounding. */
+*,
+*::before,
+*::after {
+  border-radius: 0 !important;
+}
+
+/* Thin reading-progress indicator visible while scrolling any page. */
+.scroll-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  z-index: 9999;
+  pointer-events: none;
+  background: transparent;
+}
+
+.scroll-progress span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #315b91, #c9972e);
+  transition: width 80ms linear;
+}
+
+/* Phase 39/40 — scroll reveal motion: clean, subtle entrance as content enters view. */
+.hp-scroll-reveal {
+  opacity: 0;
+  transform: translate3d(0, 28px, 0) scale(.985);
+  transition:
+    opacity 620ms cubic-bezier(.22, 1, .36, 1),
+    transform 620ms cubic-bezier(.22, 1, .36, 1);
+  transition-delay: var(--hp-reveal-delay, 0ms);
+  will-change: opacity, transform;
+}
+.hp-scroll-reveal-visible {
+  opacity: 1;
+  transform: translate3d(0, 0, 0) scale(1);
+}
+.hp-scroll-reveal:nth-child(2n) { transform: translate3d(0, 34px, 0) scale(.985); }
+.hp-scroll-reveal-visible:nth-child(2n) { transform: translate3d(0, 0, 0) scale(1); }
+@media (prefers-reduced-motion: reduce) {
+  .hp-scroll-reveal,
+  .hp-scroll-reveal:nth-child(2n) {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
 }
 
 /* =========================================================

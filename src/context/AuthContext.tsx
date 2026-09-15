@@ -4,10 +4,20 @@ import { supabase } from '@/lib/supabase';
 import { getPasswordRecoveryRedirectUrl } from '@/lib/siteUrl';
 import type { Profile } from '@/lib/supabase';
 
+export interface StaffAccess {
+  isStaff: boolean;
+  isSuperAdmin: boolean;
+  staffRoleKey: string | null;
+  staffRoleName: string | null;
+  permissions: string[];
+  assignedPropertyIds: string[];
+}
+
 interface AuthContextValue {
   session: Session | null;
   user: Session['user'] | null;
   profile: Profile | null;
+  staffAccess: StaffAccess;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null; role: Profile['role'] | null }>;
   signUp: (email: string, password: string, fullName: string, phone?: string) => Promise<{ error: string | null; confirmationRequired: boolean }>;
@@ -23,6 +33,7 @@ export const AuthContext = createContext<AuthContextValue | undefined>(undefined
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [staffAccess, setStaffAccess] = useState<StaffAccess>({ isStaff: false, isSuperAdmin: false, staffRoleKey: null, staffRoleName: null, permissions: [], assignedPropertyIds: [] });
   const [loading, setLoading] = useState(true);
 
   const loadProfile = useCallback(async (uid: string) => {
@@ -41,6 +52,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile((data as Profile | null) ?? null);
   }, []);
 
+  const loadStaffAccess = useCallback(async (nextProfile: Profile | null) => {
+    if (!nextProfile || nextProfile.role !== 'admin') {
+      setStaffAccess({ isStaff: false, isSuperAdmin: false, staffRoleKey: null, staffRoleName: null, permissions: [], assignedPropertyIds: [] });
+      return;
+    }
+    const { data, error } = await supabase.rpc('my_staff_access');
+    if (error) {
+      console.error('Staff access load error:', error);
+      setStaffAccess({ isStaff: true, isSuperAdmin: Boolean(nextProfile.is_super_admin), staffRoleKey: null, staffRoleName: null, permissions: [], assignedPropertyIds: [] });
+      return;
+    }
+    const row = Array.isArray(data) ? data[0] : data;
+    const { data: assignments } = await supabase.from('staff_property_assignments').select('property_id').eq('user_id', nextProfile.id);
+    setStaffAccess({
+      isStaff: Boolean(row?.is_admin),
+      isSuperAdmin: Boolean(row?.is_super_admin ?? nextProfile.is_super_admin),
+      staffRoleKey: row?.staff_role_key ? String(row.staff_role_key) : null,
+      staffRoleName: row?.staff_role_name ? String(row.staff_role_name) : null,
+      permissions: Array.isArray(row?.permissions) ? row.permissions.map(String) : [],
+      assignedPropertyIds: (assignments || []).map((item) => String(item.property_id)),
+    });
+  }, []);
+
   useEffect(() => {
     let mounted = true;
 
@@ -53,6 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           console.error('Session load error:', error);
           setSession(null);
           setProfile(null);
+          setStaffAccess({ isStaff: false, isSuperAdmin: false, staffRoleKey: null, staffRoleName: null, permissions: [], assignedPropertyIds: [] });
           return;
         }
 
@@ -61,14 +96,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (nextSession?.user) {
           await loadProfile(nextSession.user.id);
+          const { data: profileData } = await supabase.from('profiles').select('*').eq('id', nextSession.user.id).maybeSingle();
+          await loadStaffAccess((profileData as Profile | null) ?? null);
         } else {
           setProfile(null);
+          setStaffAccess({ isStaff: false, isSuperAdmin: false, staffRoleKey: null, staffRoleName: null, permissions: [], assignedPropertyIds: [] });
         }
       } catch (error) {
         console.error('Authentication initialisation error:', error);
         if (mounted) {
           setSession(null);
           setProfile(null);
+          setStaffAccess({ isStaff: false, isSuperAdmin: false, staffRoleKey: null, staffRoleName: null, permissions: [], assignedPropertyIds: [] });
         }
       } finally {
         if (mounted) setLoading(false);
@@ -83,12 +122,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (event === 'SIGNED_OUT' || !nextSession?.user) {
         setProfile(null);
+        setStaffAccess({ isStaff: false, isSuperAdmin: false, staffRoleKey: null, staffRoleName: null, permissions: [], assignedPropertyIds: [] });
         return;
       }
 
       // Avoid blocking Supabase's auth event callback with another auth call.
       window.setTimeout(() => {
-        if (mounted) void loadProfile(nextSession.user.id);
+        if (mounted) { void loadProfile(nextSession.user.id).then(async () => { const { data: profileData } = await supabase.from('profiles').select('*').eq('id', nextSession.user.id).maybeSingle(); await loadStaffAccess((profileData as Profile | null) ?? null); }); }
       }, 0);
     });
 
@@ -96,7 +136,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       mounted = false;
       listener.subscription.unsubscribe();
     };
-  }, [loadProfile]);
+  }, [loadProfile, loadStaffAccess]);
 
   const signIn = async (email: string, password: string) => {
     const cleanEmail = email.trim().toLowerCase();
@@ -125,6 +165,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const nextProfile = profileData as Profile;
     setSession(data.session);
     setProfile(nextProfile);
+    await loadStaffAccess(nextProfile);
     return { error: null, role: nextProfile.role };
   };
 
@@ -150,6 +191,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (data.user && data.session) {
       await loadProfile(data.user.id);
+      const { data: profileData } = await supabase.from('profiles').select('*').eq('id', data.user.id).maybeSingle();
+      await loadStaffAccess((profileData as Profile | null) ?? null);
       return { error: null, confirmationRequired: false };
     }
 
@@ -182,11 +225,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { error } = await supabase.auth.signOut();
     if (error) console.error('Sign-out error:', error);
     setProfile(null);
+    setStaffAccess({ isStaff: false, isSuperAdmin: false, staffRoleKey: null, staffRoleName: null, permissions: [], assignedPropertyIds: [] });
     setSession(null);
   };
 
   const refreshProfile = async () => {
-    if (session?.user) await loadProfile(session.user.id);
+    if (session?.user) { await loadProfile(session.user.id); const { data: profileData } = await supabase.from('profiles').select('*').eq('id', session.user.id).maybeSingle(); await loadStaffAccess((profileData as Profile | null) ?? null); }
   };
 
   return (
@@ -195,6 +239,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         session,
         user: session?.user ?? null,
         profile,
+        staffAccess,
         loading,
         signIn,
         signUp,
