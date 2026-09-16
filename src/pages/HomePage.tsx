@@ -36,8 +36,8 @@ import {
 } from '@/lib/constants';
 import { SkeletonCard } from '@/components/ui';
 import { getPropertyImage } from '@/lib/images';
+const heroImage = '/highpark-hero.webp';
 import { getPropertyPresentation } from '@/lib/propertyPresentation';
-import highparkLogo from '@/assets/highpark-logo-clean.png';
 
 interface PropertyWithUnits {
   id: string; name: string; county: string; town: string; estate: string | null; property_type: string; asset_class: string; operation_model: string;
@@ -51,6 +51,8 @@ interface Stat {
   value: number;
   suffix: string;
   prefix?: string;
+  to: string;
+  cta: string;
 }
 
 /* ============================================================
@@ -62,6 +64,8 @@ function AnimatedStat({
   suffix = '',
   prefix = '',
   label,
+  to,
+  cta,
 }: Stat) {
   const [count, setCount] = useState(0);
   const [hasStarted, setHasStarted] = useState(false);
@@ -127,19 +131,22 @@ function AnimatedStat({
   }, [hasStarted, value]);
 
   return (
-    <div
-      ref={statRef}
-      className="text-center"
-    >
-      <p className="text-2xl sm:text-3xl font-bold text-white tabular-nums">
-        {prefix}
-        {count.toLocaleString()}
-        {suffix}
-      </p>
-
-      <p className="text-sm text-brand-200">
-        {label}
-      </p>
+    <div ref={statRef}>
+      <Link
+        to={to}
+        aria-label={`${label}: ${cta}`}
+        className="home-stat-card group block border border-ink-100 bg-white p-4 text-center transition-all duration-200 hover:-translate-y-0.5 hover:border-brand-200 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/30"
+      >
+        <p className="text-2xl font-bold text-brand-900 tabular-nums sm:text-3xl">
+          {prefix}
+          {count.toLocaleString()}
+          {suffix}
+        </p>
+        <p className="mt-1 text-sm text-ink-600">{label}</p>
+        <span className="mt-2 inline-flex min-h-11 items-center gap-1 text-[11px] font-semibold text-accent-700">
+          {cta} <ArrowRight className="h-3 w-3" />
+        </span>
+      </Link>
     </div>
   );
 }
@@ -157,10 +164,10 @@ export function HomePage() {
 
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<Stat[]>([
-    { value: 0, suffix: '+', label: 'Verified Properties' },
-    { value: 0, suffix: '+', label: 'Available Properties' },
-    { value: 0, suffix: '+', label: 'Counties Covered' },
-    { value: 24, prefix: '< ', suffix: 'h', label: 'Reservation Hold' },
+    { value: 0, suffix: '+', label: 'Verified Assets', to: '/properties', cta: 'Explore listings' },
+    { value: 0, suffix: '+', label: 'Available Opportunities', to: '/properties', cta: 'View opportunities' },
+    { value: 0, suffix: '+', label: 'Counties Covered', to: '/properties', cta: 'Explore by location' },
+    { value: 24, prefix: '< ', suffix: 'h', label: 'Reservation / Enquiry Hold', to: '/contact', cta: 'Talk to HighPark' },
   ]);
 
   const [search, setSearch] = useState({
@@ -196,10 +203,10 @@ export function HomePage() {
       const availableCount = rows.reduce((sum, row) => sum + Number(row.available_units || 0), 0);
       const countyCount = new Set(rows.map((row) => row.county).filter((x) => typeof x === 'string' && x)).size;
       setStats([
-        { value: verifiedCount, suffix: '+', label: 'Verified Assets' },
-        { value: Number(statRow?.available_homes || availableCount), suffix: '+', label: 'Available Opportunities' },
-        { value: Number(statRow?.counties_covered || countyCount), suffix: '+', label: 'Counties Covered' },
-        { value: 24, prefix: '< ', suffix: 'h', label: 'Reservation / Enquiry Hold' },
+        { value: verifiedCount, suffix: '+', label: 'Verified Assets', to: '/properties', cta: 'Explore listings' },
+        { value: Number(statRow?.available_homes || availableCount), suffix: '+', label: 'Available Opportunities', to: '/properties', cta: 'View opportunities' },
+        { value: Number(statRow?.counties_covered || countyCount), suffix: '+', label: 'Counties Covered', to: '/properties', cta: 'Explore by location' },
+        { value: 24, prefix: '< ', suffix: 'h', label: 'Reservation / Enquiry Hold', to: '/contact', cta: 'Talk to HighPark' },
       ]);
       if (!cancelled) { setProperties(props); setLoading(false); }
     })();
@@ -222,114 +229,56 @@ export function HomePage() {
       {/* ======================================================
           HERO SECTION
           ====================================================== */}
+      <section className="hero-premium relative isolate min-h-[50vh] overflow-hidden sm:min-h-[60vh] lg:min-h-[70vh]">
+        <picture>
+          <source media="(max-width: 767px)" srcSet="/highpark-hero-mobile.webp" />
+          <img
+            src={heroImage}
+            alt="Contemporary property representing HighPark Consult's property and investment marketplace"
+            className="absolute inset-0 h-full w-full object-cover"
+            fetchPriority="high"
+            loading="eager"
+            decoding="async"
+          />
+        </picture>
+        <div className="absolute inset-0 bg-black/60" aria-hidden="true" />
 
-      <section className="hero-premium relative overflow-hidden rounded-b-[2.5rem] shadow-[0_24px_80px_rgba(13,35,66,.18)]">
-
-        <div className="absolute -right-24 -top-24 h-80 w-80 rounded-full bg-accent-400/20 blur-3xl" />
-        <div className="absolute -bottom-32 -left-20 h-96 w-96 rounded-full bg-brand-400/20 blur-3xl" />
-        <img src={highparkLogo} alt="" aria-hidden="true" className="absolute right-[4%] top-1/2 hidden w-[28rem] -translate-y-1/2 opacity-[0.055] grayscale invert lg:block" />
-
-        {/* Background pattern */}
-        <div
-          className="absolute inset-0 opacity-10"
-          style={{
-            backgroundImage:
-              'url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'none\' fill-rule=\'evenodd\'%3E%3Cg fill=\'%23ffffff\' fill-opacity=\'0.4\'%3E%3Cpath d=\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")',
-          }}
-        />
-
-        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
-
-          {/* Hero heading / premium value proposition */}
-          <div className="grid items-center gap-10 lg:grid-cols-[1.08fr_.92fr]">
-            <div className="text-left">
-              <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-accent-100 backdrop-blur sm:text-xs">
-                <ShieldCheck className="h-4 w-4" /> A smarter way to move in Kenya’s property market
-              </div>
-
-              <h1 className="max-w-3xl text-4xl font-bold leading-[1.05] tracking-tight text-white sm:text-5xl lg:text-[4.35rem]">
-                Find the right property. <span className="text-accent-300">Move with confidence.</span>
-              </h1>
-
-              <p className="mt-6 max-w-2xl text-base leading-7 text-brand-100 sm:text-lg">
-                Discover verified homes, land and plots, commercial spaces, mixed-use opportunities and short stays — all in one professionally managed marketplace. Compare your options, understand the opportunity, and take your next step with HighPark Consult.
-              </p>
-
-              <div className="mt-7 flex flex-wrap gap-2.5">
-                {['Buy with confidence', 'Rent with clarity', 'Invest with purpose', 'Stay with ease'].map((item) => (
-                  <span key={item} className="rounded-full border border-white/15 bg-white/10 px-3.5 py-2 text-xs font-semibold text-white/90 backdrop-blur">{item}</span>
-                ))}
-              </div>
-            </div>
-
-            <div className="relative lg:pl-6">
-              <div className="absolute -inset-5 rounded-[2.5rem] bg-accent-300/10 blur-2xl" />
-              <div className="relative overflow-hidden rounded-[2rem] border border-white/15 bg-white/[0.10] p-5 shadow-2xl backdrop-blur-xl sm:p-6">
-                <div className="flex items-center justify-between gap-4 border-b border-white/10 pb-4">
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-accent-200">Start your search</p>
-                    <h2 className="mt-1 text-xl font-bold text-white">What are you looking for?</h2>
-                  </div>
-                  <div className="grid h-11 w-11 place-items-center rounded-2xl bg-accent-400/15 text-accent-200 ring-1 ring-accent-300/20">
-                    <Search className="h-5 w-5" />
-                  </div>
-                </div>
-
-                <div className="mt-5 grid grid-cols-2 gap-3">
-                  {[
-                    ['Homes', 'Buy & rent', '/properties?asset_class=built_property', <HomeIcon className="h-5 w-5" />],
-                    ['Land & Plots', 'Own or develop', '/properties?category=land', <MapPin className="h-5 w-5" />],
-                    ['Commercial', 'Business spaces', '/properties?asset_class=commercial', <Building2 className="h-5 w-5" />],
-                    ['Short Stays', 'Stay your way', '/properties?category=short_stay', <CalendarCheck className="h-5 w-5" />],
-                  ].map(([title, desc, to, icon]) => (
-                    <Link key={String(title)} to={String(to)} className="group rounded-2xl border border-white/10 bg-white/[0.07] p-4 transition-all hover:-translate-y-0.5 hover:border-accent-300/40 hover:bg-white/[0.13]">
-                      <div className="grid h-9 w-9 place-items-center rounded-xl bg-white/10 text-accent-200 transition-transform group-hover:scale-105">{icon}</div>
-                      <p className="mt-3 text-sm font-bold text-white">{title}</p>
-                      <p className="mt-0.5 text-[11px] text-brand-100">{desc}</p>
-                    </Link>
-                  ))}
-                </div>
-
-                <div className="mt-4 flex items-center gap-2 rounded-2xl border border-accent-300/15 bg-accent-300/10 px-3.5 py-3 text-xs text-accent-100">
-                  <Zap className="h-4 w-4 shrink-0" />
-                  <span>Search by location, asset class and purpose.</span>
-                </div>
-              </div>
+        <div className="relative z-10 mx-auto flex min-h-[50vh] max-w-4xl items-center justify-center px-4 py-20 text-center sm:min-h-[60vh] sm:px-6 lg:min-h-[70vh] lg:px-8">
+          <div className="max-w-3xl">
+            <p className="mb-5 text-xs font-bold uppercase tracking-[0.2em] text-accent-300 sm:text-sm">Property • Land • Investment • Management</p>
+            <h1 className="text-4xl font-bold leading-tight tracking-[-0.02em] text-white sm:text-5xl lg:text-6xl">
+              Find the right property opportunity. Move forward with confidence.
+            </h1>
+            <p className="mx-auto mt-6 max-w-2xl text-base leading-7 text-white/90 sm:text-lg sm:leading-8">
+              Discover verified homes, land, commercial spaces, mixed-use assets and short stays across Kenya — with clearer information, professional guidance and a connected journey from discovery to management.
+            </p>
+            <div className="mt-8">
+              <Link to="/properties" className="btn-accent min-h-11 px-6 py-3">Explore Verified Opportunities <ArrowRight className="h-4 w-4" /></Link>
             </div>
           </div>
+        </div>
+      </section>
 
-          {/* ==================================================
-              SEARCH CARD
-              ================================================== */}
+      {/* Search remains a practical marketplace tool directly below the hero. */}
+      <section className="border-b border-ink-100 bg-white py-8 sm:py-10">
+        <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
+          <form onSubmit={handleSearch} className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div><label className="label">Location</label><select className="input" value={search.location} onChange={(e) => setSearch({ ...search, location: e.target.value })}><option value="">All locations</option>{KENYAN_COUNTIES.map((county) => <option key={county}>{county}</option>)}</select></div>
+            <div><label className="label">Asset Class</label><select className="input" value={search.assetClass} onChange={(e) => setSearch({ ...search, assetClass: e.target.value })}><option value="">All assets</option>{ASSET_CLASS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</select></div>
+            <div><label className="label">Opportunity</label><select className="input" value={search.operation} onChange={(e) => setSearch({ ...search, operation: e.target.value })}><option value="">Any opportunity</option>{OPERATION_MODEL_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</select></div>
+            <div className="flex items-end"><button type="submit" className="btn-primary min-h-11 w-full"><Search className="h-4 w-4" /> Search Opportunities</button></div>
+          </form>
+        </div>
+      </section>
 
-          <div className="bg-white/95 backdrop-blur rounded-3xl shadow-soft-lg ring-1 ring-white/40 p-4 sm:p-6 max-w-5xl mx-auto">
-
-            <form onSubmit={handleSearch} className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <div><label className="label">Location</label><select className="input" value={search.location} onChange={(e) => setSearch({ ...search, location: e.target.value })}><option value="">All locations</option>{KENYAN_COUNTIES.map((county) => <option key={county}>{county}</option>)}</select></div>
-              <div><label className="label">Asset Class</label><select className="input" value={search.assetClass} onChange={(e) => setSearch({ ...search, assetClass: e.target.value })}><option value="">All assets</option>{ASSET_CLASS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</select></div>
-              <div><label className="label">Opportunity</label><select className="input" value={search.operation} onChange={(e) => setSearch({ ...search, operation: e.target.value })}><option value="">Any opportunity</option>{OPERATION_MODEL_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</select></div>
-              <div className="flex items-end"><button type="submit" className="btn-primary w-full"><Search className="h-4 w-4" /> Search Opportunities</button></div>
-            </form>
-          </div>
-
-          {/* ==================================================
-              ANIMATED STATISTICS
-              ================================================== */}
-
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-12 max-w-4xl mx-auto">
-
-            {stats.map((stat) => (
-              <AnimatedStat
-                key={stat.label}
-                value={stat.value}
-                suffix={stat.suffix}
-                prefix={stat.prefix}
-                label={stat.label}
-              />
-            ))}
-
-          </div>
-
+      {/* ======================================================
+          ANIMATED STATISTICS
+          ====================================================== */}
+      <section className="bg-white py-12 sm:py-16">
+        <div className="mx-auto grid max-w-4xl grid-cols-1 gap-4 px-4 sm:grid-cols-2 sm:px-6 lg:grid-cols-4 lg:px-8">
+          {stats.map((stat) => (
+            <AnimatedStat key={stat.label} value={stat.value} suffix={stat.suffix} prefix={stat.prefix} label={stat.label} to={stat.to} cta={stat.cta} />
+          ))}
         </div>
       </section>
 
@@ -361,17 +310,17 @@ export function HomePage() {
 
         </div>
 
-        <div className="relative overflow-hidden rounded-[2rem] border border-ink-100 bg-gradient-to-br from-ink-50 via-white to-brand-50/60 p-3 sm:p-4">
-          <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-16 bg-gradient-to-r from-ink-50 via-ink-50/70 to-transparent" />
-          <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-16 bg-gradient-to-l from-brand-50/70 via-white/70 to-transparent" />
+        <div className="relative overflow-hidden rounded-[2rem] border border-ink-100 bg-ink-50 p-3 sm:p-4">
+          <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-16" />
+          <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-16" />
           {loading ? (
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 p-2">
               {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)}
             </div>
           ) : properties.length > 0 ? (
-            <div className="hp-marquee-track">
-              {[...properties, ...properties].map((property, index) => (
-                <div key={`${property.id}-${index}`} className="hp-marquee-card shrink-0">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {properties.map((property, index) => (
+                <div key={`${property.id}-${index}`} className="min-w-0">
                   <FeaturedPropertyCard property={property} />
                 </div>
               ))}
@@ -452,7 +401,7 @@ export function HomePage() {
           ====================================================== */}
 
       <section className="hp-navy-readable relative overflow-hidden bg-brand-950 py-16 text-white">
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-accent-400/80 to-transparent" />
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px from-transparent via-accent-400/80 to-transparent" />
         <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-accent-400/10 blur-3xl" />
         <div className="pointer-events-none absolute -left-24 bottom-0 h-72 w-72 rounded-full bg-brand-500/20 blur-3xl" />
         <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -547,7 +496,7 @@ export function HomePage() {
                 side: 'left',
               },
             ].map((item) => (
-              <div key={item.title} className={`grid overflow-hidden rounded-[2rem] border border-ink-100 bg-gradient-to-br ${item.side === 'right' ? 'from-brand-50/80 via-white to-accent-50/50' : 'from-white via-ink-50/70 to-brand-50/70'} shadow-sm lg:grid-cols-[1fr_.95fr]`}>
+              <div key={item.title} className={`grid overflow-hidden rounded-[2rem] border border-ink-100 ${item.side === 'right' ? 'from-brand-50/80 via-white to-accent-50/50' : 'from-white via-ink-50/70 to-brand-50/70'} shadow-sm lg:grid-cols-[1fr_.95fr]`}>
                 <div className={`p-7 sm:p-9 ${item.side === 'right' ? 'lg:order-2' : ''}`}>
                   <div className="flex items-center gap-3">
                     <div className="grid h-12 w-12 place-items-center rounded-2xl bg-brand-950 text-white shadow-lg">{item.icon}</div>
@@ -804,7 +753,7 @@ export function HomePage() {
           ====================================================== */}
 
       <section id="ai-assistant" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <div className="overflow-hidden rounded-[2rem] border border-brand-200 bg-gradient-to-br from-brand-950 via-brand-900 to-brand-800 p-7 text-white shadow-xl sm:p-10">
+        <div className="overflow-hidden rounded-[2rem] border border-brand-200 bg-brand-950 p-7 text-white shadow-xl sm:p-10">
           <div className="grid gap-8 lg:grid-cols-[1.2fr_.8fr] lg:items-center">
             <div>
               <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-accent-200"><Bot className="h-3.5 w-3.5" /> HighPark AI Assistant</div>
@@ -902,9 +851,9 @@ export function HomePage() {
           CTA
           ====================================================== */}
 
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
+      <section className="home-final-cta max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
 
-        <div className="bg-gradient-to-br from-brand-700 to-brand-800 rounded-3xl p-8 sm:p-12 text-center">
+        <div className="bg-brand-900 rounded-3xl p-8 sm:p-12 text-center">
 
           <h2 className="!text-white text-2xl sm:text-3xl font-bold mb-4">
             Your next property decision starts here.
@@ -947,11 +896,34 @@ function FeaturedPropertyCard({ property }: { property: PropertyWithUnits }) {
   const image = property.photos?.[0] || getPropertyImage(property.property_type);
   const view = getPropertyPresentation(property.asset_class, property.operation_model, property.property_type);
   const isLand = view.kind === 'land';
-  const isSale = property.sale_listing_count > 0 || ['sale','land_sale'].includes(property.operation_model);
-  const isStay = property.short_stay_listing_count > 0 || property.operation_model === 'short_stay';
   const opportunity = property.min_monthly_rent ? `${formatKES(property.min_monthly_rent)}/mo` : property.sale_min_price ? `From ${formatKES(property.sale_min_price)}` : property.short_stay_min_rate ? `${formatKES(property.short_stay_min_rate)}/night` : 'Enquire for details';
-  return <Link to={`/property/${property.id}`} className="card group overflow-hidden transition-all hover:-translate-y-1 hover:shadow-soft-lg">
-    <div className="relative h-48 overflow-hidden bg-ink-100"><img src={image} alt={property.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" /><div className="absolute left-3 top-3 flex flex-wrap gap-1.5"><span className="badge bg-brand-600 text-white"><ShieldCheck className="h-3 w-3" /> Verified</span>{isSale&&<span className="badge bg-accent-100 text-accent-800">For sale</span>}{isStay&&<span className="badge bg-white/95 text-brand-700">Short stay</span>}</div></div>
-    <div className="p-4"><h3 className="truncate font-semibold text-ink-900">{property.name}</h3><p className="mt-1 flex items-center gap-1 text-sm text-ink-500"><MapPin className="h-3.5 w-3.5" /> {property.estate ? `${property.estate}, ` : ''}{property.town}, {property.county}</p><div className="mt-3 flex flex-wrap gap-1.5"><span className="badge bg-ink-100 text-ink-600">{view.label}</span><span className="badge bg-brand-50 text-brand-700">{property.property_type}</span>{isLand&&property.total_land_area&&<span className="badge bg-accent-50 text-accent-700">{property.total_land_area} {property.land_area_unit || 'acres'}</span>}</div><div className="mt-4 flex items-center justify-between border-t border-ink-100 pt-3"><div><p className="text-lg font-bold text-brand-700">{isLand ? 'Enquire for land price' : opportunity}</p>{isLand ? <p className="text-xs text-ink-400">{property.plot_count || 0} plots · {property.plot_dimensions || 'dimensions on enquiry'}</p> : property.available_units>0&&<p className="text-xs text-ink-400">{property.available_units} {view.inventoryLabel.toLowerCase()} available</p>}</div><span className="text-sm font-medium text-brand-600 group-hover:underline">View Details →</span></div></div>
-  </Link>;
+
+  return (
+    <Link
+      to={`/property/${property.id}`}
+      aria-label={`View full details for ${property.name}`}
+      className="card group block h-full overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-soft-lg focus:outline-none focus:ring-2 focus:ring-brand-500/30"
+    >
+      <div className="relative h-48 overflow-hidden bg-ink-100">
+        <img src={image} alt={property.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.035]" loading="lazy" />
+      </div>
+      <div className="p-4">
+        <h3 className="truncate font-semibold text-ink-900">{property.name}</h3>
+        <p className="mt-1 flex items-center gap-1 text-sm text-ink-500"><MapPin className="h-3.5 w-3.5" /> {property.estate ? `${property.estate}, ` : ''}{property.town}, {property.county}</p>
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          <span className="badge bg-ink-100 text-ink-600">{view.label}</span>
+          <span className="badge bg-brand-50 text-brand-700">{property.property_type}</span>
+          {isLand && property.total_land_area && <span className="badge bg-accent-50 text-accent-700">{property.total_land_area} {property.land_area_unit || 'acres'}</span>}
+        </div>
+        <div className="mt-4 flex items-end justify-between gap-3 border-t border-ink-100 pt-3">
+          <div className="min-w-0">
+            <p className="text-lg font-bold text-brand-700">{isLand ? 'Enquire for land price' : opportunity}</p>
+            {isLand ? <p className="text-xs text-ink-400">{property.plot_count || 0} plots · {property.plot_dimensions || 'dimensions on enquiry'}</p> : property.available_units > 0 && <p className="text-xs text-ink-400">{property.available_units} {view.inventoryLabel.toLowerCase()} available</p>}
+          </div>
+          <span className="shrink-0 text-sm font-semibold text-brand-600 group-hover:text-accent-700">View Details <ArrowRight className="ml-1 inline h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" /></span>
+        </div>
+      </div>
+    </Link>
+  );
 }
+

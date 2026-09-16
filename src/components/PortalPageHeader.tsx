@@ -4,7 +4,7 @@ import { Card } from '@/components/ui';
 
 export function PortalPageHeader({ eyebrow, title, description, action }: { eyebrow: string; title: string; description: string; action?: ReactNode }) {
   return (
-    <Card className="mb-6 overflow-hidden border-brand-100 bg-gradient-to-br from-white via-white to-brand-50/60">
+    <Card className="mb-6 overflow-hidden border-brand-100 bg-white">
       <div className="relative p-5 sm:p-6 lg:p-7">
         <div className="absolute -right-16 -top-20 h-48 w-48 rounded-full bg-accent-400/10 blur-2xl" />
         <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">

@@ -28,6 +28,7 @@ export function PropertyDetailsPage({ propertyId }: { propertyId: string }) {
   const [gallery, setGallery] = useState<string[]>([]);
   const [showLightbox, setShowLightbox] = useState(false);
   const [showReserve, setShowReserve] = useState<string | null>(null);
+  const [showStayBooking, setShowStayBooking] = useState(false);
   const [showViewing, setShowViewing] = useState(false);
   const [showContact, setShowContact] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
@@ -91,7 +92,7 @@ export function PropertyDetailsPage({ propertyId }: { propertyId: string }) {
       const [{ data: landRows }, { data: saleRows }, { data: stayRows }] = await Promise.all([
         supabase.from('land_parcels').select('*').eq('property_id', propertyId).order('created_at', { ascending: false }).limit(1),
         supabase.from('sale_listings').select('*').eq('property_id', propertyId).eq('listing_status', 'active').order('created_at', { ascending: false }).limit(1),
-        supabase.from('short_stay_listings').select('*').eq('property_id', propertyId).eq('listing_status', 'active').order('created_at', { ascending: false }).limit(1),
+        supabase.rpc('get_public_short_stay_listing', { p_property_id: propertyId }),
       ]);
       setLandParcel((landRows?.[0] as Record<string, unknown> | undefined) || null);
       setSaleListing((saleRows?.[0] as Record<string, unknown> | undefined) || null);
@@ -306,7 +307,7 @@ export function PropertyDetailsPage({ propertyId }: { propertyId: string }) {
             </div>
           )}
 
-          <div className="card p-6 bg-gradient-to-br from-brand-50 to-white">
+          <div className="card p-6 bg-brand-50">
             <div className="mb-4"><h3 className="font-semibold text-ink-900">{isLand ? 'Land / plot information' : 'Asset information'}</h3><p className="text-sm text-ink-500">{isLand ? 'Land-specific information captured by the owner.' : 'Core ownership, land and operating information for this opportunity.'}</p></div>
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
               {isLand ? <>
@@ -499,8 +500,9 @@ export function PropertyDetailsPage({ propertyId }: { propertyId: string }) {
             <div className="space-y-3">
               <button
                 onClick={() => {
-                  if (!profile) { toast('Please sign in to enquire', 'info'); navigate('/login'); return; }
-                  if (!isLand && !isSale && !isStay) {
+                  if (!profile) { toast('Please sign in to book or enquire', 'info'); navigate('/login'); return; }
+                  if (isStay) { if (shortStayListing?.direct_booking_enabled) setShowStayBooking(true); else setShowContact(true); return; }
+                  if (!isLand && !isSale) {
                     const firstAvailable = availableUnits[0];
                     if (firstAvailable) setShowReserve(firstAvailable.id);
                     else setShowContact(true);
@@ -511,7 +513,7 @@ export function PropertyDetailsPage({ propertyId }: { propertyId: string }) {
                 className="btn-primary w-full"
                 disabled={!isLand && !isSale && !isStay ? availableUnits.length === 0 : false}
               >
-                {isLand ? 'Enquire About This Land' : isSale ? 'Enquire About Purchase' : isStay ? 'Enquire About Stay' : 'Reserve This Property'}
+                {isLand ? 'Enquire About This Land' : isSale ? 'Enquire About Purchase' : isStay ? (shortStayListing?.direct_booking_enabled ? 'Book This Stay' : 'Request Stay Availability') : 'Reserve This Property'}
               </button>
               {!isLand && <button onClick={() => setShowViewing(true)} className="btn-secondary w-full">
                 <Calendar className="w-4 h-4" /> Schedule Viewing
@@ -563,12 +565,13 @@ export function PropertyDetailsPage({ propertyId }: { propertyId: string }) {
             type="button"
             onClick={() => {
               if (!profile) { toast('Please sign in to continue', 'info'); navigate('/login'); return; }
-              if (!isLand && !isSale && !isStay) setShowViewing(true);
+              if (isStay) { if (shortStayListing?.direct_booking_enabled) setShowStayBooking(true); else setShowContact(true); }
+              else if (!isLand && !isSale) setShowViewing(true);
               else setShowContact(true);
             }}
             className="btn-primary min-h-12 w-full"
           >
-            {isLand ? 'Enquire' : isSale ? 'Enquire to buy' : isStay ? 'Enquire to stay' : 'Request viewing'}
+            {isLand ? 'Enquire' : isSale ? 'Enquire to buy' : isStay ? (shortStayListing?.direct_booking_enabled ? 'Book stay' : 'Request stay') : 'Request viewing'}
           </button>
         </div>
       </div>
@@ -591,6 +594,13 @@ export function PropertyDetailsPage({ propertyId }: { propertyId: string }) {
       {showReserve && (
         <ReservationModal unitId={showReserve} onClose={() => setShowReserve(null)} />
       )}
+      {showStayBooking && shortStayListing && (
+        <ShortStayBookingModal
+          listing={shortStayListing}
+          property={property}
+          onClose={() => setShowStayBooking(false)}
+        />
+      )}
 
       {/* Viewing Modal */}
       {showViewing && (
@@ -603,6 +613,81 @@ export function PropertyDetailsPage({ propertyId }: { propertyId: string }) {
       )}
     </div>
   );
+}
+
+
+function ShortStayBookingModal({
+  listing,
+  property,
+  onClose,
+}: {
+  listing: Record<string, unknown>;
+  property: PropertyWithOwner;
+  onClose: () => void;
+}) {
+  const { profile } = useAuth();
+  const { toast } = useToast();
+  const { navigate } = useRouter();
+  const [checkIn, setCheckIn] = useState('');
+  const [checkOut, setCheckOut] = useState('');
+  const [guests, setGuests] = useState(1);
+  const [specialRequests, setSpecialRequests] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const nightly = Number(listing.nightly_rate || 0);
+  const cleaning = Number(listing.cleaning_fee || 0);
+  const servicePct = Number(listing.service_fee_percent || 0);
+  const minNights = Number(listing.minimum_nights || 1);
+  const maxNights = Number(listing.maximum_nights || 30);
+  const maxGuests = Number(listing.max_guests || 2);
+  const nights = checkIn && checkOut ? Math.max(0, Math.round((new Date(`${checkOut}T00:00:00`).getTime() - new Date(`${checkIn}T00:00:00`).getTime()) / 86400000)) : 0;
+  const subtotal = nightly * nights;
+  const serviceFee = subtotal * servicePct / 100;
+  const total = subtotal + cleaning + serviceFee;
+  const today = new Date().toISOString().slice(0, 10);
+
+  const submit = async () => {
+    if (!profile) { navigate('/login'); return; }
+    if (!checkIn || !checkOut || nights < minNights || nights > maxNights || guests < 1 || guests > maxGuests) {
+      toast(`Choose dates between ${minNights} and ${maxNights} nights and up to ${maxGuests} guests.`, 'error');
+      return;
+    }
+    setSubmitting(true);
+    const { error } = await supabase.rpc('create_short_stay_booking', {
+      p_listing_id: String(listing.id),
+      p_check_in: checkIn,
+      p_check_out: checkOut,
+      p_guests: guests,
+      p_special_requests: specialRequests.trim() || null,
+    });
+    setSubmitting(false);
+    if (error) {
+      toast(error.message || 'This stay could not be booked. Please choose different dates.', 'error');
+      return;
+    }
+    toast('Stay booking request received. HighPark will confirm availability and payment next.', 'success');
+    onClose();
+    navigate('/stays');
+  };
+
+  return <Modal open onClose={onClose} title="Book Your Short Stay" size="md">
+    <div className="mb-5 rounded-2xl bg-brand-50 p-4">
+      <p className="text-xs font-bold uppercase tracking-[0.14em] text-brand-700">Direct stay request</p>
+      <h3 className="mt-1 text-lg font-bold text-ink-900">{String(listing.listing_name || property.name)}</h3>
+      <p className="mt-1 text-sm text-ink-500">{property.town}, {property.county} · {formatKES(nightly)}/night</p>
+    </div>
+    <div className="grid gap-4 sm:grid-cols-2">
+      <div><label className="label">Check-in</label><input className="input" type="date" min={today} value={checkIn} onChange={(e) => setCheckIn(e.target.value)} /></div>
+      <div><label className="label">Check-out</label><input className="input" type="date" min={checkIn || today} value={checkOut} onChange={(e) => setCheckOut(e.target.value)} /></div>
+      <div><label className="label">Guests</label><input className="input" type="number" min={1} max={maxGuests} value={guests} onChange={(e) => setGuests(Math.max(1, Number(e.target.value) || 1))} /></div>
+      <div><label className="label">Stay length</label><div className="input flex items-center bg-ink-50">{nights ? `${nights} night${nights === 1 ? '' : 's'}` : 'Select dates'}</div></div>
+    </div>
+    <div className="mt-4"><label className="label">Special requests <span className="font-normal text-ink-400">(optional)</span></label><textarea className="input min-h-24 resize-y" value={specialRequests} onChange={(e) => setSpecialRequests(e.target.value)} placeholder="Arrival notes, accessibility needs, or other requests…" /></div>
+    <div className="mt-5 rounded-2xl border border-ink-100 bg-white p-4 shadow-sm">
+      <div className="space-y-2 text-sm"><div className="flex justify-between"><span className="text-ink-500">Accommodation</span><span>{formatKES(subtotal)}</span></div><div className="flex justify-between"><span className="text-ink-500">Cleaning fee</span><span>{formatKES(cleaning)}</span></div>{serviceFee > 0 && <div className="flex justify-between"><span className="text-ink-500">Service fee</span><span>{formatKES(serviceFee)}</span></div>}<div className="flex justify-between border-t border-ink-100 pt-3 text-base font-bold"><span>Total</span><span className="text-brand-700">{formatKES(total)}</span></div></div>
+      <p className="mt-3 text-xs leading-5 text-ink-400">Your request creates a pending stay booking. Payment is not marked successful by the browser; confirmation and payment processing remain subject to the configured provider/workflow.</p>
+    </div>
+    <button type="button" disabled={submitting} onClick={() => void submit()} className="btn-primary mt-5 w-full">{submitting ? 'Submitting booking…' : 'Request this stay'}</button>
+  </Modal>;
 }
 
 function ReservationModal({ unitId, onClose }: { unitId: string; onClose: () => void }) {

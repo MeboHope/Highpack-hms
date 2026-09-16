@@ -85,7 +85,7 @@ export function TenantDashboard() {
     <DashboardLayout navItems={tenantNav} title={assetContext.dashboardTitle}>
       {assetOptions.length > 1 && <div className="mb-4"><AssetSwitcher items={assetOptions} value={selectedAssetId} onChange={switchAsset} /></div>}
 
-      <Card className="mb-6 overflow-hidden border-brand-100 bg-gradient-to-br from-white via-white to-brand-50/60">
+      <Card className="mb-6 overflow-hidden border-brand-100 bg-white">
         <div className="flex flex-col gap-5 p-5 sm:p-6 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex min-w-0 items-center gap-4">
             <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-brand-100 text-brand-700"><Building2 className="h-7 w-7" /></div>
@@ -322,7 +322,7 @@ export function TenantRent() {
           )}
 
           <Card className="mt-6 overflow-hidden">
-            <div className="border-b border-ink-100 bg-gradient-to-r from-white to-brand-50/30 p-5"><h3 className="font-semibold text-ink-900">Payment receipts</h3><p className="mt-1 text-sm text-ink-500">Verified payments are official receipts. Pending transactions remain clearly marked until reviewed.</p></div>
+            <div className="border-b border-ink-100 bg-white p-5"><h3 className="font-semibold text-ink-900">Payment receipts</h3><p className="mt-1 text-sm text-ink-500">Verified payments are official receipts. Pending transactions remain clearly marked until reviewed.</p></div>
             {payments.length === 0 ? <div className="p-5 text-sm text-ink-500">No payment transactions yet.</div> : <div className="overflow-x-auto"><table className="premium-table w-full min-w-[900px] text-sm"><thead><tr><th>Receipt</th><th>Type</th><th>Property / Unit</th><th>Amount</th><th>Method</th><th>Status</th><th>Date</th><th>Action</th></tr></thead><tbody>{payments.map((payment) => <tr key={payment.id}><td><p className="font-mono text-xs font-semibold text-brand-700">{payment.verified ? getReceiptNumber(payment) : 'Pending verification'}</p></td><td className="capitalize">{payment.payment_type.replace('_', ' ')}</td><td><p className="font-medium text-ink-900">{payment.properties?.name || '—'}</p><p className="text-xs text-ink-400">Unit {payment.property_units?.unit_number || '—'}</p></td><td className="font-bold">{formatKES(payment.amount)}</td><td className="capitalize">{payment.payment_method.replace('_', ' ')}</td><td><Badge status={payment.status} />{payment.verified && <span className="ml-2 badge bg-brand-50 text-brand-700">Verified</span>}</td><td className="text-ink-500">{formatDate(payment.created_at)}</td><td>{payment.verified ? <button type="button" onClick={() => downloadPaymentReceiptPdf({ payment, propertyName: payment.properties?.name || 'Property', unitNumber: payment.property_units?.unit_number || null, tenantName: profile?.full_name || 'Tenant' })} className="btn-secondary px-3 py-2 text-xs"><Download className="h-3.5 w-3.5" /> Receipt</button> : <span className="text-xs text-ink-400">Awaiting verification</span>}</td></tr>)}</tbody></table></div>}
             {payments.length > 0 && <Pagination page={paymentPage} totalPages={Math.max(1, Math.ceil(paymentTotal / pageSize))} totalItems={paymentTotal} pageSize={pageSize} onPageChange={setPaymentPage} />}
           </Card>

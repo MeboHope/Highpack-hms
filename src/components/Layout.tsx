@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Bell, Heart, LayoutDashboard, LogOut, Menu, X, Phone, Mail, MapPin, MessageCircle, Navigation } from 'lucide-react';
+import { Bell, Heart, CalendarDays, LayoutDashboard, LogOut, Menu, X, Phone, Mail, MapPin, MessageCircle, Navigation } from 'lucide-react';
 import { Link } from '@/context/RouterContext';
 import { useRouter } from '@/context/hooks';
 import { useAuth } from '@/context/hooks';
@@ -56,21 +56,21 @@ export function Header() {
   };
 
   return (
-    <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-xl shadow-[0_8px_30px_rgba(13,35,66,0.04)]">
+    <header className="site-header fixed inset-x-0 top-0 z-[100] bg-white/95 backdrop-blur-xl shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-[76px] items-center justify-between gap-5">
           <Brand compact />
 
-          <nav aria-label="Main navigation" className="hidden items-center gap-0.5 rounded-2xl bg-ink-50/70 p-1 shadow-sm md:flex">
+          <nav aria-label="Main navigation" className="hidden items-center gap-5 md:flex">
             {navLinks.map((link) => (
               <Link
                 key={link.to}
                 to={link.to}
                 onClick={() => handleNavigation(link.label)}
-                className={`rounded-xl px-2.5 py-2 text-[13px] font-semibold transition-all lg:px-3 ${
+                className={`px-0.5 py-2 text-[13px] font-semibold transition-colors lg:px-0.5 ${
                   isActive(link.to)
-                    ? 'bg-white text-brand-900 shadow-sm'
-                    : 'text-ink-600 hover:bg-white hover:text-brand-900'
+                    ? 'text-brand-900'
+                    : 'text-ink-600 hover:text-brand-900'
                 }`}
               >
                 {link.label}
@@ -81,6 +81,9 @@ export function Header() {
           <div className="hidden items-center gap-2 md:flex">
             {profile ? (
               <>
+                <Link to="/stays" className="btn-ghost" aria-label="My short stays">
+                  <CalendarDays className="h-5 w-5" />
+                </Link>
                 <Link to="/favorites" className="btn-ghost" aria-label="Saved properties">
                   <Heart className="h-5 w-5" />
                 </Link>
@@ -100,7 +103,7 @@ export function Header() {
                     aria-expanded={menuOpen}
                     aria-haspopup="menu"
                   >
-                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-100 to-accent-100 font-bold text-brand-800 ring-2 ring-white shadow-sm">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-brand-100 font-bold text-brand-800 ring-2 ring-white shadow-sm">
                       {profile.full_name?.charAt(0).toUpperCase() || 'U'}
                     </div>
                   </button>
@@ -114,7 +117,7 @@ export function Header() {
                         onClick={() => setMenuOpen(false)}
                       />
                       <div className="absolute right-0 z-20 mt-3 w-60 overflow-hidden rounded-2xl border border-ink-100 bg-white py-1.5 shadow-2xl">
-                        <div className="border-b border-ink-100 bg-gradient-to-br from-brand-50/70 to-white px-4 py-3.5">
+                        <div className="border-b border-ink-100 bg-brand-50 px-4 py-3.5">
                           <p className="truncate text-sm font-semibold text-ink-900">{profile.full_name || 'User'}</p>
                           <p className="mt-0.5 text-xs capitalize text-ink-500">{profile.role === 'customer' ? 'Tenant' : profile.role}</p>
                         </div>
@@ -168,7 +171,7 @@ export function Header() {
                 to={link.to}
                 onClick={() => { setMobileOpen(false); handleNavigation(link.label); }}
                 className={`block rounded-lg px-3 py-2.5 text-sm font-semibold ${
-                  isActive(link.to) ? 'bg-white text-brand-900 shadow-sm' : 'text-ink-700 hover:bg-ink-50'
+                  isActive(link.to) ? 'text-brand-900' : 'text-ink-700 hover:text-brand-900'
                 }`}
               >
                 {link.label}
@@ -232,12 +235,12 @@ export function Header() {
 
 export function Footer() {
   return (
-    <footer className="mt-20 bg-brand-950 text-ink-300">
-      <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
-        <div className="mb-10 grid grid-cols-1 gap-10 rounded-3xl bg-white/[0.03] p-7 md:grid-cols-[1.3fr_.8fr_.8fr_1.1fr] md:p-9">
+    <footer className="site-footer mt-16 w-full bg-brand-950 text-ink-300">
+      <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-1 gap-8 md:grid-cols-[1.3fr_.8fr_.8fr_1.1fr]">
           <div>
-            <Link to="/" className="inline-flex rounded-xl bg-white p-2" aria-label="HighPark Consult Ltd">
-              <img src={highparkLogo} alt="HighPark Consult Ltd" className="h-24 w-24 object-contain" />
+            <Link to="/" className="footer-brand-lockup inline-flex items-center justify-center bg-white px-3 py-2" aria-label="HighPark Consult Ltd">
+              <img src={highparkLogo} alt="HighPark Consult Ltd" className="h-20 w-[7rem] object-contain" />
             </Link>
             <p className="mt-4 max-w-sm text-sm leading-6 text-ink-400">
               HighPark Consult Ltd — trusted property solutions, strategic guidance, and professional property management in Kenya.
@@ -276,7 +279,7 @@ export function Footer() {
           </div>
         </div>
 
-        <div className="mt-10 flex flex-col items-center justify-between gap-3 pt-6 text-center text-sm text-ink-500 sm:flex-row sm:text-left">
+        <div className="mt-8 flex flex-col items-center justify-between gap-3 pt-5 text-center text-sm text-ink-500 sm:flex-row sm:text-left">
           <p>© {new Date().getFullYear()} HighPark Consult Ltd. All rights reserved.</p>
           <p>Professional property solutions in Kenya.</p>
         </div>

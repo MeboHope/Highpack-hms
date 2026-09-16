@@ -19,12 +19,12 @@ interface AuthContextValue {
   profile: Profile | null;
   staffAccess: StaffAccess;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<{ error: string | null; role: Profile['role'] | null }>;
+  signIn: (email: string, password: string) => Promise<{ error: string | null; role: Profile['role'] | null; mfaRequired: boolean }>;
   signUp: (email: string, password: string, fullName: string, phone?: string) => Promise<{ error: string | null; confirmationRequired: boolean }>;
   resendConfirmation: (email: string) => Promise<{ error: string | null }>;
   requestPasswordReset: (email: string) => Promise<{ error: string | null }>;
-  updatePassword: (password: string) => Promise<{ error: string | null }>;
-  signOut: () => Promise<void>;
+  updatePassword: (password: string, currentPassword?: string) => Promise<{ error: string | null }>;
+  signOut: (scope?: 'local' | 'global' | 'others') => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
 
@@ -146,7 +146,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     if (error || !data.user) {
-      return { error: error?.message ?? 'Unable to sign in.', role: null };
+      return { error: error?.message ?? 'Unable to sign in.', role: null, mfaRequired: false };
     }
 
     const { data: profileData, error: profileError } = await supabase
@@ -159,14 +159,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await supabase.auth.signOut();
       setSession(null);
       setProfile(null);
-      return { error: 'Your account profile could not be loaded. Please contact HighPark Consult support.', role: null };
+      return { error: 'Your account profile could not be loaded. Please contact HighPark Consult support.', role: null, mfaRequired: false };
     }
 
     const nextProfile = profileData as Profile;
     setSession(data.session);
     setProfile(nextProfile);
     await loadStaffAccess(nextProfile);
-    return { error: null, role: nextProfile.role };
+
+    const { data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    const mfaRequired = aalData?.nextLevel === 'aal2' && aalData.currentLevel !== 'aal2';
+    return { error: null, role: nextProfile.role, mfaRequired };
   };
 
   const signUp = async (email: string, password: string, fullName: string, phone?: string) => {
@@ -216,13 +219,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: error?.message ?? null };
   };
 
-  const updatePassword = async (password: string) => {
-    const { error } = await supabase.auth.updateUser({ password });
+  const updatePassword = async (password: string, currentPassword?: string) => {
+    const { error } = await supabase.auth.updateUser({ password, ...(currentPassword ? { current_password: currentPassword } : {}) });
     return { error: error?.message ?? null };
   };
 
-  const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
+  const signOut = async (scope: 'local' | 'global' | 'others' = 'global') => {
+    const { error } = await supabase.auth.signOut({ scope });
     if (error) console.error('Sign-out error:', error);
     setProfile(null);
     setStaffAccess({ isStaff: false, isSuperAdmin: false, staffRoleKey: null, staffRoleName: null, permissions: [], assignedPropertyIds: [] });

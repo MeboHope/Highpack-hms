@@ -134,18 +134,18 @@ export function DashboardLayout({
   const browseLabel = profile?.role === 'admin' ? 'View public marketplace' : 'Explore assets';
 
   return (
-    <div className="app-shell min-h-screen bg-[radial-gradient(circle_at_top_right,_rgba(193,153,71,0.08),_transparent_28%),#f6f8fb] flex">
+    <div className="app-shell min-h-screen bg-ink-50 flex">
       {/* Desktop sidebar */}
       <aside className="hidden lg:flex w-72 bg-white/95 backdrop-blur-xl border-r border-ink-100 flex-col fixed h-screen z-40 shadow-[12px_0_40px_rgba(13,35,66,0.05)]">
         {/* Logo */}
-        <div className="px-5 py-6 border-b border-ink-100 flex items-center justify-center bg-gradient-to-b from-white via-white to-brand-50/40">
+        <div className="px-5 py-6 border-b border-ink-100 flex items-center justify-center bg-white">
           <Brand compact />
         </div>
 
         {/* User profile */}
-        <div className="p-4 border-b border-ink-100 bg-gradient-to-br from-white to-ink-50/70">
+        <div className="p-4 border-b border-ink-100 bg-white">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-brand-100 to-accent-100 text-brand-800 flex items-center justify-center font-bold shadow-sm ring-1 ring-brand-100">
+            <div className="w-11 h-11 rounded-2xl bg-brand-100 text-brand-800 flex items-center justify-center font-bold shadow-sm ring-1 ring-brand-100">
               {profile?.full_name?.[0]?.toUpperCase() || 'U'}
             </div>
 
@@ -173,7 +173,7 @@ export function DashboardLayout({
               to={item.to}
               className={`group flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-semibold transition-all ${
                 isActive(item.to)
-                  ? 'bg-gradient-to-r from-brand-50 to-accent-50/60 text-brand-900 shadow-sm ring-1 ring-brand-100'
+                  ? 'bg-brand-50 text-brand-900 shadow-sm ring-1 ring-brand-100'
                   : 'text-ink-600 hover:bg-ink-50 hover:text-ink-900'
               }`}
             >
@@ -212,7 +212,7 @@ export function DashboardLayout({
             onClick={() => setMobileOpen(false)}
           />
 
-          <aside className="relative w-64 bg-white flex flex-col animate-slide-up">
+          <aside className="relative w-[min(18rem,88vw)] bg-white flex flex-col animate-slide-up">
             {/* Mobile logo */}
             <div className="p-4 border-b border-ink-100 flex items-center justify-between">
               <Brand compact />
@@ -264,9 +264,9 @@ export function DashboardLayout({
       )}
 
       {/* Main content */}
-      <div className="flex-1 lg:ml-72">
+      <div className="min-w-0 flex-1 lg:ml-72">
         {/* Top bar */}
-        <header className="sticky top-0 z-30 bg-white/85 backdrop-blur-xl border-b border-ink-100 shadow-[0_4px_24px_rgba(13,35,66,0.03)]">
+        <header className="workspace-header sticky top-0 z-30 bg-white/95 backdrop-blur-xl shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
           <div className="flex items-center justify-between px-4 sm:px-7 h-[72px]">
             <div className="flex items-center gap-3">
               <button
@@ -311,8 +311,8 @@ export function DashboardLayout({
           </div>
         </div>}
 
-        <main className="page-surface p-4 sm:p-6 lg:p-8 max-w-[1500px] mx-auto min-h-[calc(100vh-72px)]">
-          <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-ink-100 bg-gradient-to-r from-white via-brand-50/35 to-accent-50/25 px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+        <main className="page-surface min-w-0 p-4 sm:p-6 lg:p-8 max-w-[1500px] mx-auto min-h-[calc(100vh-72px)]">
+          <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-ink-100 bg-white px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-brand-600"><span>HighPark Consult</span><span className="text-ink-300">•</span><span>{roleLabel}</span></div>
               <div className="mt-1 flex items-center gap-2"><h2 className="truncate text-base font-bold tracking-tight text-ink-950">{title}</h2><span className="hidden rounded-full bg-white px-2 py-1 text-[10px] font-bold text-ink-500 ring-1 ring-ink-100 sm:inline-flex">Live workspace</span></div>

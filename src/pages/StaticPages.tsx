@@ -93,9 +93,7 @@ export function AboutPage() {
   return (
     <div className="premium-page-bg">
       <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
-        <section className="relative overflow-hidden rounded-[2rem] bg-brand-950 px-6 py-12 text-center shadow-soft-lg sm:px-10 sm:py-16">
-          <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-accent-400/10 blur-3xl" />
-          <div className="pointer-events-none absolute -left-24 bottom-0 h-72 w-72 rounded-full bg-brand-500/15 blur-3xl" />
+        <section className="about-hero relative overflow-hidden rounded-[2rem] bg-brand-950 px-6 py-12 text-center shadow-soft-lg sm:px-10 sm:py-16">
           <div className="relative mx-auto max-w-4xl">
             <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-4 py-1.5 text-sm font-semibold text-accent-200">
               <Home className="w-4 h-4" /> About HighPark Consult
@@ -189,11 +187,11 @@ export function AboutPage() {
           {stats.map((stat) => <AboutCount key={stat.label} {...stat} />)}
         </section>
 
-        <section className="overflow-hidden rounded-[2rem] bg-brand-gold-gradient p-8 text-center shadow-soft-lg sm:p-12">
-          <p className="text-xs font-bold uppercase tracking-[0.22em] text-accent-200">Your next move starts here</p>
-          <h2 className="mt-3 text-2xl font-bold text-white sm:text-3xl">Explore with confidence. Decide with clarity. Work with HighPark Consult.</h2>
-          <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-white/85 sm:text-base">
-            Whether you are searching for a home, looking for land, securing business space, planning an investment, booking a short stay or managing a portfolio, HighPark Consult is built to make the journey more connected and professional.
+        <section className="about-final-cta overflow-hidden rounded-xl bg-brand-950 p-8 text-center shadow-soft-lg sm:p-12">
+          <p className="text-xs font-bold uppercase tracking-[0.22em] text-accent-300">Your next move starts here</p>
+          <h2 className="mt-3 text-2xl font-bold text-white sm:text-3xl">Make your next property decision with greater confidence.</h2>
+          <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-ink-200 sm:text-base">
+            From finding a home or securing land to evaluating commercial space, planning an investment, booking a short stay or managing an existing portfolio, HighPark Consult brings the opportunity and the professional property journey together in one trusted experience.
           </p>
           <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
             <Link to="/properties" className="btn-accent">Browse verified opportunities</Link>

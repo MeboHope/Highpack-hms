@@ -17,10 +17,10 @@ function validatePassword(password: string): string | null {
 function AuthShell({ children, eyebrow, title, description }: { children: ReactNode; eyebrow: string; title: string; description: string }) {
   return (
     <div className="min-h-screen bg-ink-50 px-4 py-8 sm:py-12">
-      <div className="mx-auto grid min-h-[calc(100vh-4rem)] max-w-6xl overflow-hidden rounded-3xl bg-white shadow-soft-lg lg:grid-cols-[0.9fr_1.1fr]">
+      <div className="auth-shell mx-auto grid min-h-[calc(100vh-4rem)] max-w-6xl overflow-hidden rounded-3xl bg-white shadow-soft-lg lg:grid-cols-[0.9fr_1.1fr]">
         <div className="hidden bg-brand-950 p-10 text-white lg:flex lg:flex-col lg:justify-between">
           <div>
-            <Brand />
+            <Brand onDark variant="auth" />
             <div className="mt-16 max-w-md">
               <p className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-accent-300">HighPark Consult Ltd</p>
               <h1 className="text-4xl font-bold leading-tight text-white">Secure access to your property journey.</h1>
@@ -32,7 +32,7 @@ function AuthShell({ children, eyebrow, title, description }: { children: ReactN
 
         <div className="flex items-center justify-center p-6 sm:p-10">
           <div className="w-full max-w-md">
-            <div className="mb-8 flex justify-center lg:hidden"><Brand /></div>
+            <div className="mb-8 flex justify-center lg:hidden"><Brand variant="auth" /></div>
             <div className="mb-8">
               <p className="text-sm font-semibold uppercase tracking-wider text-accent-600">{eyebrow}</p>
               <h2 className="mt-2 text-3xl font-bold text-brand-950">{title}</h2>
@@ -102,7 +102,7 @@ export function ForgotPasswordPage() {
           <label htmlFor="reset-email" className="label">Email Address</label>
           <div className="relative">
             <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400" />
-            <input id="reset-email" type="email" className="input pl-11" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" placeholder="you@example.com" required />
+            <input id="reset-email" type="email" className="input input-with-leading-icon" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" placeholder="you@example.com" required />
           </div>
         </div>
         <button type="submit" disabled={loading || cooldown > 0} className="btn-accent w-full py-3">{loading ? 'Sending reset link...' : cooldown > 0 ? `Try again in ${cooldown}s` : 'Send reset link'}</button>
@@ -170,7 +170,7 @@ export function ResetPasswordPage() {
             <label htmlFor="new-password" className="label">New Password</label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400" />
-              <input id="new-password" type={showPassword ? 'text' : 'password'} className="input pl-11 pr-11" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="new-password" required />
+              <input id="new-password" type={showPassword ? 'text' : 'password'} className="input input-with-leading-icon input-with-trailing-action" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="new-password" required />
               <button type="button" className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-2 text-ink-400 hover:bg-ink-50 hover:text-ink-700" onClick={() => setShowPassword((show) => !show)} aria-label={showPassword ? 'Hide password' : 'Show password'}>{showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button>
             </div>
           </div>
@@ -178,7 +178,7 @@ export function ResetPasswordPage() {
             <label htmlFor="confirm-new-password" className="label">Confirm New Password</label>
             <div className="relative">
               <ShieldCheck className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400" />
-              <input id="confirm-new-password" type={showPassword ? 'text' : 'password'} className="input pl-11" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} autoComplete="new-password" required />
+              <input id="confirm-new-password" type={showPassword ? 'text' : 'password'} className="input input-with-leading-icon" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} autoComplete="new-password" required />
             </div>
           </div>
           <p className="text-xs leading-5 text-ink-500">Use at least 10 characters with uppercase, lowercase, a number, and a special character.</p>

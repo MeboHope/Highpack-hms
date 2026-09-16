@@ -96,7 +96,7 @@ h6 {
 .scroll-progress span {
   display: block;
   height: 100%;
-  background: linear-gradient(90deg, #315b91, #c9972e);
+  background: #c9972e;
   transition: width 80ms linear;
 }
 
@@ -138,29 +138,27 @@ h6 {
 
   .btn-primary {
     @apply btn bg-brand-900 text-white px-5 py-2.5
-      hover:bg-brand-800 active:scale-[0.98]
-      shadow-sm;
+      hover:bg-brand-800 shadow-sm;
   }
 
   .btn-accent {
     @apply btn bg-accent-500 text-white px-5 py-2.5
-      hover:bg-accent-600 active:scale-[0.98]
-      shadow-sm shadow-accent-500/20;
+      hover:bg-accent-600 shadow-sm shadow-accent-500/20;
   }
 
   .btn-secondary {
     @apply btn border border-brand-200 bg-white text-brand-800 px-5 py-2.5
-      hover:bg-brand-50 active:scale-[0.98];
+      hover:bg-brand-50;
   }
 
   .btn-outline {
     @apply btn border border-brand-300 bg-transparent text-brand-800 px-5 py-2.5
-      hover:bg-brand-50 active:scale-[0.98];
+      hover:bg-brand-50;
   }
 
   .btn-danger {
     @apply btn bg-red-600 text-white px-5 py-2.5
-      hover:bg-red-700 active:scale-[0.98];
+      hover:bg-red-700;
   }
 }
 
@@ -183,7 +181,8 @@ h6 {
   }
 
   .textarea {
-    @apply input min-h-[120px] resize-y;
+    @apply input resize-y;
+    min-height: 120px;
   }
 
   .label {
@@ -211,30 +210,15 @@ h6 {
    ========================================================= */
 
 .brand-gradient {
-  background: linear-gradient(
-    135deg,
-    #0d2342 0%,
-    #1b3b68 55%,
-    #315b91 100%
-  );
+  background: #0d2342;
 }
 
 .gold-gradient {
-  background: linear-gradient(
-    135deg,
-    #956b19 0%,
-    #c9972e 50%,
-    #e9b83f 100%
-  );
+  background: #956b19;
 }
 
 .brand-gold-gradient {
-  background: linear-gradient(
-    135deg,
-    #0d2342 0%,
-    #1b3b68 65%,
-    #c9972e 100%
-  );
+  background: #0d2342;
 }
 
 /* =========================================================
@@ -255,21 +239,14 @@ h6 {
 }
 .site-watermark img { width: min(52vw, 620px); opacity: .028; filter: grayscale(1); }
 .premium-glow { position: absolute; border-radius: 9999px; filter: blur(2px); pointer-events: none; }
-.hero-premium {
-  background:
-    radial-gradient(circle at 84% 14%, rgba(201,151,46,.16), transparent 30%),
-    radial-gradient(circle at 12% 78%, rgba(61,112,165,.18), transparent 34%),
-    linear-gradient(118deg, #061426 0%, #0b1f39 38%, #123454 70%, #183d5e 100%);
-}
-.hero-premium::after { content: ''; position:absolute; inset:0; background: linear-gradient(110deg, transparent 35%, rgba(255,255,255,.08) 50%, transparent 65%); transform: skewX(-15deg) translateX(-35%); animation: heroShimmer 8s ease-in-out infinite; pointer-events:none; }
-@keyframes heroShimmer { 0%,65%{transform:skewX(-15deg) translateX(-55%)} 100%{transform:skewX(-15deg) translateX(80%)} }
-.premium-section { background: linear-gradient(180deg, #fff 0%, #f7f8fa 100%); }
+.hero-premium { background: #0d2342; }
+.premium-section { background: #ffffff; }
 
 
 @layer components {
   .stat-chip { @apply rounded-xl border border-brand-100 bg-brand-50/70 px-2 py-2 text-center transition-all hover:-translate-y-0.5 hover:border-accent-300 hover:bg-white hover:shadow-sm; }
   .stat-chip strong { @apply block text-lg font-bold text-brand-800; }
-  .stat-chip span { @apply block text-[10px] font-semibold uppercase tracking-wide text-ink-500; }
+  .stat-chip span { @apply block font-semibold uppercase tracking-wide text-ink-500; font-size: 10px; }
   .contact-row { @apply flex items-start gap-3 rounded-xl p-2 -mx-2 transition-colors hover:bg-white/5 hover:text-white; }
 }
 
@@ -281,7 +258,7 @@ h6 {
 .hero-premium .text-brand-100 { color: #dbe8f8 !important; }
 .hero-premium .text-accent-100 { color: #fff1bd !important; }
 .dashboard-stat-clickable { position: relative; overflow: hidden; }
-.dashboard-stat-clickable::before { content: ''; position:absolute; inset:0 auto 0 0; width:3px; background:linear-gradient(180deg,#c9972e,#315b91); opacity:.8; }
+.dashboard-stat-clickable::before { content: ''; position:absolute; inset:0 auto 0 0; width:3px; background:#c9972e; opacity:.8; }
 .dashboard-stat-clickable::after { content: 'View details →'; position: absolute; right: 14px; bottom: 10px; font-size: 10px; font-weight: 700; color: #315b91; opacity: .72; }
 .dashboard-stat-clickable:hover::after { opacity:1; color:#956b19; }
 /* High-contrast typography for navy/gold dashboard banners. */
@@ -294,7 +271,9 @@ h6 {
    ========================================================= */
 @layer components {
   .premium-table thead {
-    @apply bg-ink-50/90 text-left text-[11px] font-bold uppercase tracking-[0.08em] text-ink-500;
+    @apply bg-ink-50/90 text-left font-bold uppercase text-ink-500;
+    font-size: 11px;
+    letter-spacing: .08em;
   }
   .premium-table th { @apply px-5 py-3.5 whitespace-nowrap; }
   .premium-table td { @apply px-5 py-4 border-t border-ink-100 align-middle; }
@@ -306,16 +285,14 @@ h6 {
 }
 
 .premium-page-bg {
-  background: radial-gradient(circle at 100% 0%, rgba(201,151,46,.06), transparent 28%),
-              radial-gradient(circle at 0% 35%, rgba(49,91,145,.05), transparent 26%),
-              #f7f9fc;
+  background: #f7f9fc;
 }
 
 /* PHASE 16 — premium analytics */
 @layer components {
   .chart-panel { @apply rounded-2xl border border-ink-100 bg-white p-5 shadow-sm; }
   .chart-panel-head { @apply flex items-start justify-between gap-4; }
-  .chart-kicker { @apply text-xs font-bold uppercase tracking-[0.12em] text-brand-600; }
+  .chart-kicker { @apply text-xs font-bold uppercase text-brand-600; letter-spacing: .12em; }
   .chart-caption { @apply mt-1 text-sm font-semibold text-ink-800; }
   .chart-total { @apply rounded-lg bg-brand-50 px-2.5 py-1.5 text-xs font-bold text-brand-800; }
   .chart-dot { @apply inline-block h-2.5 w-2.5 shrink-0 rounded-full; }
@@ -345,14 +322,14 @@ h6 {
   }
   .btn-ghost { @apply inline-flex items-center justify-center rounded-xl px-3 py-2 text-ink-500 transition hover:bg-ink-50 hover:text-brand-700; }
   .icon-action { @apply inline-flex h-10 w-10 items-center justify-center rounded-xl border border-ink-200 bg-white text-ink-500 transition hover:border-brand-200 hover:bg-brand-50 hover:text-brand-700; }
-  .premium-table thead th { @apply whitespace-nowrap border-b border-ink-100 bg-ink-50/80 px-4 py-3 text-left text-[10px] font-bold uppercase tracking-[.12em] text-ink-400; }
+  .premium-table thead th { @apply whitespace-nowrap border-b border-ink-100 bg-ink-50/80 px-4 py-3 text-left font-bold uppercase text-ink-400; font-size: 10px; letter-spacing: .12em; }
   .premium-table tbody td { @apply border-b border-ink-100/80 px-4 py-4 align-middle text-ink-700; }
   .premium-table tbody tr { @apply transition-colors; }
   .premium-table tbody tr:hover { background: rgba(247,249,252,.8); }
   .premium-table tbody tr:last-child td { border-bottom: 0; }
   .chart-panel { @apply rounded-2xl border border-ink-100 bg-white p-5 shadow-sm; box-shadow: 0 8px 28px rgba(13,35,66,.04); }
   .chart-panel-head { @apply flex items-start justify-between gap-4; }
-  .chart-kicker { @apply text-[10px] font-bold uppercase tracking-[.14em] text-brand-600; }
+  .chart-kicker { @apply font-bold uppercase text-brand-600; font-size: 10px; letter-spacing: .14em; }
   .chart-caption { @apply mt-1 text-sm font-semibold text-ink-800; }
   .chart-total { @apply rounded-xl bg-brand-50 px-3 py-2 text-sm font-bold text-brand-800; }
   .insight-card { @apply flex items-center gap-3 rounded-2xl border border-ink-100 bg-white p-4 shadow-sm; }
@@ -366,7 +343,7 @@ main { position: relative; }
 main::before {
   content: '';
   position: fixed; inset: 64px 0 0 auto; width: 42vw; max-width: 620px; z-index: -1; pointer-events: none;
-  background: radial-gradient(circle at 80% 15%, rgba(201,151,46,.055), transparent 38%), radial-gradient(circle at 40% 65%, rgba(49,91,145,.045), transparent 42%);
+  background: transparent;
 }
 
 @media (max-width: 640px) {
@@ -376,7 +353,7 @@ main::before {
 }
 
 .workspace-strip {
-  background: linear-gradient(110deg, rgba(255,255,255,.96), rgba(241,246,252,.88) 58%, rgba(255,249,231,.72));
+  background: #ffffff;
   box-shadow: 0 8px 28px rgba(13,35,66,.035);
 }
 .portal-section-title { letter-spacing: -.02em; }
@@ -386,9 +363,9 @@ main::before {
    PHASE 20 — UNIVERSAL WORKSPACE POLISH
    ========================================================= */
 @layer components {
-  .workspace-strip { @apply rounded-2xl border border-brand-100 bg-gradient-to-r from-white via-brand-50/35 to-accent-50/25 shadow-sm; }
+  .workspace-strip { @apply rounded-2xl border border-brand-100 bg-white shadow-sm; }
   .premium-table-wrap { @apply overflow-hidden rounded-2xl border border-ink-100 bg-white shadow-sm; }
-  .section-kicker { @apply text-[10px] font-bold uppercase tracking-[.16em] text-brand-600; }
+  .section-kicker { @apply font-bold uppercase text-brand-600; font-size: 10px; letter-spacing: .16em; }
   .premium-page-title { @apply text-2xl font-bold tracking-tight text-ink-950 sm:text-3xl; }
   .premium-muted { @apply text-sm leading-6 text-ink-500; }
   .filter-chip { @apply inline-flex items-center gap-1.5 rounded-full border border-ink-200 bg-white px-3 py-1.5 text-xs font-semibold text-ink-600 transition hover:border-brand-200 hover:bg-brand-50 hover:text-brand-700; }
@@ -477,10 +454,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   width: max-content;
   gap: 1.25rem;
   padding: 0.5rem;
-  animation: hpPropertyMarquee 42s linear infinite;
-  will-change: transform;
+  animation: none;
+  overflow-x: auto;
 }
-.hp-marquee-track:hover { animation-play-state: paused; }
+.hp-marquee-track:hover { animation: none; }
 .hp-marquee-card { width: min(82vw, 360px); }
 .hp-marquee-card > * { height: 100%; }
 @keyframes hpPropertyMarquee {
@@ -494,7 +471,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
 /* Phase 29 — premium homepage readability and visual polish */
 .hp-premium-glow { position: relative; isolation: isolate; }
-.hp-premium-glow::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(circle at 12% 20%, rgba(255,196,70,.10), transparent 28%), radial-gradient(circle at 88% 70%, rgba(66,114,190,.16), transparent 30%); z-index: -1; }
+.hp-premium-glow::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: transparent; z-index: -1; }
 .hp-role-card { box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 18px 50px rgba(0,0,0,.16); }
 .hp-role-card:hover { box-shadow: inset 0 1px 0 rgba(255,255,255,.14), 0 24px 65px rgba(0,0,0,.22); }
 
@@ -511,7 +488,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
 /* Phase 31 — premium homepage hero and mobile brand lockup */
 .hero-premium { min-height: 590px; }
-.hero-premium::before { content: ''; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(circle at 58% 45%, rgba(255,255,255,.045), transparent 28%), linear-gradient(90deg, rgba(5,18,38,.20), transparent 55%, rgba(201,151,46,.055)); }
+.hero-premium::before { content: ''; position: absolute; inset: 0; pointer-events: none; background: transparent; }
 .hero-choice-card { box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 24px 70px rgba(0,0,0,.2); }
 @media (max-width: 640px) {
   .hero-premium { min-height: auto; }
@@ -519,3 +496,1048 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 @media (prefers-reduced-motion: reduce) {
   .hero-premium::after { animation: none; }
 }
+
+/* =========================================================
+   PHASE 40 V3 — CONSISTENT PREMIUM COLOR SYSTEM
+   No decorative page-wide gradients. Use solid brand surfaces,
+   white content areas, restrained navy text and champagne accents.
+   ========================================================= */
+
+.brand-gradient,
+.gold-gradient,
+.brand-gold-gradient,
+.hero-premium,
+.premium-section {
+  background: #0d2342 !important;
+}
+
+.brand-gradient h1, .brand-gradient h2, .brand-gradient h3, .brand-gradient h4,
+.brand-gradient p, .hero-premium p,
+.brand-gold-gradient h1, .brand-gold-gradient h2, .brand-gold-gradient h3, .brand-gold-gradient h4,
+.brand-gold-gradient p {
+  color: #ffffff !important;
+}
+
+.hero-premium::before,
+.hero-premium::after,
+.hp-premium-glow::after {
+  display: none !important;
+}
+
+.scroll-progress span {
+  background: #c9972e;
+}
+
+/* Navigation is typography-led rather than pill-led. */
+header nav[aria-label="Main navigation"] a,
+header nav[aria-label="Main navigation"] a:hover,
+header nav[aria-label="Main navigation"] a:focus-visible {
+  background: transparent !important;
+  box-shadow: none !important;
+  border: 0 !important;
+}
+
+/* Footer is full-width and open; no inset panel or enclosing border. */
+footer,
+footer > div,
+footer > div > div {
+  border-color: transparent;
+}
+
+/* Phase 40 V3: a calm, consistent production palette — no decorative gradients. */
+.hero-premium, .brand-gradient, .brand-gold-gradient, .gold-gradient, .premium-section, .premium-page-bg, .workspace-strip {
+  background-color: #0d2342 !important;
+}
+.premium-section, .premium-page-bg, .workspace-strip { background-color: #f7f9fc !important; }
+.hp-premium-glow::after, .hero-premium::before, .hero-premium::after, main::before { background: transparent !important; }
+
+/* Keep the cards rounded and premium; only the navigation chrome is deliberately flat. */
+header nav[aria-label="Main navigation"] { background: transparent !important; box-shadow: none !important; border: 0 !important; }
+header nav[aria-label="Main navigation"] a { border: 0 !important; border-radius: 0.5rem !important; }
+header nav[aria-label="Main navigation"] a:hover { background: transparent !important; }
+header nav[aria-label="Main navigation"] a[aria-current="page"] { background: transparent !important; box-shadow: none !important; }
+
+/* Footer remains full-width, open and compact. */
+footer { border: 0 !important; }
+footer > div > div:first-child { background: transparent !important; border: 0 !important; padding-left: 0 !important; padding-right: 0 !important; }
+
+/* Scroll reveal: subtle, premium and directional rather than continuous motion. */
+.hp-scroll-reveal { transition-duration: 560ms; }
+.hp-scroll-reveal:nth-child(2n) { transform: translate3d(0, 24px, 0) scale(.992); }
+.hp-scroll-reveal-visible:nth-child(2n) { transform: translate3d(0, 0, 0) scale(1); }
+
+@media (prefers-reduced-motion: reduce) {
+  .hp-marquee-track { animation: none !important; overflow-x: auto; }
+}
+
+/* =========================================================
+   PHASE 40 V6 — PRODUCTION RESPONSIVENESS + CONSISTENCY
+   ========================================================= */
+
+/* Decorative gradients are intentionally avoided. Property imagery may still
+   be used as a photographic background where explicitly authored. */
+
+.hero-premium {
+  background-color: #0d2342 !important;
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+}
+
+/* Keep the operational workspace fluid on phones, tablets and desktops. */
+.app-shell,
+.page-surface {
+  width: 100%;
+  min-width: 0;
+}
+
+.page-surface {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.page-surface > * {
+  max-width: 100%;
+}
+
+/* Wide data grids remain usable on narrow screens instead of breaking the layout. */
+.page-surface .overflow-x-auto,
+.page-surface .premium-table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Do not let fixed dashboard controls force horizontal page overflow. */
+@media (max-width: 767px) {
+  .page-surface {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .page-surface h1,
+  .page-surface h2,
+  .page-surface h3 {
+    overflow-wrap: anywhere;
+  }
+
+  .hero-premium {
+    border-radius: 0 0 1.5rem 1.5rem !important;
+  }
+
+  .hero-premium > .relative.z-10 {
+    padding-top: 3.75rem;
+    padding-bottom: 3.75rem;
+  }
+
+  .hp-marquee-track {
+    width: 100%;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+  }
+
+  .hp-marquee-card {
+    width: min(86vw, 340px);
+    scroll-snap-align: start;
+  }
+}
+
+@media (max-width: 480px) {
+  .hero-premium h1 {
+    font-size: 2.25rem;
+    line-height: 1.08;
+  }
+
+  .hero-premium .grid.grid-cols-2 {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-premium form {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-premium .btn-primary,
+  .hero-premium .btn-secondary,
+  .hero-premium .btn-accent {
+    width: 100%;
+  }
+}
+
+/* Accessible, subtle reveal only; never a perpetual animation. */
+.hp-scroll-reveal {
+  transition:
+    opacity 560ms cubic-bezier(.22, 1, .36, 1),
+    transform 560ms cubic-bezier(.22, 1, .36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .hp-scroll-reveal,
+  .hp-scroll-reveal:nth-child(2n) {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+}
+
+
+/* Phase 40 V6 — responsive workspace safeguards */
+@media (max-width: 1023px) {
+  .page-surface .grid {
+    min-width: 0;
+  }
+  .page-surface input,
+  .page-surface select,
+  .page-surface textarea,
+  .page-surface button {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 639px) {
+  .page-surface .card {
+    max-width: 100%;
+  }
+  .page-surface .flex.items-center.justify-between {
+    min-width: 0;
+  }
+}
+
+
+/* =========================================================
+   PHASE 40 FINAL — EDITORIAL REAL-ESTATE DESIGN SYSTEM
+   Solid brand colors, restrained corners, responsive layouts,
+   subtle motion and image-led storytelling.
+   ========================================================= */
+
+html, body, #root { width: 100%; min-width: 320px; overflow-x: hidden; }
+
+/* The design system uses two visual button treatments while retaining
+   legacy class names for application compatibility. */
+.btn,
+.btn-primary,
+.btn-accent,
+.btn-secondary,
+.btn-outline,
+.btn-danger {
+  border-radius: 2px !important;
+  min-height: 44px;
+  box-shadow: none !important;
+  transition: background-color .18s ease-out, border-color .18s ease-out, color .18s ease-out, transform .18s ease-out;
+}
+.btn-primary {
+  background: #0d2342 !important;
+  color: #fff !important;
+  border: 1px solid #0d2342 !important;
+}
+.btn-primary:hover { background: #142e54 !important; border-color: #142e54 !important; }
+.btn-accent {
+  background: #c9972e !important;
+  color: #fff !important;
+  border: 1px solid #c9972e !important;
+}
+.btn-accent:hover { background: #b58420 !important; border-color: #b58420 !important; }
+.btn-secondary,
+.btn-outline {
+  background: transparent !important;
+  color: #0d2342 !important;
+  border: 1px solid #68758a !important;
+}
+.btn-secondary:hover,
+.btn-outline:hover { background: #f7f8fa !important; border-color: #0d2342 !important; }
+.btn-danger { background: #0d2342 !important; color: #fff !important; border: 1px solid #0d2342 !important; }
+.btn:disabled,
+.btn-primary:disabled,
+.btn-accent:disabled,
+.btn-secondary:disabled,
+.btn-outline:disabled,
+.btn-danger:disabled { background: #dce1e8 !important; color: #68758a !important; border-color: #dce1e8 !important; opacity: 1 !important; cursor: not-allowed; transform: none !important; }
+
+/* Forms: square, clear and border-defined, with no shadows or focus rings. */
+.input, .select, .textarea,
+input, select, textarea {
+  border-radius: 2px !important;
+  box-shadow: none !important;
+}
+.input, .select, .textarea { border: 1px solid #dce1e8 !important; min-height: 44px; padding: .75rem 1rem; }
+.input:focus, .select:focus, .textarea:focus,
+input:focus, select:focus, textarea:focus { border-color: #0d2342 !important; outline: 2px solid transparent; box-shadow: none !important; }
+
+/* Cards are structured surfaces, not floating pills. */
+.card, .card-hover { border-radius: .5rem !important; box-shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06) !important; }
+.card-hover:hover { box-shadow: 0 4px 6px rgba(0,0,0,.10) !important; }
+.badge, .stat-chip { border-radius: 2px !important; }
+.badge { box-shadow: none !important; }
+
+/* Neutralize decorative colored shadows and oversized glows. */
+.shadow-gold,
+.shadow-soft,
+.shadow-soft-lg,
+.shadow-2xl,
+.shadow-xl { box-shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06) !important; }
+.hp-role-card { box-shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06) !important; }
+.hp-role-card:hover { box-shadow: 0 4px 6px rgba(0,0,0,.10) !important; }
+
+/* Solid color system — no decorative gradients. */
+.brand-gradient, .brand-gold-gradient, .gold-gradient { background-image: none !important; }
+.brand-gradient, .brand-gold-gradient, .gold-gradient { background-color: #0d2342 !important; }
+
+/* Public header: clean, unboxed navigation. */
+.site-header { border: 0 !important; }
+.site-header nav[aria-label="Main navigation"] { gap: clamp(.75rem, 1.7vw, 1.5rem); }
+.site-header nav[aria-label="Main navigation"] a { border: 0 !important; border-radius: 0 !important; background: transparent !important; padding-left: 0 !important; padding-right: 0 !important; }
+.site-header nav[aria-label="Main navigation"] a:hover { color: #0d2342 !important; }
+.site-header nav[aria-label="Main navigation"] a:focus-visible { outline: 2px solid #0d2342; outline-offset: 4px; }
+
+/* Dashboard shell: no decorative top border and no fixed-width traps. */
+.workspace-header { border: 0 !important; }
+.workspace-header button, .workspace-header a { min-width: 44px; min-height: 44px; }
+.page-surface { overflow-x: hidden; }
+.page-surface table { width: 100%; min-width: 640px; }
+.page-surface .overflow-x-auto { overflow-x: auto; }
+
+/* Footer: full-width, compact, open layout. */
+.site-footer { border: 0 !important; }
+.site-footer > div { max-width: 1200px; padding-top: 2.25rem !important; padding-bottom: 1.5rem !important; }
+.site-footer .contact-row { border-radius: 0 !important; }
+
+/* Hero is photographic, full-width and deliberately flat. */
+.hero-premium { min-height: 70vh !important; border-radius: 0 !important; background: #0d2342 !important; box-shadow: none !important; }
+.hero-premium > img { filter: brightness(.55); }
+.hero-premium > div.absolute.inset-0 { background: rgba(0,0,0,.60) !important; }
+
+/* Keep the rest of the public page white/light and spacious. */
+main section { scroll-margin-top: 80px; }
+
+/* Scroll reveal: only transform + opacity, short and subtle. */
+.hp-scroll-reveal {
+  transition: opacity .45s ease-out, transform .45s ease-out !important;
+  will-change: opacity, transform;
+}
+.hp-scroll-reveal:not(.hp-scroll-reveal-visible) { transform: translate3d(0, 18px, 0) scale(.995) !important; }
+.hp-scroll-reveal-visible { transform: translate3d(0, 0, 0) scale(1) !important; }
+
+/* Touch targets and mobile-first spacing. */
+@media (min-width: 320px) {
+  body { line-height: 1.65; }
+  h1 { letter-spacing: -.02em; }
+  .site-header .btn, .site-header a, .site-header button { min-height: 44px; }
+}
+@media (max-width: 767px) {
+  .site-header { position: relative !important; }
+  .workspace-header { position: sticky !important; }
+  .hero-premium { min-height: 50vh !important; }
+  .hero-premium > div.relative.z-10 { min-height: 50vh !important; padding-top: 4rem !important; padding-bottom: 4rem !important; }
+  .hero-premium h1 { font-size: clamp(1.9rem, 8vw, 2.75rem) !important; line-height: 1.1 !important; }
+  .hero-premium p { max-width: 65ch; }
+  .site-header nav[aria-label="Main navigation"] { gap: 0; }
+  .site-header nav[aria-label="Main navigation"] a { min-height: 44px; display: flex; align-items: center; }
+  .site-footer > div { padding-top: 2rem !important; }
+  .site-footer > div > div { gap: 1.5rem !important; }
+  .page-surface { padding: 1rem !important; }
+  .page-surface > * { max-width: 100%; min-width: 0; }
+  .page-surface .grid { min-width: 0; }
+  .page-surface .flex { min-width: 0; }
+  .page-surface .overflow-x-auto { max-width: 100%; }
+  .site-watermark img { width: min(80vw, 420px); }
+}
+@media (min-width: 480px) {
+  .hero-premium > div.relative.z-10 { padding-left: 1.5rem !important; padding-right: 1.5rem !important; }
+}
+@media (min-width: 768px) {
+  .site-header { position: sticky !important; }
+  .hero-premium > div.relative.z-10 { min-height: 70vh; }
+}
+@media (min-width: 1024px) {
+  main section { padding-top: 5rem; padding-bottom: 5rem; }
+}
+@media (min-width: 1280px) {
+  .site-header > div, .site-footer > div { max-width: 1200px; }
+}
+
+/* Accessibility: clear keyboard focus without decorative rings on controls. */
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid #0d2342; outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+  .hp-scroll-reveal, .hp-scroll-reveal:not(.hp-scroll-reveal-visible) { opacity: 1 !important; transform: none !important; }
+}
+
+/* =========================================================
+   PHASE 40 FINAL REVIEW — VISIBILITY, AUTH FORMS & ROLE UX
+   ========================================================= */
+
+/* Scroll reveal must never leave content permanently invisible. The observer
+   progressively reveals content, while this fallback guarantees visibility if
+   an observer is unavailable or a page is restored from the browser cache. */
+.hp-scroll-reveal { opacity: 1; }
+.hp-scroll-reveal.hp-reveal-pending { opacity: 0; }
+.hp-scroll-reveal.hp-scroll-reveal-visible { opacity: 1; }
+
+/* Explicit icon/input spacing. Later global input rules must not overwrite
+   the padding required to keep text clear of leading icons and eye buttons. */
+.input-with-leading-icon { padding-left: 2.75rem !important; }
+.input-with-trailing-action { padding-right: 2.75rem !important; }
+
+/* Dark branded surfaces need a readable secondary action. */
+.home-final-cta .btn-secondary,
+.about-hero .btn-secondary,
+.about-final-cta .btn-secondary {
+  background: #ffffff !important;
+  color: #0d2342 !important;
+  border-color: #ffffff !important;
+}
+.home-final-cta .btn-secondary:hover,
+.about-hero .btn-secondary:hover,
+.about-final-cta .btn-secondary:hover {
+  background: #f7f8fa !important;
+  color: #0d2342 !important;
+}
+
+/* Brand lockup on navy auth panels: the logo itself remains on a clean white
+   field and the extended wording stays legible beside it. */
+.auth-brand-on-dark { color: #ffffff; }
+
+/* Keep moderate, intentional rounding on statistics instead of square cards. */
+.home-final-cta,
+.stat-card,
+.dashboard-stat-clickable { border-radius: .5rem; }
+
+/* Auth shell remains polished without excessive rounding. */
+.auth-shell { border-radius: .75rem; }
+
+/* Strong contrast on dark branded content without translucent text. */
+.about-hero p,
+.about-final-cta p { color: #dbe8f8; }
+
+/* Responsive media should never create horizontal overflow. */
+img, video, svg { max-width: 100%; }
+
+@media (max-width: 767px) {
+  .input-with-leading-icon { padding-left: 2.75rem !important; }
+  .input-with-trailing-action { padding-right: 2.75rem !important; }
+  .auth-shell { border-radius: .5rem; }
+}
+
+/* =========================================================
+   FINAL VISIBILITY SAFEGUARDS
+   ========================================================= */
+/* Content must remain readable even if IntersectionObserver is delayed,
+   unavailable, or the browser restores the page from cache. Motion is an
+   enhancement rather than a visibility dependency. */
+.hp-scroll-reveal,
+.hp-scroll-reveal.hp-reveal-pending {
+  opacity: 1 !important;
+  transform: none !important;
+}
+.hp-scroll-reveal.hp-scroll-reveal-visible {
+  animation: hpEditorialReveal .45s ease-out both;
+  animation-delay: var(--hp-reveal-delay, 0ms);
+}
+@keyframes hpEditorialReveal {
+  from { opacity: .01; transform: translate3d(0, 14px, 0) scale(.995); }
+  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+
+/* Homepage statistics retain the original rounded-card character without
+   becoming pill-shaped. */
+.home-stat-card,
+.dashboard-stat-clickable,
+.stat-card { border-radius: .75rem !important; }
+
+/* The secondary CTA on dark branded panels is always readable. */
+.home-final-cta .btn-secondary,
+.about-hero .btn-secondary,
+.about-final-cta .btn-secondary {
+  background: #fff !important;
+  color: #0d2342 !important;
+  border-color: #fff !important;
+}
+
+/* Authentication form controls reserve space for icons/actions. */
+.auth-shell .input-with-leading-icon { padding-left: 2.75rem !important; }
+.auth-shell .input-with-trailing-action { padding-right: 2.75rem !important; }
+.auth-shell .relative > svg { pointer-events: none; }
+
+/* Clean logo field on authentication screens. */
+.auth-shell .bg-brand-950 .inline-flex,
+.auth-shell .bg-brand-950 a > span:first-child {
+  background: #fff;
+}
+
+/* Final auth visibility and mobile-fit pass. */
+.auth-shell { width: 100%; }
+.auth-shell .bg-brand-950 { min-width: 0; }
+.auth-shell .bg-brand-950 .inline-flex { color: #fff; }
+.auth-shell input, .auth-shell select, .auth-shell textarea { width: 100%; }
+
+/* Home statistics are light editorial cards, preserving moderate rounding. */
+.home-stat-card { background: #fff !important; color: #0d2342 !important; }
+.home-stat-card p { opacity: 1 !important; }
+.home-stat-card:hover { background: #fff !important; }
+
+/* Prevent reveal classes from ever making text inaccessible. */
+.hp-scroll-reveal { opacity: 1 !important; visibility: visible !important; }
+.hp-scroll-reveal-visible { animation: hpEditorialReveal .45s ease-out both; }
+
+@media (max-width: 767px) {
+  .auth-shell { margin-left: 0; margin-right: 0; }
+  .auth-shell .bg-brand-950 { padding: 1.5rem !important; }
+  .auth-shell .bg-brand-950 h1 { font-size: 1.75rem; }
+  .home-stat-card { padding: 1rem; }
+}
+
+
+/* =========================================================
+   PHASE 41 FINAL POLISH — CONSISTENT BRAND SURFACES
+   ========================================================= */
+.btn,
+.btn-primary,
+.btn-accent,
+.btn-secondary,
+.btn-outline,
+.btn-danger,
+button {
+  border-radius: .5rem !important;
+}
+
+/* Keep fields crisp while allowing controls to feel approachable. */
+.input, .select, .textarea, input, select, textarea {
+  border-radius: 2px !important;
+}
+
+/* The About CTA is a solid HighPark navy surface — never a gradient. */
+.about-final-cta {
+  background: #0d2342 !important;
+  color: #fff !important;
+  border: 0 !important;
+}
+.about-final-cta h2 { color: #fff !important; }
+.about-final-cta p { color: #dbe8f8 !important; }
+.about-final-cta .text-accent-300 { color: #e2b64d !important; }
+
+/* Footer logo is a deliberate, aligned brand mark rather than a pasted square. */
+.site-footer .footer-brand-lockup {
+  width: 112px;
+  height: 88px;
+  padding: 8px 10px;
+  border-radius: .25rem !important;
+  box-shadow: none !important;
+}
+.site-footer .footer-brand-lockup img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* Authentication brand mark remains clean and readable on the navy panel. */
+.auth-shell .bg-brand-950 .footer-brand-lockup,
+.auth-shell .bg-brand-950 a > span:first-child {
+  background: #fff !important;
+}
+
+/* Do not allow utility classes to turn CTA surfaces into gradients. */
+.brand-gradient, .brand-gold-gradient, .gold-gradient {
+  background-image: none !important;
+}
+
+/* Slightly softer editorial cards and stat surfaces. */
+.card, .card-hover, .home-stat-card, .dashboard-stat-clickable, .stat-card {
+  border-radius: .625rem !important;
+}
+
+/* Keep the navigation unboxed. */
+.site-header nav a {
+  border: 0 !important;
+  background: transparent !important;
+}
+
+/* Mobile: footer mark and controls stay comfortably tappable. */
+@media (max-width: 767px) {
+  .site-footer .footer-brand-lockup { width: 104px; height: 82px; }
+  .btn, .btn-primary, .btn-accent, .btn-secondary, .btn-outline, .btn-danger, button { min-height: 44px; }
+}
+
+
+/* =========================================================
+   PHASE 43 — AUTH BRAND + RESTORED PREMIUM SCROLL REVEAL
+   Final visual authority layer. Functionality and backend remain unchanged.
+   ========================================================= */
+
+/* Auth branding: restore the clean logo presentation. No framed logo box,
+   no border and no artificial white tile around the mark. The source asset
+   already contains transparency; the surrounding surface should stay clean. */
+.auth-shell .auth-brand-lockup {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+.auth-shell .auth-brand-lockup > span:first-child {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+.auth-shell .auth-brand-lockup img {
+  background: transparent !important;
+  mix-blend-mode: normal;
+}
+.auth-shell .auth-brand-lockup > span:last-child {
+  color: #0d2342;
+}
+.auth-shell .bg-brand-950 .auth-brand-lockup > span:last-child { color: #fff; }
+.auth-shell .bg-brand-950 .auth-brand-lockup > span:last-child span:nth-child(2) { color: #dbe8f8; }
+.auth-shell .bg-brand-950 .auth-brand-lockup > span:last-child span:nth-child(3) { color: #e2b64d; }
+
+/* Buttons: approachable corners, solid HighPark navy/gold treatments and no
+   white-pill appearance. Legacy button class names remain for compatibility. */
+.btn, .btn-primary, .btn-accent, .btn-secondary, .btn-outline, .btn-danger,
+button {
+  border-radius: .5rem !important;
+}
+.btn-primary {
+  background: #0d2342 !important;
+  border: 1px solid #0d2342 !important;
+  color: #fff !important;
+}
+.btn-primary:hover { background: #17345d !important; border-color: #17345d !important; }
+.btn-accent {
+  background: #c9972e !important;
+  border: 1px solid #c9972e !important;
+  color: #fff !important;
+}
+.btn-accent:hover { background: #b68623 !important; border-color: #b68623 !important; }
+.btn-secondary, .btn-outline {
+  background: transparent !important;
+  border: 1px solid #0d2342 !important;
+  color: #0d2342 !important;
+}
+.btn-secondary:hover, .btn-outline:hover {
+  background: #eef3f8 !important;
+  border-color: #0d2342 !important;
+  color: #0d2342 !important;
+}
+/* Secondary actions on navy brand surfaces use the gold from the logo rather
+   than a plain white button. */
+.home-final-cta .btn-secondary,
+.about-hero .btn-secondary,
+.about-final-cta .btn-secondary {
+  background: transparent !important;
+  border-color: #e2b64d !important;
+  color: #e2b64d !important;
+}
+.home-final-cta .btn-secondary:hover,
+.about-hero .btn-secondary:hover,
+.about-final-cta .btn-secondary:hover {
+  background: #e2b64d !important;
+  border-color: #e2b64d !important;
+  color: #0d2342 !important;
+}
+
+/* Restore the requested "alive on scroll" behaviour. Elements start just
+   below their final position and settle once as they enter the viewport. */
+.hp-scroll-reveal {
+  opacity: 0 !important;
+  visibility: hidden;
+  transform: translate3d(0, 18px, 0) scale(.992) !important;
+  transition:
+    opacity .48s ease-out,
+    transform .48s ease-out !important;
+  transition-delay: var(--hp-reveal-delay, 0ms);
+  will-change: opacity, transform;
+}
+.hp-scroll-reveal.hp-scroll-reveal-visible {
+  opacity: 1 !important;
+  visibility: visible;
+  transform: translate3d(0, 0, 0) scale(1) !important;
+}
+/* Cards get a tiny extra "pop" without bounce or perpetual movement. */
+.home-stat-card.hp-scroll-reveal,
+.card.hp-scroll-reveal,
+.card-hover.hp-scroll-reveal,
+.hp-role-card.hp-scroll-reveal {
+  transform: translate3d(0, 20px, 0) scale(.985) !important;
+}
+.home-stat-card.hp-scroll-reveal.hp-scroll-reveal-visible,
+.card.hp-scroll-reveal.hp-scroll-reveal-visible,
+.card-hover.hp-scroll-reveal.hp-scroll-reveal-visible,
+.hp-role-card.hp-scroll-reveal.hp-scroll-reveal-visible {
+  transform: translate3d(0, 0, 0) scale(1) !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .hp-scroll-reveal,
+  .home-stat-card.hp-scroll-reveal,
+  .card.hp-scroll-reveal,
+  .card-hover.hp-scroll-reveal,
+  .hp-role-card.hp-scroll-reveal {
+    opacity: 1 !important;
+    visibility: visible !important;
+    transform: none !important;
+    transition: none !important;
+  }
+}
+
+/* Keep the existing premium stat-card character: clearly rounded, but not a
+   pill and not a sharp square. */
+.home-stat-card, .dashboard-stat-clickable, .stat-card { border-radius: .75rem !important; }
+
+/* Never leave a visible frame around the auth logo lockup. */
+.auth-shell .auth-brand-lockup,
+.auth-shell .auth-brand-lockup > span:first-child { border-radius: 0 !important; }
+
+
+/* =========================================================
+   PHASE 44 — RESTORED HIGH PARK UI LANGUAGE + UNIVERSAL SCROLL REVEAL
+   Keep the established rounded component language. The previous square-control
+   pass was too aggressive; this restores the original premium feel while
+   retaining the borderless navigation/footer and the photographic homepage hero.
+   ========================================================= */
+
+/* Restore the original component geometry across public pages and dashboards. */
+.btn,
+.btn-primary,
+.btn-accent,
+.btn-secondary,
+.btn-outline,
+.btn-danger,
+button {
+  border-radius: .875rem !important;
+}
+
+.input,
+.select,
+.textarea,
+input,
+select,
+textarea {
+  border-radius: .875rem !important;
+}
+
+.card,
+.card-hover,
+.workspace-strip,
+.premium-table-wrap,
+.auth-shell {
+  border-radius: 1.25rem !important;
+}
+
+.home-stat-card,
+.dashboard-stat-clickable,
+.stat-card,
+.stat-chip {
+  border-radius: .875rem !important;
+}
+
+.badge,
+.filter-chip {
+  border-radius: .5rem !important;
+}
+
+/* Search fields: reserve real space for leading icons. This prevents the icon
+   from ever sitting on top of typed/placeholder text, including dashboard,
+   marketplace, tenant, owner and admin search controls. */
+.input-with-leading-icon {
+  padding-left: 3rem !important;
+}
+.input-with-trailing-action {
+  padding-right: 3rem !important;
+}
+.relative > .pointer-events-none + .input,
+.relative > svg.pointer-events-none + .input {
+  padding-left: 2.75rem !important;
+}
+
+/* Existing search controls use a relative wrapper with a leading SVG. */
+.relative > svg.absolute + input.input,
+.relative > svg.pointer-events-none.absolute + input.input,
+.relative > svg.absolute + .input {
+  padding-left: 2.75rem !important;
+}
+
+/* Authentication fields keep the icon and password action in dedicated space. */
+.auth-shell .input-with-leading-icon {
+  padding-left: 3rem !important;
+}
+.auth-shell .input-with-trailing-action {
+  padding-right: 3rem !important;
+}
+.auth-shell .relative > svg {
+  pointer-events: none;
+  z-index: 1;
+}
+.auth-shell .relative > button {
+  z-index: 2;
+}
+
+/* Authentication branding: no border/ring around the logo. Keep the clean
+   white logo field that existed before the square-UI experiment. */
+.auth-shell .auth-brand-lockup,
+.auth-shell .auth-brand-lockup > span:first-child {
+  border: 0 !important;
+  box-shadow: none !important;
+}
+.auth-shell .auth-brand-lockup > span:first-child {
+  background: #fff !important;
+  border-radius: .875rem !important;
+}
+
+/* Navigation and footer remain deliberately open, with no boxes around links. */
+.site-header,
+.site-header nav,
+.site-header nav a,
+.site-footer {
+  border: 0 !important;
+}
+.site-header nav a {
+  background: transparent !important;
+}
+
+/* Footer logo sits as an intentional brand mark rather than a bordered tile. */
+.site-footer .footer-brand-lockup {
+  border: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  border-radius: .875rem !important;
+}
+
+/* =========================================================
+   UNIVERSAL SCROLL-REVEAL MOTION
+   Sections rise and fade once; cards receive a restrained editorial pop.
+   No perpetual movement, bounce or layout-affecting animation.
+   ========================================================= */
+.hp-scroll-reveal {
+  opacity: 0 !important;
+  visibility: hidden;
+  transform: translate3d(0, 18px, 0) !important;
+  transition:
+    opacity 480ms ease-out,
+    transform 480ms ease-out !important;
+  transition-delay: var(--hp-reveal-delay, 0ms);
+  will-change: opacity, transform;
+}
+
+.hp-scroll-reveal.hp-scroll-reveal-visible {
+  opacity: 1 !important;
+  visibility: visible;
+  transform: translate3d(0, 0, 0) !important;
+}
+
+.hp-scroll-reveal.home-stat-card,
+.hp-scroll-reveal.dashboard-stat-clickable,
+.hp-scroll-reveal.stat-card,
+.hp-scroll-reveal.card,
+.hp-scroll-reveal.card-hover,
+.hp-scroll-reveal.hp-role-card {
+  transform: translate3d(0, 20px, 0) scale(.975) !important;
+  transition:
+    opacity 500ms ease-out,
+    transform 500ms ease-out !important;
+}
+
+.hp-scroll-reveal.home-stat-card.hp-scroll-reveal-visible,
+.hp-scroll-reveal.dashboard-stat-clickable.hp-scroll-reveal-visible,
+.hp-scroll-reveal.stat-card.hp-scroll-reveal-visible,
+.hp-scroll-reveal.card.hp-scroll-reveal-visible,
+.hp-scroll-reveal.card-hover.hp-scroll-reveal-visible,
+.hp-scroll-reveal.hp-role-card.hp-scroll-reveal-visible {
+  transform: translate3d(0, 0, 0) scale(1) !important;
+}
+
+/* Keep the page transition itself quiet; scroll reveal provides the visual
+   rhythm once the user actually moves through the page. */
+.hp-page-enter {
+  animation-duration: 300ms !important;
+}
+
+@media (max-width: 767px) {
+  .btn,
+  .btn-primary,
+  .btn-accent,
+  .btn-secondary,
+  .btn-outline,
+  .btn-danger,
+  button {
+    min-height: 44px;
+    border-radius: .75rem !important;
+  }
+
+  .input,
+  .select,
+  .textarea,
+  input,
+  select,
+  textarea {
+    min-height: 44px;
+    border-radius: .75rem !important;
+  }
+
+  .card,
+  .card-hover,
+  .workspace-strip,
+  .premium-table-wrap,
+  .auth-shell {
+    border-radius: 1rem !important;
+  }
+
+  .home-stat-card,
+  .dashboard-stat-clickable,
+  .stat-card {
+    border-radius: .75rem !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hp-scroll-reveal,
+  .hp-scroll-reveal.home-stat-card,
+  .hp-scroll-reveal.dashboard-stat-clickable,
+  .hp-scroll-reveal.stat-card,
+  .hp-scroll-reveal.card,
+  .hp-scroll-reveal.card-hover,
+  .hp-scroll-reveal.hp-role-card {
+    opacity: 1 !important;
+    visibility: visible !important;
+    transform: none !important;
+    transition: none !important;
+  }
+}
+
+/* Safe active feedback without arbitrary Tailwind selector syntax. */
+.btn:active, button.btn:active { transform: scale(.98); }
+
+
+/* Phase 48 — living page motion. Existing scroll-reveal classes remain intact
+   for compatibility; this layer gives every meaningful page object a gentle
+   entrance, hover lift and focus response without turning the interface into
+   a distracting animation demo. */
+.hp-live-motion {
+  opacity: 1;
+  transform: translate3d(0,0,0) scale(1);
+  transition:
+    opacity 700ms cubic-bezier(.16,1,.3,1),
+    transform 700ms cubic-bezier(.16,1,.3,1),
+    box-shadow 260ms ease,
+    border-color 260ms ease;
+  transition-delay: var(--hp-live-delay, 0ms);
+  will-change: opacity, transform;
+}
+.hp-live-motion.hp-live-pending {
+  opacity: 0;
+  transform: translate3d(0,34px,0) scale(.985);
+}
+.hp-live-motion.hp-live-visible {
+  opacity: 1;
+  transform: translate3d(0,0,0) scale(1);
+}
+.hp-live-motion.card:hover,
+.hp-live-motion.card-hover:hover,
+.hp-live-motion.home-stat-card:hover,
+.hp-live-motion.dashboard-stat-clickable:hover,
+.hp-live-motion.stat-card:hover {
+  transform: translate3d(0,-4px,0) scale(1.005);
+}
+.hp-live-motion img { transition: transform 900ms cubic-bezier(.16,1,.3,1), filter 500ms ease; }
+.hp-live-motion:hover img { transform: scale(1.025); }
+.hp-live-motion button:not(:disabled),
+.hp-live-motion a { transition: transform 220ms ease, color 220ms ease, background-color 220ms ease, box-shadow 220ms ease; }
+.hp-live-motion button:not(:disabled):hover,
+.hp-live-motion a:hover { transform: translateY(-1px); }
+.hp-live-motion button:not(:disabled):active,
+.hp-live-motion a:active { transform: translateY(0) scale(.985); }
+.hp-live-motion input:focus,
+.hp-live-motion select:focus,
+.hp-live-motion textarea:focus { transform: translateY(-1px); }
+.hp-page-enter { animation: hp-page-arrive 520ms cubic-bezier(.16,1,.3,1) both; }
+@keyframes hp-page-arrive { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) {
+  .hp-live-motion, .hp-live-motion.hp-live-pending, .hp-live-motion.hp-live-visible,
+  .hp-page-enter { opacity: 1 !important; transform: none !important; animation: none !important; transition: none !important; }
+  .hp-live-motion img, .hp-live-motion:hover img { transform: none !important; transition: none !important; }
+}
+
+
+/* Phase 49 — complete-page living motion.
+   The observer targets page-level blocks and their meaningful direct children,
+   including the bottom of long pages and footer content. The header is kept
+   outside this choreography so it remains continuously usable while scrolling. */
+#root { overflow-x: clip; }
+.site-header {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  z-index: 100 !important;
+}
+body { padding-top: 0; }
+
+.hp-live-motion {
+  opacity: 1;
+  transform: translate3d(0, 0, 0) scale(1);
+  transition:
+    opacity 680ms cubic-bezier(.16,1,.3,1),
+    transform 680ms cubic-bezier(.16,1,.3,1),
+    box-shadow 260ms ease,
+    border-color 260ms ease;
+  transition-delay: var(--hp-live-delay, 0ms);
+  will-change: opacity, transform;
+}
+.hp-live-motion.hp-live-pending {
+  opacity: 0;
+  transform: translate3d(0, 30px, 0) scale(.988);
+}
+.hp-live-motion.hp-live-visible {
+  opacity: 1;
+  transform: translate3d(0, 0, 0) scale(1);
+}
+
+/* Meaningful objects get a little physical response after entering view. */
+.hp-live-motion.card:hover,
+.hp-live-motion.card-hover:hover,
+.hp-live-motion.home-stat-card:hover,
+.hp-live-motion.dashboard-stat-clickable:hover,
+.hp-live-motion.stat-card:hover,
+.hp-live-motion article:hover {
+  transform: translate3d(0, -3px, 0) scale(1.003);
+}
+.hp-live-motion img {
+  transition: transform 850ms cubic-bezier(.16,1,.3,1), filter 450ms ease;
+}
+.hp-live-motion:hover > img,
+.hp-live-motion:hover img:first-child {
+  transform: scale(1.018);
+}
+.hp-live-motion button:not(:disabled),
+.hp-live-motion a,
+.hp-live-motion input,
+.hp-live-motion select,
+.hp-live-motion textarea {
+  transition: transform 200ms ease, color 200ms ease, background-color 200ms ease,
+    border-color 200ms ease, box-shadow 200ms ease;
+}
+.hp-live-motion button:not(:disabled):hover,
+.hp-live-motion a:hover { transform: translateY(-1px); }
+.hp-live-motion button:not(:disabled):active,
+.hp-live-motion a:active { transform: translateY(0) scale(.985); }
+.hp-live-motion input:focus,
+.hp-live-motion select:focus,
+.hp-live-motion textarea:focus { transform: translateY(-1px); }
+
+@media (max-width: 767px) {
+  body { padding-top: 0; }
+  .hp-live-motion.hp-live-pending { transform: translate3d(0, 22px, 0) scale(.99); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hp-live-motion,
+  .hp-live-motion.hp-live-pending,
+  .hp-live-motion.hp-live-visible {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+  .hp-live-motion img,
+  .hp-live-motion:hover img { transform: none !important; transition: none !important; }
+}
+
+.public-site { padding-top: 76px; }
+@media (max-width: 767px) { .public-site { padding-top: 76px; } }

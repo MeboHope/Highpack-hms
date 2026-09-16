@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Heart, Bell, MapPin, CheckCircle, Trash2 } from 'lucide-react';
+import { Heart, Bell, MapPin, CheckCircle, Trash2, CalendarDays, BedDouble } from 'lucide-react';
 import { Header, Footer } from '@/components/Layout';
 import { Card, Badge, EmptyState, LoadingPage } from '@/components/ui';
 import { Link } from '@/context/RouterContext';
 import { useAuth } from '@/context/hooks';
 import { useToast } from '@/context/hooks';
 import { supabase } from '@/lib/supabase';
-import { timeAgo } from '@/lib/constants';
+import { timeAgo, formatKES } from '@/lib/constants';
 import { getPropertyImages } from '@/lib/images';
 import type { Property, Notification, Favorite } from '@/lib/supabase';
 
@@ -126,4 +126,23 @@ export function NotificationsPage() {
       <Footer />
     </div>
   );
+}
+
+
+export function StaysPage() {
+  const { profile } = useAuth();
+  const [bookings, setBookings] = useState<Array<Record<string, unknown>>>([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    if (!profile) return;
+    (async () => {
+      const { data, error } = await supabase.from('short_stay_bookings').select('*, short_stay_listings(listing_name), properties(name,town,county,photos)').eq('guest_id', profile.id).order('created_at', { ascending: false });
+      if (error) console.error('Stay bookings error:', error);
+      setBookings((data as Array<Record<string, unknown>>) || []); setLoading(false);
+    })();
+  }, [profile]);
+  return <div className="min-h-screen flex flex-col"><Header /><main className="flex-1 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
+    <div className="mb-7"><p className="section-kicker">HOSPITALITY</p><h1 className="text-3xl font-bold text-ink-900">My Short Stays</h1><p className="mt-2 text-sm leading-6 text-ink-500">Track your stay requests, dates, guests and booking status in one place.</p></div>
+    {loading ? <LoadingPage /> : bookings.length === 0 ? <EmptyState icon={<BedDouble className="w-8 h-8" />} title="No short stays yet" description="Explore Short Stays and choose your dates to request your first stay." action={<Link to="/properties?category=short_stay" className="btn-primary">Explore Short Stays</Link>} /> : <div className="space-y-4">{bookings.map((b) => { const listing = b.short_stay_listings as Record<string,unknown>|null; const property = b.properties as Record<string,unknown>|null; return <Card key={String(b.id)} className="p-5"><div className="flex flex-col gap-5 md:flex-row"><div className="h-36 w-full overflow-hidden rounded-2xl bg-ink-100 md:w-48 shrink-0"><img src={String((property?.photos as string[]|undefined)?.[0] || '')} alt="" className="h-full w-full object-cover" /></div><div className="min-w-0 flex-1"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[0.12em] text-brand-600">{String(listing?.listing_name || property?.name || 'Short stay')}</p><h2 className="mt-1 text-lg font-bold text-ink-900">{String(property?.name || 'Property')}</h2><p className="mt-1 flex items-center gap-1 text-sm text-ink-500"><MapPin className="h-3.5 w-3.5" />{String(property?.town || '')}, {String(property?.county || '')}</p></div><div className="badge bg-brand-50 text-brand-700">{String(b.status || 'pending')}</div></div><div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4"><div><p className="text-xs text-ink-400">Check-in</p><p className="mt-1 font-semibold">{String(b.check_in)}</p></div><div><p className="text-xs text-ink-400">Check-out</p><p className="mt-1 font-semibold">{String(b.check_out)}</p></div><div><p className="text-xs text-ink-400">Guests</p><p className="mt-1 font-semibold">{String(b.guests)}</p></div><div><p className="text-xs text-ink-400">Total</p><p className="mt-1 font-semibold text-brand-700">{formatKES(Number(b.total_amount || 0))}</p></div></div><p className="mt-4 flex items-center gap-2 text-xs text-ink-400"><CalendarDays className="h-3.5 w-3.5" /> Booking submitted {timeAgo(String(b.created_at))}</p></div></div></Card>})}</div>}
+  </main><Footer /></div>;
 }

@@ -5,7 +5,7 @@ import { useRouter } from '@/context/hooks';
 export function NotFoundPage() {
   const { navigate } = useRouter();
   return (
-    <div className="relative flex min-h-[68vh] items-center overflow-hidden bg-[radial-gradient(circle_at_80%_15%,rgba(245,158,11,0.13),transparent_28%),radial-gradient(circle_at_15%_85%,rgba(15,118,110,0.09),transparent_30%)] px-4 py-16 sm:px-6 lg:px-8">
+    <div className="relative flex min-h-[68vh] items-center overflow-hidden bg-ink-50 px-4 py-16 sm:px-6 lg:px-8">
       <div className="absolute -right-24 top-12 h-72 w-72 rounded-full bg-brand-200/30 blur-3xl" />
       <div className="absolute -left-24 bottom-0 h-64 w-64 rounded-full bg-accent-200/30 blur-3xl" />
       <div className="relative mx-auto w-full max-w-3xl text-center">

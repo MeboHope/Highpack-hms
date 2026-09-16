@@ -11,7 +11,7 @@ import { PropertyDetailsPage } from '@/pages/PropertyDetailsPage';
 import { AuthPage } from '@/pages/AuthPage';
 import { ForgotPasswordPage, ResetPasswordPage } from '@/pages/PasswordPages';
 import { AboutPage, ContactPage, FAQsPage } from '@/pages/StaticPages';
-import { FavoritesPage, NotificationsPage } from '@/pages/AccountPages';
+import { FavoritesPage, NotificationsPage, StaysPage } from '@/pages/AccountPages';
 import {
   OwnerDashboard, OwnerProperties, OwnerUnits, OwnerReservations, OwnerExpenses,
   OwnerTax, OwnerMaintenance, OwnerTenants, OwnerPayments, OwnerReports, OwnerSettings,
@@ -31,43 +31,129 @@ import { AdminPortfolio, OwnerPortfolio } from '@/pages/PortfolioPages';
 import { ShortStayOperations } from '@/pages/ShortStayPages';
 import { AdminSales, OwnerSales } from '@/pages/SalesPages';
 import React, { useEffect, type JSX } from 'react';
+import { ShieldCheck } from 'lucide-react';
 import highparkLogo from '@/assets/highpark-logo-clean.png';
 import { PropertyAIChat } from '@/components/PropertyAIChat';
 import { NotFoundPage } from '@/pages/NotFoundPage';
+import { MFAPage } from '@/pages/MFAPage';
+import { SecurityPage } from '@/pages/SecurityPage';
 import { hasStaffPermission, canStaffAccessProperty, ADMIN_PERMISSION } from '@/lib/staffAccess';
+import { isRoleHostAllowed, expectedRoleArea, roleSubdomain } from '@/lib/roleSubdomains';
+import { supabase } from '@/lib/supabase';
 
 
 function ScrollRevealObserver() {
   const { path } = useRouter();
 
   useEffect(() => {
-    const root = document.querySelector('main');
+    // Observe the complete rendered application rather than only selected
+    // cards/sections. This deliberately includes the lower portions of long
+    // pages, footers, tables, controls and dynamically-created content.
+    const root = document.getElementById('root');
     if (!root) return;
 
-    const candidates = Array.from(root.querySelectorAll<HTMLElement>(
-      'section, .card, .card-hover, [data-scroll-reveal]'
-    ));
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const supportsObserver = 'IntersectionObserver' in window;
+    // Phase 50 intentionally broadens the target from selected components to
+    // every rendered visual element inside main/footer. This catches lower
+    // homepage/about-page content and custom div-based sections that do not
+    // carry semantic section/card classes. SVG internals and non-visual nodes
+    // are excluded below so icons do not animate piece-by-piece.
+    const selector = [
+      'main *',
+      'footer *',
+      '[data-scroll-reveal]', '[data-live-motion]'
+    ].join(',');
+    const candidates = new Set<HTMLElement>();
 
-    candidates.forEach((element, index) => {
-      element.classList.add('hp-scroll-reveal');
-      element.style.setProperty('--hp-reveal-delay', `${Math.min(index % 6, 5) * 55}ms`);
-    });
+    const isMotionExcluded = (element: HTMLElement) => {
+      const tag = element.tagName.toLowerCase();
+      return element.closest('script,style,noscript,[aria-hidden="true"],.site-header') !== null ||
+        element.classList.contains('scroll-progress') ||
+        tag === 'svg' || tag === 'path' || tag === 'circle' || tag === 'line' ||
+        tag === 'polyline' || tag === 'polygon' || tag === 'rect' || tag === 'defs' ||
+        tag === 'title' || tag === 'desc' || tag === 'source' || tag === 'track';
+    };
 
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      candidates.forEach((element) => element.classList.add('hp-scroll-reveal-visible'));
+    const isRenderable = (element: HTMLElement) => {
+      if (isMotionExcluded(element)) return false;
+      if (element.hidden || element.getAttribute('aria-hidden') === 'true') return false;
+      const rect = element.getBoundingClientRect();
+      return rect.width > 0 || rect.height > 0 || element.matches('input,select,textarea,button,a');
+    };
+
+    const collect = (scope: ParentNode) => {
+      if (scope instanceof HTMLElement && scope.matches(selector) && isRenderable(scope)) {
+        candidates.add(scope);
+      }
+      scope.querySelectorAll<HTMLElement>(selector).forEach((element) => {
+        if (isRenderable(element)) candidates.add(element);
+      });
+    };
+    collect(root);
+
+    const reveal = (element: HTMLElement) => {
+      element.classList.add('hp-live-visible');
+      element.classList.remove('hp-live-pending');
+    };
+
+    if (reducedMotion || !supportsObserver) {
+      candidates.forEach((element) => {
+        element.classList.add('hp-live-motion');
+        reveal(element);
+      });
       return;
     }
 
+    let sequence = 0;
     const observer = new IntersectionObserver((entries, currentObserver) => {
       entries.forEach((entry) => {
         if (!entry.isIntersecting) return;
-        entry.target.classList.add('hp-scroll-reveal-visible');
-        currentObserver.unobserve(entry.target);
+        const element = entry.target as HTMLElement;
+        reveal(element);
+        currentObserver.unobserve(element);
       });
-    }, { threshold: 0.08, rootMargin: '0px 0px -7% 0px' });
+    }, { threshold: 0.02, rootMargin: '0px 0px -8% 0px' });
 
-    candidates.forEach((element) => observer.observe(element));
-    return () => observer.disconnect();
+    const observeCandidates = () => {
+      candidates.forEach((element) => {
+        if (element.classList.contains('hp-live-motion')) return;
+        element.classList.add('hp-live-motion', 'hp-live-pending');
+        // Restart the rhythm on each rendered route while keeping nearby
+        // objects subtly staggered instead of making the page feel random.
+        const delay = Math.min(sequence % 8, 7) * 40;
+        element.style.setProperty('--hp-live-delay', `${delay}ms`);
+        sequence += 1;
+        observer.observe(element);
+      });
+    };
+    observeCandidates();
+
+    const mutationObserver = new MutationObserver((mutations) => {
+      let changed = false;
+      mutations.forEach((mutation) => mutation.addedNodes.forEach((node) => {
+        if (!(node instanceof HTMLElement)) return;
+        collect(node);
+        changed = true;
+      }));
+      if (changed) observeCandidates();
+    });
+    mutationObserver.observe(root, { childList: true, subtree: true });
+
+    // Safety net: content is never allowed to remain invisible if a browser
+    // delays IntersectionObserver work or a very tall page is opened directly.
+    const fallbackTimer = window.setTimeout(() => {
+      candidates.forEach((element) => {
+        element.classList.add('hp-live-motion');
+        if (!element.classList.contains('hp-live-visible')) reveal(element);
+      });
+    }, 4200);
+
+    return () => {
+      observer.disconnect();
+      mutationObserver.disconnect();
+      window.clearTimeout(fallbackTimer);
+    };
   }, [path]);
 
   return null;
@@ -108,6 +194,51 @@ class AppErrorBoundary extends React.Component<{ children: React.ReactNode }, { 
     }
     return this.props.children;
   }
+}
+
+function SessionSecurityGuard() {
+  const { session, signOut } = useAuth();
+  const { path, navigate } = useRouter();
+  const [secondsLeft, setSecondsLeft] = React.useState<number | null>(null);
+
+  useEffect(() => {
+    if (!session || path === '/mfa') return;
+    let active = true;
+    const enforceMfaStepUp = async () => {
+      const { data } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (!active || data?.currentLevel === 'aal2' || data?.nextLevel !== 'aal2') return;
+      const { data: factors } = await supabase.auth.mfa.listFactors();
+      const hasVerifiedFactor = [...(factors?.totp ?? []), ...(factors?.phone ?? [])].some((factor) => factor.status === 'verified');
+      if (hasVerifiedFactor && active) navigate('/mfa');
+    };
+    void enforceMfaStepUp();
+    return () => { active = false; };
+  }, [session, path, navigate]);
+
+  useEffect(() => {
+    if (!session) { setSecondsLeft(null); return; }
+    const idleLimit = 15 * 60 * 1000;
+    const warningWindow = 2 * 60 * 1000;
+    let lastActivity = Date.now();
+    let warningShown = false;
+    const activity = () => { lastActivity = Date.now(); warningShown = false; setSecondsLeft(null); };
+    const events = ['pointerdown', 'keydown', 'touchstart', 'scroll', 'mousemove'] as const;
+    events.forEach((event) => window.addEventListener(event, activity, { passive: true }));
+    const tick = () => {
+      const idleFor = Date.now() - lastActivity;
+      const remaining = Math.max(0, idleLimit - idleFor);
+      if (remaining <= warningWindow && remaining > 0 && !warningShown) { warningShown = true; }
+      setSecondsLeft(remaining <= warningWindow ? Math.ceil(remaining / 1000) : null);
+      if (remaining <= 0) void signOut('local');
+    };
+    const timer = window.setInterval(tick, 1000);
+    const onVisibility = () => { if (document.visibilityState === 'visible') tick(); };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => { window.clearInterval(timer); document.removeEventListener('visibilitychange', onVisibility); events.forEach((event) => window.removeEventListener(event, activity)); };
+  }, [session, signOut]);
+
+  if (!session || secondsLeft === null || secondsLeft <= 0) return null;
+  return <div className="fixed inset-x-4 bottom-4 z-[100] mx-auto max-w-md rounded-2xl border border-amber-200 bg-white p-4 shadow-soft-lg" role="status"><div className="flex items-start gap-3"><ShieldCheck className="mt-0.5 h-5 w-5 text-amber-600" /><div className="min-w-0"><p className="font-semibold text-brand-950">Your session is about to expire</p><p className="mt-1 text-sm text-ink-500">For your protection, HighPark will sign you out after inactivity. Move the pointer or press a key to stay signed in. About {secondsLeft}s remaining.</p></div></div></div>;
 }
 
 function PageMeta() {
@@ -166,9 +297,8 @@ function PageMeta() {
 function PublicLayout({ children }: { children: JSX.Element }) {
   const { path } = useRouter();
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="public-site min-h-screen flex flex-col">
       <PageMeta />
-      <ScrollRevealObserver />
       <Header />
       <main key={path} className="flex-1 hp-page-enter">{children}</main>
       <Footer />
@@ -207,16 +337,36 @@ function Routes() {
   if (path === '/register') return <AuthPage mode="register" />;
   if (path === '/forgot-password') return <ForgotPasswordPage />;
   if (path === '/reset-password') return <ResetPasswordPage />;
-
   const isOwner = profile?.role === 'owner' || profile?.role === 'agent' || (profile?.role === 'admin' && staffAccess.isSuperAdmin);
   const isTenant = profile?.role === 'customer' || (profile?.role === 'admin' && staffAccess.isSuperAdmin);
   const isAdmin = profile?.role === 'admin';
+
+  if (path === '/mfa') return profile ? <MFAPage /> : <AuthPage mode="login" />;
+  if (path === '/security') return profile ? <SecurityPage /> : <AuthPage mode="login" />;
+
+  // Hostname-aware role isolation. The public domain remains available for
+  // discovery; configured role subdomains are accepted only by the matching
+  // authenticated role. Database/RLS permissions remain the authoritative
+  // security boundary.
+  if (profile && !isRoleHostAllowed(profile, staffAccess)) {
+    const area = expectedRoleArea(profile, staffAccess);
+    return (
+      <PublicLayout>
+        <div className="mx-auto flex min-h-[60vh] max-w-2xl flex-col items-center justify-center px-4 py-16 text-center">
+          <p className="section-kicker">Secure workspace routing</p>
+          <h1 className="mt-2 text-3xl font-bold text-brand-950">This workspace belongs to another role.</h1>
+          <p className="mt-3 max-w-xl text-sm leading-7 text-ink-500">For security, role-specific workspaces are isolated by subdomain. Continue to your assigned HighPark workspace.</p>
+          <a className="btn-primary mt-7" href={`https://${roleSubdomain(area)}`}>Open my secure workspace</a>
+        </div>
+      </PublicLayout>
+    );
+  }
 
   const isProtectedPath =
     path === '/tenant' || path.startsWith('/tenant/') ||
     path === '/owner' || path.startsWith('/owner/') ||
     path === '/admin' || path.startsWith('/admin/') ||
-    path === '/favorites' || path === '/notifications';
+    path === '/favorites' || path === '/notifications' || path === '/stays';
 
   if (isProtectedPath && !profile) return <AuthPage mode="login" />;
 
@@ -280,6 +430,7 @@ function Routes() {
 
   if (path === '/favorites') return profile ? <FavoritesPage /> : <AuthPage mode="login" />;
   if (path === '/notifications') return profile ? <NotificationsPage /> : <AuthPage mode="login" />;
+  if (path === '/stays') return profile ? <StaysPage /> : <AuthPage mode="login" />;
 
   if (path === '/') return <PublicLayout><HomePage /></PublicLayout>;
   if (path === '/properties' || path.startsWith('/properties?')) return <PublicLayout><PropertiesPage /></PublicLayout>;
@@ -300,6 +451,8 @@ function App() {
         <RouterProvider>
         <AuthProvider>
           <ToastProvider>
+            <ScrollRevealObserver />
+            <SessionSecurityGuard />
             <Routes />
           </ToastProvider>
         </AuthProvider>
