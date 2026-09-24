@@ -165,6 +165,13 @@ export const tenantNav = [
 
 export const adminNav = [
   {
+    label: 'Super Admin Command Center',
+    section: 'Super Admin',
+    to: '/admin/super-admin',
+    superAdminOnly: true,
+    icon: <ShieldCheck className="w-5 h-5" />,
+  },
+  {
     label: 'Dashboard',
     section: 'Overview',
     to: '/admin',

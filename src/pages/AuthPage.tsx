@@ -18,7 +18,7 @@ function validatePassword(password: string): string | null {
 
 export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
   const isRegister = mode === 'register';
-  const { signIn, signUp, resendConfirmation } = useAuth();
+  const { signIn, verifyLoginOtp, signUp, resendConfirmation } = useAuth();
   const { toast } = useToast();
   const { navigate } = useRouter();
 
@@ -34,6 +34,12 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
   const [confirmationRequired, setConfirmationRequired] = useState(false);
   const [resending, setResending] = useState(false);
   const [resendCooldown, setResendCooldown] = useState<number>(0);
+  const [otpStep, setOtpStep] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
+  const [challengeId, setChallengeId] = useState<string | null>(null);
+  const [maskedEmail, setMaskedEmail] = useState<string | null>(null);
+  const [otpExpiresAt, setOtpExpiresAt] = useState<string | null>(null);
+  const [verifyingOtp, setVerifyingOtp] = useState(false);
 
   useEffect(() => {
     if (resendCooldown <= 0) return;
@@ -48,8 +54,40 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
     [isRegister, password],
   );
 
+  const verifyEmailCode = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setError(null);
+    if (!challengeId || otpCode.trim().length !== 6) {
+      setError('Enter the six-digit verification code sent to your email.');
+      return;
+    }
+    setVerifyingOtp(true);
+    try {
+      const clientNonce = sessionStorage.getItem('hp-login-client-nonce') || '';
+      const result = await verifyLoginOtp(email.trim().toLowerCase(), challengeId, otpCode.trim(), clientNonce);
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+      toast('Identity verified. Welcome back to HighPark Consult.', 'success');
+      const destination = result.role === 'admin' ? '/admin' : result.role === 'owner' || result.role === 'agent' ? '/owner' : '/tenant';
+      if (result.mfaRequired) {
+        navigate('/mfa');
+        return;
+      }
+      setOtpStep(false);
+      navigate(destination);
+    } catch (verificationError) {
+      console.error('Email OTP verification error:', verificationError);
+      setError('We could not complete email verification. Please request a new code and try again.');
+    } finally {
+      setVerifyingOtp(false);
+    }
+  };
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (otpStep) return;
     setError(null);
     setSuccess(null);
     setConfirmationRequired(false);
@@ -108,6 +146,16 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
               : result.error,
           );
           setConfirmationRequired(needsConfirmation);
+          return;
+        }
+
+        if (result.otpRequired) {
+          setChallengeId(result.challengeId);
+          setMaskedEmail(result.maskedEmail);
+          setOtpExpiresAt(result.expiresAt);
+          setOtpStep(true);
+          setOtpCode('');
+          setSuccess('A six-digit security code has been sent to your email. Enter it below to complete sign-in.');
           return;
         }
 
@@ -210,6 +258,18 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
               </div>
             )}
 
+            {otpStep ? (
+              <form onSubmit={verifyEmailCode} className="space-y-5">
+                <div className="rounded-2xl border border-brand-100 bg-brand-50/70 p-5">
+                  <div className="flex items-center gap-3"><div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white text-brand-700 shadow-sm"><Mail className="h-5 w-5" /></div><div><p className="text-sm font-semibold text-brand-950">Email verification required</p><p className="mt-1 text-xs text-brand-700">Code sent to {maskedEmail || email}</p></div></div>
+                  <p className="mt-4 text-sm leading-6 text-ink-600">For your protection, every sign-in requires a fresh email verification code. The code expires in 5 minutes and can only be used once.</p>
+                  {otpExpiresAt && <p className="mt-2 text-xs font-medium text-ink-500">Issued {new Date(otpExpiresAt).toLocaleTimeString()} expiry window.</p>}
+                </div>
+                <div><label htmlFor="login-otp" className="label">Verification code</label><input id="login-otp" className="input text-center text-xl font-bold tracking-[0.5em]" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={otpCode} onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))} autoFocus required /></div>
+                <button disabled={verifyingOtp || otpCode.length !== 6} className="btn-primary w-full">{verifyingOtp ? 'Verifying secure code…' : 'Verify & complete sign-in'}</button>
+                <div className="flex flex-wrap items-center justify-between gap-3 text-sm"><button type="button" disabled={loading || resendCooldown > 0} onClick={async () => { const result = await signIn(email, password); if (result.error) setError(result.error); else { setChallengeId(result.challengeId); setMaskedEmail(result.maskedEmail); setOtpExpiresAt(result.expiresAt); setResendCooldown(60); setSuccess('A fresh verification code has been sent to your email.'); } }} className="font-semibold text-brand-800 disabled:opacity-50">{resendCooldown > 0 ? `Resend available in ${resendCooldown}s` : 'Send a new code'}</button><button type="button" onClick={() => { setOtpStep(false); setOtpCode(''); setChallengeId(null); setError(null); setSuccess(null); }} className="font-semibold text-ink-500 hover:text-brand-800">Back to sign in</button></div>
+              </form>
+            ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
               {isRegister && (
                 <>
@@ -272,6 +332,7 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
                 {loading ? 'Please wait...' : isRegister ? 'Create Tenant Account' : 'Sign In'}
               </button>
             </form>
+            )}
 
             <div className="mt-6 text-center text-sm text-ink-500">
               {isRegister ? (

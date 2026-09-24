@@ -19,7 +19,8 @@ interface AuthContextValue {
   profile: Profile | null;
   staffAccess: StaffAccess;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<{ error: string | null; role: Profile['role'] | null; mfaRequired: boolean }>;
+  signIn: (email: string, password: string) => Promise<{ error: string | null; role: Profile['role'] | null; mfaRequired: boolean; otpRequired: boolean; challengeId: string | null; maskedEmail: string | null; expiresAt: string | null }>;
+  verifyLoginOtp: (email: string, challengeId: string, code: string, clientNonce: string) => Promise<{ error: string | null; role: Profile['role'] | null; mfaRequired: boolean }>;
   signUp: (email: string, password: string, fullName: string, phone?: string) => Promise<{ error: string | null; confirmationRequired: boolean }>;
   resendConfirmation: (email: string) => Promise<{ error: string | null }>;
   requestPasswordReset: (email: string) => Promise<{ error: string | null }>;
@@ -140,33 +141,63 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = async (email: string, password: string) => {
     const cleanEmail = email.trim().toLowerCase();
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: cleanEmail,
-      password,
+    const clientNonce = sessionStorage.getItem('hp-login-client-nonce') || crypto.randomUUID();
+    sessionStorage.setItem('hp-login-client-nonce', clientNonce);
+
+    const { data, error } = await supabase.functions.invoke('secure-login', {
+      body: { action: 'start', email: cleanEmail, password, clientNonce },
     });
 
-    if (error || !data.user) {
-      return { error: error?.message ?? 'Unable to sign in.', role: null, mfaRequired: false };
+    if (error || !data?.ok) {
+      return { error: data?.error || error?.message || 'Unable to start secure sign-in.', role: null, mfaRequired: false, otpRequired: false, challengeId: null, maskedEmail: null, expiresAt: null };
+    }
+
+    return {
+      error: null,
+      role: null,
+      mfaRequired: false,
+      otpRequired: true,
+      challengeId: String(data.challengeId),
+      maskedEmail: String(data.email || cleanEmail),
+      expiresAt: String(data.expiresAt || ''),
+    };
+  };
+
+  const verifyLoginOtp = async (email: string, challengeId: string, code: string, clientNonce: string) => {
+    const cleanEmail = email.trim().toLowerCase();
+    const { data, error } = await supabase.functions.invoke('secure-login', {
+      body: { action: 'verify', email: cleanEmail, challengeId, code: code.trim(), clientNonce },
+    });
+
+    if (error || !data?.ok || !data?.emailOtp) {
+      return { error: data?.error || error?.message || 'The verification code could not be accepted.', role: null, mfaRequired: false };
+    }
+
+    const { data: authData, error: authError } = await supabase.auth.verifyOtp({
+      email: cleanEmail,
+      token: String(data.emailOtp),
+      type: 'email',
+    });
+
+    if (authError || !authData.user || !authData.session) {
+      return { error: authError?.message || 'The secure session could not be established.', role: null, mfaRequired: false };
     }
 
     const { data: profileData, error: profileError } = await supabase
       .from('profiles')
       .select('*')
-      .eq('id', data.user.id)
+      .eq('id', authData.user.id)
       .maybeSingle();
 
     if (profileError || !profileData) {
-      await supabase.auth.signOut();
-      setSession(null);
-      setProfile(null);
-      return { error: 'Your account profile could not be loaded. Please contact HighPark Consult support.', role: null, mfaRequired: false };
+      await supabase.auth.signOut({ scope: 'local' });
+      return { error: 'Your account profile could not be loaded after verification. Please contact HighPark Consult support.', role: null, mfaRequired: false };
     }
 
     const nextProfile = profileData as Profile;
-    setSession(data.session);
+    setSession(authData.session);
     setProfile(nextProfile);
     await loadStaffAccess(nextProfile);
-
     const { data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
     const mfaRequired = aalData?.nextLevel === 'aal2' && aalData.currentLevel !== 'aal2';
     return { error: null, role: nextProfile.role, mfaRequired };
@@ -245,6 +276,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         staffAccess,
         loading,
         signIn,
+        verifyLoginOtp,
         signUp,
         resendConfirmation,
         requestPasswordReset,

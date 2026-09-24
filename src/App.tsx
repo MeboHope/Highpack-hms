@@ -37,6 +37,7 @@ import { PropertyAIChat } from '@/components/PropertyAIChat';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { MFAPage } from '@/pages/MFAPage';
 import { SecurityPage } from '@/pages/SecurityPage';
+import { SuperAdminPage } from '@/pages/SuperAdminPage';
 import { hasStaffPermission, canStaffAccessProperty, ADMIN_PERMISSION } from '@/lib/staffAccess';
 import { isRoleHostAllowed, expectedRoleArea, roleSubdomain } from '@/lib/roleSubdomains';
 import { supabase } from '@/lib/supabase';
@@ -405,6 +406,7 @@ function Routes() {
   const adminAllowed = (permission: string) => isAdmin && hasStaffPermission(staffAccess, permission);
   const adminPropertyAllowed = (permission: string, propertyId: string | null) => isAdmin && canStaffAccessProperty(staffAccess, propertyId, permission);
 
+  if (path === '/admin/super-admin') return staffAccess.isSuperAdmin ? <SuperAdminPage /> : <AccessDenied />;
   if (path === '/admin') return adminAllowed(ADMIN_PERMISSION.dashboard) ? <AdminDashboard /> : <AccessDenied />;
   if (path.startsWith('/admin/properties/')) {
     const propertyId = path.split('/admin/properties/')[1].split('?')[0];

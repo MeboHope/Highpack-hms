@@ -121,6 +121,9 @@ export function AdminActivity() {
   const [query, setQuery] = useState('');
   const [entityType, setEntityType] = useState('all');
   const [action, setAction] = useState('all');
+  const [severity, setSeverity] = useState('all');
+  const [source, setSource] = useState('all');
+  const [ip, setIp] = useState('');
 
   const loadActivity = async () => {
     setLoading(true);
@@ -130,6 +133,9 @@ export function AdminActivity() {
       p_entity_type: entityType === 'all' ? null : entityType,
       p_action: action === 'all' ? null : action,
       p_query: query.trim() || null,
+      p_severity: severity === 'all' ? null : severity,
+      p_source: source === 'all' ? null : source,
+      p_ip: ip.trim() || null,
     });
     if (error) toast(error.message, 'error');
     const payload = (data || {}) as { rows?: AuditLog[]; total?: number; total_pages?: number };
@@ -146,7 +152,7 @@ export function AdminActivity() {
     setNotifications((data || []) as Notification[]);
   };
 
-  useEffect(() => { loadActivity(); }, [page, entityType, action]);
+  useEffect(() => { loadActivity(); }, [page, entityType, action, severity, source, ip]);
   useEffect(() => { loadNotifications(); }, [profile?.id]);
 
   useEffect(() => {
@@ -186,18 +192,21 @@ export function AdminActivity() {
       {tab === 'activity' ? (
         <>
           <Card className="mb-5 p-4">
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_180px_180px_auto]">
-              <div className="relative"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" /><input value={query} onChange={(e) => setQuery(e.target.value)} className="input pl-9" placeholder="Search action or record type…" /></div>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-[1.5fr_1fr_1fr_1fr_1fr_auto]">
+              <div className="relative"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" /><input value={query} onChange={(e) => { setQuery(e.target.value); setPage(1); }} className="input pl-9" placeholder="Search action, record, user or details…" /></div>
               <select className="input" value={entityType} onChange={(e) => { setEntityType(e.target.value); setPage(1); }}><option value="all">All record types</option>{entityOptions.map((type) => <option key={type} value={type}>{type}</option>)}</select>
               <select className="input" value={action} onChange={(e) => { setAction(e.target.value); setPage(1); }}><option value="all">All actions</option><option value="INSERT">Created</option><option value="UPDATE">Updated</option><option value="DELETE">Deleted</option></select>
-              <button type="button" onClick={() => loadActivity()} className="btn-secondary"><RefreshCw className="h-4 w-4" /> Refresh</button>
+              <select className="input" value={severity} onChange={(e) => { setSeverity(e.target.value); setPage(1); }}><option value="all">All severity</option><option value="info">Info</option><option value="warning">Warning</option><option value="critical">Critical</option></select>
+              <select className="input" value={source} onChange={(e) => { setSource(e.target.value); setPage(1); }}><option value="all">All sources</option><option value="application">Application</option><option value="database">Database</option><option value="auth">Authentication</option><option value="system">System</option></select>
+              <input className="input font-mono text-xs" value={ip} onChange={(e) => { setIp(e.target.value); setPage(1); }} placeholder="IP address" inputMode="decimal" aria-label="Filter by IP address" />
+              <button type="button" onClick={() => void loadActivity()} className="btn-secondary"><RefreshCw className="h-4 w-4" /> Refresh</button>
             </div>
           </Card>
 
           <Card className="overflow-hidden">
             {loading ? <LoadingPage /> : logs.length === 0 ? <EmptyState icon={<Activity className="h-8 w-8" />} title="No audit activity" description="Tracked administrative and operational changes will appear here." /> : (
               <>
-                <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b border-ink-100 bg-ink-50/70 text-left text-xs uppercase tracking-wide text-ink-400"><th className="px-4 py-3">When</th><th className="px-4 py-3">Action</th><th className="px-4 py-3">Record</th><th className="px-4 py-3">User</th><th className="px-4 py-3">Change</th></tr></thead><tbody className="divide-y divide-ink-100">{logs.map((log) => { const profileData = (log as AuditLog & { user_name?: string; user_role?: string }); return <tr key={log.id} className="hover:bg-ink-50/60"><td className="whitespace-nowrap px-4 py-4 text-xs text-ink-500">{new Date(log.created_at).toLocaleString()}</td><td className="px-4 py-4"><span className={`badge ${log.action === 'DELETE' ? 'bg-red-50 text-red-700' : log.action === 'UPDATE' ? 'bg-accent-50 text-accent-700' : 'bg-brand-50 text-brand-700'}`}>{log.action}</span></td><td className="px-4 py-4"><p className="font-semibold capitalize text-ink-800">{log.entity_type || 'System'}</p><p className="mt-0.5 max-w-[220px] truncate text-[11px] text-ink-400">{log.entity_id || '—'}</p></td><td className="px-4 py-4"><p className="font-medium text-ink-700">{profileData.user_name || 'System / deleted user'}</p><p className="text-[11px] capitalize text-ink-400">{profileData.user_role || 'system'}</p></td><td className="max-w-[360px] px-4 py-4"><p className="truncate text-xs text-ink-500">{log.action === 'INSERT' ? 'New record created' : log.action === 'DELETE' ? 'Record removed' : 'Record updated'}</p></td></tr> })}</tbody></table></div>
+                <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b border-ink-100 bg-ink-50/70 text-left text-xs uppercase tracking-wide text-ink-400"><th className="px-4 py-3">When</th><th className="px-4 py-3">Event</th><th className="px-4 py-3">User</th><th className="px-4 py-3">IP address</th><th className="px-4 py-3">Source / severity</th><th className="px-4 py-3">Session / agent</th></tr></thead><tbody className="divide-y divide-ink-100">{logs.map((log) => { const profileData = (log as AuditLog & { user_name?: string; user_role?: string }); const severityClass = log.severity === 'critical' ? 'bg-red-50 text-red-700' : log.severity === 'warning' ? 'bg-amber-50 text-amber-700' : 'bg-brand-50 text-brand-700'; return <tr key={log.id} className="align-top hover:bg-ink-50/60"><td className="whitespace-nowrap px-4 py-4 text-xs text-ink-500">{new Date(log.created_at).toLocaleString()}</td><td className="px-4 py-4"><p className="font-semibold text-ink-800">{log.action}</p><p className="mt-1 text-[11px] text-ink-400">{log.entity_type || 'System'} {log.entity_id ? `· ${log.entity_id}` : ''}</p></td><td className="px-4 py-4"><p className="font-medium text-ink-700">{profileData.user_name || 'System / deleted user'}</p><p className="text-[11px] capitalize text-ink-400">{profileData.user_role || 'system'}</p></td><td className="whitespace-nowrap px-4 py-4 font-mono text-xs text-ink-600">{log.ip_address || 'Not captured'}</td><td className="px-4 py-4"><span className={`badge ${severityClass}`}>{log.severity || 'info'}</span><p className="mt-1 text-[11px] text-ink-400">{log.source || 'application'}</p></td><td className="max-w-[260px] px-4 py-4"><p className="truncate font-mono text-[10px] text-ink-400">{log.session_id || '—'}</p><p className="mt-1 truncate text-[11px] text-ink-500" title={log.user_agent || ''}>{log.user_agent || 'User agent not captured'}</p></td></tr> })}</tbody></table></div>
                 <div className="border-t border-ink-100 p-4"><Pagination page={page} totalPages={totalPages} onPageChange={setPage} totalItems={totalItems} pageSize={20} /></div>
               </>
             )}

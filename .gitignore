@@ -24,3 +24,6 @@ dist-ssr
 .env.local
 .vercel
 .env*
+
+supabase/.temp/
+supabase/.branches/

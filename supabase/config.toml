@@ -5,3 +5,10 @@ verify_jwt = false
 
 [functions.resolve-map-url]
 verify_jwt = false
+
+# Phase 51: mandatory email-OTP gate before any password/OTP/magic-link login token is issued.
+[auth.hook.custom_access_token]
+enabled = true
+uri = "pg-functions://postgres/public/custom_access_token_hook"
+[functions.secure-login]
+verify_jwt = false

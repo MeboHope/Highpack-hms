@@ -71,4 +71,10 @@ export interface AuditLog {
   previous_value: Record<string, unknown> | null;
   new_value: Record<string, unknown> | null;
   created_at: string;
+  ip_address?: string | null;
+  user_agent?: string | null;
+  session_id?: string | null;
+  metadata?: Record<string, unknown> | null;
+  severity?: string | null;
+  source?: string | null;
 }
