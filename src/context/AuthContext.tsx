@@ -31,6 +31,35 @@ interface AuthContextValue {
 
 export const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+async function getSecureLoginErrorMessage(
+  error: unknown,
+  data: unknown,
+  fallback: string,
+): Promise<string> {
+  if (data && typeof data === 'object' && 'error' in data) {
+    const message = String((data as { error?: unknown }).error || '').trim();
+    if (message) return message;
+  }
+
+  // Supabase FunctionsHttpError keeps the Edge Function response in `context`.
+  // Read the JSON body when available so expected OTP errors remain human-readable
+  // instead of exposing the generic "Edge Function returned a non-2xx status code".
+  if (error && typeof error === 'object' && 'context' in error) {
+    const context = (error as { context?: unknown }).context;
+    if (context instanceof Response) {
+      try {
+        const payload = await context.clone().json() as { error?: unknown };
+        const message = String(payload?.error || '').trim();
+        if (message) return message;
+      } catch {
+        // Keep the safe fallback below for non-JSON/network failures.
+      }
+    }
+  }
+
+  return fallback;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -149,7 +178,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     if (error || !data?.ok) {
-      return { error: data?.error || error?.message || 'Unable to start secure sign-in.', role: null, mfaRequired: false, otpRequired: false, challengeId: null, maskedEmail: null, expiresAt: null };
+      const message = await getSecureLoginErrorMessage(
+        error,
+        data,
+        'We could not start secure sign-in right now. Please check your details and try again.',
+      );
+      return { error: message, role: null, mfaRequired: false, otpRequired: false, challengeId: null, maskedEmail: null, expiresAt: null };
     }
 
     return {
@@ -170,7 +204,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     if (error || !data?.ok || !data?.emailOtp) {
-      return { error: data?.error || error?.message || 'The verification code could not be accepted.', role: null, mfaRequired: false };
+      const message = await getSecureLoginErrorMessage(
+        error,
+        data,
+        'The verification code could not be accepted. Please check the code and try again.',
+      );
+      return { error: message, role: null, mfaRequired: false };
     }
 
     const { data: authData, error: authError } = await supabase.auth.verifyOtp({
@@ -180,7 +219,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     if (authError || !authData.user || !authData.session) {
-      return { error: authError?.message || 'The secure session could not be established.', role: null, mfaRequired: false };
+      console.error('Secure session establishment error:', authError);
+      return { error: 'Your secure sign-in session could not be established. Please try again.', role: null, mfaRequired: false };
     }
 
     const { data: profileData, error: profileError } = await supabase

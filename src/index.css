@@ -1541,3 +1541,84 @@ body { padding-top: 0; }
 
 .public-site { padding-top: 76px; }
 @media (max-width: 767px) { .public-site { padding-top: 76px; } }
+
+
+/* =========================================================
+   PHASE 52 — MOBILE HEADER CTA CONTRAST
+   The public mobile Get Started CTA must be readable on first render.
+   This is intentionally scoped to the site header so dashboard controls
+   and other button variants retain their existing treatments.
+   ========================================================= */
+.site-header .btn-primary {
+  background: #0d2342 !important;
+  border: 1px solid #0d2342 !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+  opacity: 1 !important;
+}
+.site-header .btn-primary:hover,
+.site-header .btn-primary:focus-visible {
+  background: #17345d !important;
+  border-color: #17345d !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+}
+.site-header .btn-primary:active {
+  background: #0a1b33 !important;
+  border-color: #0a1b33 !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+}
+@media (max-width: 767px) {
+  .site-header .btn-primary {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    min-height: 44px !important;
+    padding: .65rem 1rem !important;
+    font-weight: 700 !important;
+    text-shadow: none !important;
+    visibility: visible !important;
+  }
+}
+
+/* =========================================================
+   PHASE 53 — PROFESSIONAL PAGE MOTION
+   Route/page transitions and scroll reveals stay soft, short and accessible.
+   ========================================================= */
+.hp-page-enter {
+  animation: hpPageEnter 420ms cubic-bezier(.16, 1, .3, 1) both;
+  transform-origin: top center;
+}
+
+@keyframes hpPageEnter {
+  from { opacity: 0; transform: translate3d(0, 8px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+/* Slightly slower reveal for substantial content blocks; never a perpetual loop. */
+.hp-live-motion.hp-live-pending {
+  opacity: 0;
+  transform: translate3d(0, 24px, 0) scale(.992);
+}
+.hp-live-motion.hp-live-visible {
+  opacity: 1;
+  transform: translate3d(0, 0, 0) scale(1);
+}
+
+@media (max-width: 767px) {
+  .hp-live-motion.hp-live-pending { transform: translate3d(0, 18px, 0) scale(.994); }
+  .hp-page-enter { animation-duration: 360ms; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hp-page-enter,
+  .hp-live-motion,
+  .hp-live-motion.hp-live-pending,
+  .hp-live-motion.hp-live-visible {
+    animation: none !important;
+    transition: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}

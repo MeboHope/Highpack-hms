@@ -1,0 +1,14 @@
+User-agent: *
+Allow: /
+Disallow: /#/login
+Disallow: /#/register
+Disallow: /#/forgot-password
+Disallow: /#/reset-password
+Disallow: /#/admin
+Disallow: /#/owner
+Disallow: /#/tenant
+Disallow: /#/super-admin
+Disallow: /#/security
+Disallow: /#/notifications
+Disallow: /#/favorites
+Sitemap: https://www.highparkconsult.vercel.app/sitemap.xml

@@ -291,6 +291,18 @@ function PageMeta() {
     setMeta('meta[property="og:description"]', current.description);
     setMeta('meta[name="twitter:title"]', current.title);
     setMeta('meta[name="twitter:description"]', current.description);
+
+    const isPrivate = /^\/(login|register|forgot-password|reset-password|admin|owner|tenant|super-admin|security|notifications|favorites)(?:\/|$)/.test(cleanPath);
+    const robots = isPrivate
+      ? 'noindex,nofollow,noarchive'
+      : 'index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1';
+    setMeta('meta[name="robots"]', robots);
+    setMeta('meta[name="googlebot"]', robots);
+
+    const canonical = `${window.location.origin}${window.location.pathname}`;
+    const canonicalElement = document.querySelector('link[rel="canonical"]');
+    if (canonicalElement) canonicalElement.setAttribute('href', canonical);
+    setMeta('meta[property="og:url"]', canonical);
   }, [path]);
   return null;
 }

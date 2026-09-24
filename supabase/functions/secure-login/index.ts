@@ -57,7 +57,10 @@ Deno.serve(async (req) => {
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
   const pepper = Deno.env.get('LOGIN_OTP_PEPPER');
-  if (!supabaseUrl || !serviceRoleKey || !pepper) return json({ error: 'Secure login is not configured on the server.' }, 500);
+  if (!supabaseUrl || !serviceRoleKey || !pepper) {
+    console.error('[secure-login] required server configuration is missing.');
+    return json({ error: 'Secure sign-in is temporarily unavailable. Please try again shortly.' }, 503);
+  }
 
   const admin = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } });
   let body: Record<string, unknown>;
@@ -115,7 +118,7 @@ Deno.serve(async (req) => {
     } catch (error) {
       await admin.from('login_otp_challenges').delete().eq('id', challenge.id);
       console.error('[secure-login] email delivery failed:', error);
-      return json({ error: error instanceof Error ? error.message : 'Security email could not be sent.' }, 503);
+      return json({ error: 'We could not send your verification email right now. Please try again shortly.' }, 503);
     }
 
     await admin.from('audit_logs').insert({
